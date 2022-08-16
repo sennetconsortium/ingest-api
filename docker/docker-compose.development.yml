@@ -13,16 +13,10 @@ services:
       #   - COMMONS_BRANCH=${COMMONS_BRANCH:-main}
     # Build the image with name and tag
     # Exit with an error message containing err if unset or empty in the environment
-    image: hubmap/ingest-api:${INGEST_API_VERSION:?err}
+    image: sennet/ingest-api:${INGEST_API_VERSION:?err}
     volumes:  
-      # Mount the VERSION file and BUILD file
-      - "../VERSION:/usr/src/app/VERSION"
-      - "../BUILD:/usr/src/app/BUILD"
-      # Mount the source code to container
+      # Mount the VERSION file and BUILD file 
+      - "../VERSION:/usr/src/app/VERSION" 
+      - "../BUILD:/usr/src/app/BUILD" 
+      # Mount the source code to container  
       - "../src:/usr/src/app/src"
-      # Mount conf.d-dev to the nginx conf.d on container
-      - "./ingest-api/nginx/conf.d-dev:/etc/nginx/conf.d"
-      # Airflow static files
-      - "/hive/users/hive/hubmap/hivevm191-dev/venv/lib/python3.6/site-packages/airflow/www:/airflow-static"
-      # Mount Globus data
-      - "/hive/hubmap-dev:/hive/hubmap-dev"
