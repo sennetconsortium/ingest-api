@@ -1,0 +1,9 @@
+version: "3.7"
+
+services:
+  
+  ingest-api: 
+    # Use the published image and tag from DockerHub
+    image: sennet/ingest-api:${INGEST_API_VERSION:?err}
+
+
