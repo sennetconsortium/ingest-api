@@ -1,6 +1,6 @@
 # SenNet Data Ingest API
 
-A restful web service exposing calls needed for the [Ingest UI](https://github.com/sennetconsortium/ingest-ui) React application. The API is documented [here](https://smart-api.info/registry?q=@todo).
+A restful web service exposing calls needed for the [Portal UI](https://github.com/sennetconsortium/portal-ui) Next.js application. The API is documented [here](https://smart-api.info/registry?q=@todo).
 
 ## Flask app configuration
 
@@ -32,10 +32,10 @@ Upgrade pip:
 python3 -m pip install --upgrade pip
 ````
 
-Then install the dependencies with using the `master` branch code of commons:
+Then install the dependencies with using the `main` branch code of commons:
 
 ````
-export COMMONS_BRANCH=master
+export COMMONS_BRANCH=main
 pip install -r requirements.txt
 ````
 
@@ -58,23 +58,13 @@ export FLASK_ENV=development
 python3 -m flask run -p 5000
 ````
 
-
-## Docker build for DEV development
+## Docker build for local/DEV development
 
 There are a few configurable environment variables to keep in mind:
 
-- `COMMONS_BRANCH`: build argument only to be used during image creation when we need to use a branch of commons from github rather than the published PyPI package. Default to master branch if not set or null.
+- `COMMONS_BRANCH`: build argument only to be used during image creation when we need to use a branch of commons from github rather than the published PyPI package. Default to main branch if not set or null.
 - `HOST_UID`: the user id on the host machine to be mapped to the container. Default to 1000 if not set or null.
 - `HOST_GID`: the user's group id on the host machine to be mapped to the container. Default to 1000 if not set or null.
-
-We can set and verify the environment variable like below:
-
-````
-export COMMONS_BRANCH=master
-echo $COMMONS_BRANCH
-````
-
-Note: Environment variables set like this are only stored temporally. When you exit the running instance of bash by exiting the terminal, they get discarded. So for rebuilding the docker image, we'll need to make sure to set the environment variables again if necessary.
 
 ```
 cd docker
@@ -85,9 +75,24 @@ cd docker
 
 ```
 cd docker
-export INGEST_API_VERSION=a.b.c (replace with the actual released version number)
-./docker-deployment.sh [test|stage|prod] [start|stop|down]
+export ENTITY_API_VERSION=a.b.c (replace with the actual released version number)
+./docker-deployment.sh [start|stop|down]
 ```
+
+## Development process
+
+### To release via TEST infrastructure
+- Make new feature or bug fix branches from `main` branch (the default branch)
+- Make PRs to `main`
+- As a codeowner, Zhou (github username `yuanzhou`) is automatically assigned as a reviewer to each PR. When all other reviewers have approved, he will approve as well, merge to TEST infrastructure, and redeploy the TEST instance.
+- Developer or someone on the team who is familiar with the change will test/qa the change
+- When any current changes in the `main` have been approved after test/qa on TEST, Zhou will release to PROD using the same docker image that has been tested on TEST infrastructure.
+
+### To work on features in the development environment before ready for testing and releasing
+- Make new feature branches off the `main` branch
+- Make PRs to `dev-integrate`
+- As a codeowner, Zhou is automatically assigned as a reviewer to each PR. When all other reviewers have approved, he will approve as well, merge to devel, and redeploy the DEV instance.
+- When a feature branch is ready for testing and release, make a PR to `main` for deployment and testing on the TEST infrastructure as above.
 
 
 
