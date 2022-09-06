@@ -25,9 +25,11 @@ def privs_for_groups_token(groups_token: str):
 
 
 #  403: not authorized; 401: invalid token; 400: invalid group uuid provided
-@privs_blueprint.route('/privs/has_write_on_group/<group_uuid>')
-def privs_has_write_on_group_uuid(group_uuid):
-    groups_token = get_groups_token()
+@privs_blueprint.route('/privs/for_groups_token/<groups_token>/has_write_on_group_uuid/<group_uuid>')
+def privs_has_write_on_group_uuid(groups_token, group_uuid):
     auth_helper_instance = AuthHelper.instance()
-    has_privs = auth_helper_instance.check_write_privs(groups_token, group_uuid)
-    return make_response(jsonify({"has_privs": has_privs}), 200)
+    has_write_privs = auth_helper_instance.check_write_privs(groups_token, group_uuid)
+    headers: dict = {
+        "Content-Type": "application/json"
+    }
+    return make_response(jsonify({"has_write_privs": has_write_privs}), 200, headers)
