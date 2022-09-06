@@ -21,5 +21,4 @@ def get_status():
         'version': (Path(__file__).absolute().parent.parent.parent.parent / 'VERSION').read_text().strip(),
         'build': (Path(__file__).absolute().parent.parent.parent.parent / 'BUILD').read_text().strip()
     }
-
     return jsonify(status_data)

@@ -7,6 +7,7 @@ import argparse
 from shutil import rmtree # Used by file removal
 from flask import Flask, jsonify, abort, request, session, redirect, Response
 from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
+from flask_cors import CORS
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
@@ -26,12 +27,15 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
 
+# https://stackoverflow.com/questions/66042805/flask-cors-stopped-allowing-access-to-resources
+cors = CORS(app, resources={r"/*": {"origins": "*"}})
+
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
-requests.packages.urllib3.disable_warnings(category = InsecureRequestWarning)
+requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 ####################################################################################################
@@ -93,10 +97,7 @@ def create_dataset():
     return "Placeholder"
 
 
-####################################################################################################
-## For local development/testing
-####################################################################################################
-
+# For local development/testing
 if __name__ == '__main__':
     try:
         parser = argparse.ArgumentParser()
