@@ -15,6 +15,7 @@ from hubmap_commons.hm_auth import AuthHelper
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
+from routes.entity_CRUD import entity_CRUD_blueprint
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -33,6 +34,7 @@ cors = CORS(app, resources={r"/*": {"origins": "*"}})
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
+app.register_blueprint(entity_CRUD_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -89,13 +91,6 @@ except Exception:
 @app.route('/', methods=['GET'])
 def index():
     return "Hello! This is SenNet Ingest API service :)"
-
-
-# Should be moved to a routes Blueprint when implemented
-@app.route('/datasets', methods=['POST'])
-def create_dataset():
-    return "Placeholder"
-
 
 # For local development/testing
 if __name__ == '__main__':
