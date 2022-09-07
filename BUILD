@@ -1,1 +1,1 @@
-yuanzhou/docker-tweaks:f0010ef
+blueprint:fdb45dd

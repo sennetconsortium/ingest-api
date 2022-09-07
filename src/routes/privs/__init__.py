@@ -1,14 +1,13 @@
-from flask import Blueprint, session, make_response, jsonify
-from flask_cors import cross_origin
 import logging
 
+from flask import Blueprint, make_response, jsonify
 from hubmap_commons.hm_auth import AuthHelper
 
 privs_blueprint = Blueprint('privs', __name__)
 logger = logging.getLogger(__name__)
 
 
-@cross_origin()
+
 @privs_blueprint.route('/privs/for_groups_token/<groups_token>')
 def privs_for_groups_token(groups_token: str):
     auth_helper_instance: AuthHelper = AuthHelper.instance()
