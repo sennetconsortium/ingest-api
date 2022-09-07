@@ -10,7 +10,7 @@ services:
     # Only root can listen on ports below 1024, we use higher-numbered ports
     # since nginx is running under non-root user hubmap
     ports:
-      - "5555:8080"
+      - "8484:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080"]
       interval: 1m30s
@@ -24,7 +24,8 @@ services:
     restart: always
     volumes:
       # Mount the app config to container in order to keep it outside of the image
-      - "../src/instance:/usr/src/app/src/instance"
+#      - "../src/instance:/usr/src/app/src/instance"
+      - "../src:/usr/src/app/src"
       # Mount the logging to container
       - "../log:/usr/src/app/log"
       # Mount conf.d on host machine to the nginx conf.d on container
