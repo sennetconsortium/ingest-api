@@ -203,16 +203,14 @@ def create_dataset():
         return Response("json request required", 400)
     try:
         dataset_request = request.json
-        # auth_helper = AuthHelper.create(app.config['APP_CLIENT_ID'], app.config['APP_CLIENT_SECRET'], globus_groups) # AuthHelper.configured_instance(app.config['APP_CLIENT_ID'], app.config['APP_CLIENT_SECRET'])
-        auth_tokens = auth_helper_instance.getAuthorizationTokens(request.headers)
-        if isinstance(auth_tokens, Response):
-            return(auth_tokens)
-        elif isinstance(auth_tokens, str):
-            token = auth_tokens
-        elif 'nexus_token' in auth_tokens:
-            token = auth_tokens['nexus_token']
+        # Get the single Globus groups token for authorization
+        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+        if isinstance(auth_token, Response):
+            return(auth_token)
+        elif isinstance(auth_token, str):
+            token = auth_token
         else:
-            return(Response("Valid nexus auth token required", 401))
+            return Response("Valid Globus groups token required", 401)
 
         requested_group_uuid = None
         if 'group_uuid' in dataset_request:

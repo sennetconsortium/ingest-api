@@ -2,6 +2,15 @@
 APP_CLIENT_ID = ''
 APP_CLIENT_SECRET = ''
 
+# File system settings (committed settings below are for DEV)
+GLOBUS_ENDPOINT_FILEPATH = '/hive/sennet-dev/data/protected'
+SENNET_WEBSERVICE_FILEPATH = '/hive/sennet-dev/assets'
+WORKFLOW_SCRATCH = '/hive/sennet-dev/scratch'
+
+ACCESS_LEVEL_PROTECTED = 'protected'
+ACCESS_LEVEL_CONSORTIUM = 'consortium'
+ACCESS_LEVEL_PUBLIC = 'public'
+
 # For UI login/logout
 # Flask app session key
 SECRET_KEY = 'a%@3k9Hdlkfjakjajf99adsf909oel'

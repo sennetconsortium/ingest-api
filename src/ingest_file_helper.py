@@ -1,26 +1,10 @@
 import os
 import logging
-import threading
 import subprocess
-import shutil
 from hubmap_commons.hubmap_const import HubmapConst
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_commons.exceptions import HTTPException
-from hubmap_commons import file_helper
 
 class IngestFileHelper:
-#    @staticmethod
-#    def save_file(file, directory, create_folder=False):
-#        if not os.path.exists(directory):
-#            if create_folder is False:
-#                raise ValueError('Error: cannot find path: ' + directory)
-
-#        try:
-#            pathlib.Path(directory).mkdir(parents=True, exist_ok=True)
-#            file.save(os.path.join(directory, file.filename))
-#            return str(os.path.join(directory, file.filename))
-#        except OSError as oserr:
-#            pprint(oserr)
 
     def __init__(self, config):
         self.appconfig = config
@@ -37,9 +21,9 @@ class IngestFileHelper:
 
     def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
         if dataset_record['contains_human_genetic_sequences']:
-            access_level = 'protected'
+            access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
         elif not 'data_access_level' in dataset_record:
-            access_level = 'consortium'
+            access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
         else:
             access_level = dataset_record['data_access_level']
 
@@ -48,23 +32,6 @@ class IngestFileHelper:
             published = True
 
         return self.__dataset_directory_absolute_path(access_level, group_uuid, dataset_uuid, published)
-
-    def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid):
-        if dataset_record['contains_human_genetic_sequences']:
-            access_level = 'protected'
-        elif not 'data_access_level' in dataset_record:
-            access_level = 'consortium'
-        else:
-            access_level = dataset_record['data_access_level']
-
-        published = False
-        if 'status' in dataset_record and dataset_record['status'] == 'Published':
-            published = True
-
-        return self.__dataset_directory_relative_path(access_level, group_uuid, dataset_uuid, published)
-
-    def get_upload_directory_relative_path(self, group_uuid, upload_uuid):
-        return self.__dataset_directory_relative_path('protected', group_uuid, upload_uuid, False)
 
     def __dataset_directory_absolute_path(self, access_level, group_uuid, dataset_uuid, published):
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
@@ -80,60 +47,33 @@ class IngestFileHelper:
 
         return abs_path
 
-    def __dataset_directory_relative_path(self, access_level, group_uuid, dataset_uuid, published):
-        grp_name = AuthHelper.getGroupDisplayName(group_uuid)
-        if access_level == 'protected':
-            endpoint_id = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
-        elif published:
-            endpoint_id = self.appconfig['GLOBUS_PUBLIC_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH'], dataset_uuid))
-        else:
-            endpoint_id = self.appconfig['GLOBUS_CONSORTIUM_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
-
-        return {"rel_path":rel_path, "globus_endpoint_uuid":endpoint_id}
-
-    def dataset_asset_directory_absolute_path(self, dataset_uuid):
-        return file_helper.ensureTrailingSlashURL(self.appconfig['HUBMAP_WEBSERVICE_FILEPATH']) + dataset_uuid
-
     def create_dataset_directory(self, dataset_record, group_uuid, dataset_uuid):
         if dataset_record['contains_human_genetic_sequences']:
-            access_level = 'protected'
+            access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
             asset_link_dir = None
         else:
-            access_level = 'consortium'
+            access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
             #if the dataset is consortium level provide the path in the assets directory
             #to link it to, if protected don't link into assets directory (above set to None)
-            asset_link_dir = os.path.join(str(self.appconfig['HUBMAP_WEBSERVICE_FILEPATH']), dataset_record['uuid'])
+            asset_link_dir = os.path.join(str(self.appconfig['SENNET_WEBSERVICE_FILEPATH']), dataset_record['uuid'])
 
         new_directory_path = self.get_dataset_directory_absolute_path(dataset_record, group_uuid, dataset_uuid)
         IngestFileHelper.make_directory(new_directory_path, asset_link_dir)
         try:
             if dataset_record['contains_human_genetic_sequences']:
-                access_level = 'protected'
+                access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
             else:
-                access_level = 'consortium'
+                access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
+            '''
+            Comment out pending SenNet revisions for AWS filesystem
             x = threading.Thread(target=self.set_dir_permissions, args=[access_level, new_directory_path])
             x.start()
+            '''
         except Exception as e:
             self.logger.error(e, exc_info=True)
 
-    def get_upload_directory_absolute_path(self, group_uuid, upload_uuid):
-        grp_name = AuthHelper.getGroupDisplayName(group_uuid)
-        base_dir = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_FILEPATH']
-        abs_path = str(os.path.join(base_dir, grp_name, upload_uuid))
-        return abs_path
-
-    def create_upload_directory(self, group_uuid, upload_uuid):
-        new_directory_path = self.get_upload_directory_absolute_path(group_uuid, upload_uuid)
-        IngestFileHelper.make_directory(new_directory_path, None)
-        try:
-            x = threading.Thread(target=self.set_dir_permissions, args=['protected', new_directory_path])
-            x.start()
-        except Exception as e:
-            self.logger.error(e, exc_info=True)
-
+    '''
+    Comment out pending SenNet revisions for AWS filesystem
     def set_dir_permissions(self, access_level, file_path, published = False, trial_run = False):
         acl_text = None
         if not published:
@@ -176,35 +116,6 @@ class IngestFileHelper:
         else:
             print(facl_command)
         return facl_command
+    '''
 
-    def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run = False):
-        from_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)
-        if not os.path.isdir(from_path):
-            raise HTTPException(f"{uuid}: path not found to dataset will not publish, path is {from_path}", 500)
-        data_access_level = 'protected'
-        if not dataset_access_level == 'protected': data_access_level = 'public'
-        to_path = self.__dataset_directory_absolute_path(data_access_level, group_uuid, uuid, True)
-        if not trial_run:
-            shutil.move(from_path, to_path)
-        else:
-            print(f"mv {from_path} {to_path}")
 
-        return None
-
-    def set_dataset_permissions(self, dataset_uuid, group_uuid, dataset_access_level, published, trial_run = False):
-        file_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, dataset_uuid, published)
-        return self.set_dir_permissions(dataset_access_level, file_path, published, trial_run = trial_run)
-
-    def relink_to_public(self, dataset_uuid):
-        lnk_path = self.appconfig['HUBMAP_WEBSERVICE_FILEPATH']
-        lnk_path = lnk_path.strip()
-        if lnk_path[-1] == '/': lnk_path = lnk_path[:-1]
-        lnk_path = self.dataset_asset_directory_absolute_path(dataset_uuid)
-        pub_path = file_helper.ensureTrailingSlashURL(self.appconfig['GLOBUS_PUBLIC_ENDPOINT_FILEPATH']) + dataset_uuid
-        try:
-            os.unlink(lnk_path)
-        except:
-            print("Error unlinking " + lnk_path)
-
-        if os.path.exists(pub_path):
-            file_helper.linkDir(pub_path, lnk_path)
