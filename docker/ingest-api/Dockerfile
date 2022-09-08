@@ -42,7 +42,8 @@ RUN yum install -y yum-utils && \
     rm -rf nginx && \
     pip install --upgrade pip -r src/requirements.txt && \
     chmod +x start.sh && \
-    yum clean all 
+    yum clean all && \
+    echo 'export PYTHONPATH="/usr/src/app:${PYTHONPATH}"' > ~/.bash_rc
 
 # The EXPOSE instruction informs Docker that the container listens on the specified network ports at runtime. 
 # EXPOSE does not make the ports of the container accessible to the host.
