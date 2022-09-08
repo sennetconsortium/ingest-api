@@ -2,6 +2,10 @@
 
 A restful web service exposing calls needed for the [Portal UI](https://github.com/sennetconsortium/portal-ui) Next.js application. The API is documented [here](https://smart-api.info/registry?q=@todo).
 
+## PyCharm configuration
+Right click the ***src*** folder and select *Mark directory as > sources root*
+You should see the ***src*** folder turn blue
+
 ## Flask app configuration
 
 This application is written in Flask and it includes an **app.cfg.example** file in the `instance` directory.  Copy the file and rename it **app.cfg** and modify  with the appropriate information.
