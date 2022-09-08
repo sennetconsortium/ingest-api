@@ -37,4 +37,4 @@ def privs_has_write_on_group_uuid(group_uuid):
 
 
 def get_groups_token() -> str:
-    return request.headers.get('groups_token')
+    return request.headers.get('authorization')[7:]
