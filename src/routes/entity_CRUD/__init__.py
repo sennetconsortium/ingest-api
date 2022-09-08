@@ -10,7 +10,7 @@ entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
 
 # Local modules
-from src.routes.entity_CRUD.ingest_file_helper import IngestFileHelper
+from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
 def create_dataset():

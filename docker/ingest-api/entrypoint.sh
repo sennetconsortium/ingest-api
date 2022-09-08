@@ -1,5 +1,5 @@
 #!/bin/bash
-source ~/.bash_rc
+
 # Pass the HOST_UID and HOST_UID from environment variables specified in the child image docker-compose
 HOST_GID=${HOST_GID}
 HOST_UID=${HOST_UID}
