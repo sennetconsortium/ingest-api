@@ -5,7 +5,6 @@ APP_CLIENT_SECRET = ''
 # File system settings (committed settings below are for DEV)
 GLOBUS_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/protected'
 SENNET_WEBSERVICE_FILEPATH = '/codcc/dev-test/assets'
-WORKFLOW_SCRATCH = '/codcc/dev-test/scratch'
 
 ACCESS_LEVEL_PROTECTED = 'protected'
 ACCESS_LEVEL_CONSORTIUM = 'consortium'
