@@ -3,18 +3,18 @@ APP_CLIENT_ID = ''
 APP_CLIENT_SECRET = ''
 
 # File system settings (committed settings below are for DEV)
-GLOBUS_ENDPOINT_FILEPATH = '/codcc/sennet-dev/data/protected'
-SENNET_WEBSERVICE_FILEPATH = '/codcc/sennet-dev/assets'
-WORKFLOW_SCRATCH = '/codcc/sennet-dev/scratch'
+GLOBUS_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/protected'
+SENNET_WEBSERVICE_FILEPATH = '/codcc/dev-test/assets'
+WORKFLOW_SCRATCH = '/codcc/dev-test/scratch'
 
 ACCESS_LEVEL_PROTECTED = 'protected'
 ACCESS_LEVEL_CONSORTIUM = 'consortium'
 ACCESS_LEVEL_PUBLIC = 'public'
 
 # Absolute file paths of the Globus endpoints (shown are for DEV, change for TEST/STAGE/PROD deployment)
-GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc/sennet-dev/data/public'
-GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc/sennet-dev/data/consortium'
-GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc/sennet-dev/data/protected'
+GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/public'
+GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/consortium'
+GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/protected'
 
 # Relative file paths of the Globus endpoints(shown are for DEV, change for TEST/STAGE/PROD deployment)
 RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
