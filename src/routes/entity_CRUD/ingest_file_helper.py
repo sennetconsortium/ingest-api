@@ -56,7 +56,11 @@ class IngestFileHelper:
             asset_link_dir = os.path.join(str(self.appconfig['SENNET_WEBSERVICE_FILEPATH']), dataset_record['uuid'])
 
         new_directory_path = self.get_dataset_directory_absolute_path(dataset_record, group_uuid, dataset_uuid)
+        
+        self.logger.info(f'To create dataset directory: {new_directory_path}')
+        
         IngestFileHelper.make_directory(new_directory_path, asset_link_dir)
+        
         try:
             if dataset_record['contains_human_genetic_sequences']:
                 access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
