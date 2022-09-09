@@ -2,6 +2,25 @@
 APP_CLIENT_ID = ''
 APP_CLIENT_SECRET = ''
 
+# File system settings (committed settings below are for DEV)
+GLOBUS_ENDPOINT_FILEPATH = '/hive/sennet-dev/data/protected'
+SENNET_WEBSERVICE_FILEPATH = '/hive/sennet-dev/assets'
+WORKFLOW_SCRATCH = '/hive/sennet-dev/scratch'
+
+ACCESS_LEVEL_PROTECTED = 'protected'
+ACCESS_LEVEL_CONSORTIUM = 'consortium'
+ACCESS_LEVEL_PUBLIC = 'public'
+
+# Absolute file paths of the Globus endpoints (shown are for DEV, change for TEST/STAGE/PROD deployment)
+GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/hive/sennet-dev/data/public'
+GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/hive/sennet-dev/data/consortium'
+GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/hive/sennet-dev/data/protected'
+
+# Relative file paths of the Globus endpoints(shown are for DEV, change for TEST/STAGE/PROD deployment)
+RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
+RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/consortium'
+RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/protected'
+
 # For UI login/logout
 # Flask app session key
 SECRET_KEY = 'a%@3k9Hdlkfjakjajf99adsf909oel'
@@ -10,7 +29,7 @@ SECRET_KEY = 'a%@3k9Hdlkfjakjajf99adsf909oel'
 FLASK_APP_BASE_URI = 'http://localhost:8484/'
 
 # React app name and deployment URI (default value used for docker dev environment)
-GLOBUS_CLIENT_APP_NAME = 'HuBMAP Data Ingest'
+GLOBUS_CLIENT_APP_NAME = 'SenNet Portal UI'
 
 # Point to remote URL for testing and production deployment
 GLOBUS_CLIENT_APP_URI = 'http://localhost:8585/'
