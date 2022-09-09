@@ -21,6 +21,10 @@ RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
 RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/consortium'
 RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/protected'
 
+#URL to the entity-api web service
+# Default works with docker deployment on the same host machine
+ENTITY_WEBSERVICE_URL = 'https://entity-api.dev.sennetconsortium.org'
+
 # For UI login/logout
 # Flask app session key
 SECRET_KEY = 'a%@3k9Hdlkfjakjajf99adsf909oel'
