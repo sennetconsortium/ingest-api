@@ -48,7 +48,8 @@ def login():
             'globus_id': user_info['sub'],
             'auth_token': auth_token,
             'transfer_token': transfer_token,
-            'groups_token': groups_token
+            'groups_token': groups_token,
+            'expires_in': token_response.data['expires_in']
         }
 
         # Turns json dict into a str
