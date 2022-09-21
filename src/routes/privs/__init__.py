@@ -1,19 +1,27 @@
 import logging
 
-from flask import Blueprint, request, make_response, jsonify
+from flask import Blueprint, request, make_response, jsonify, Response
+from typing import List
 from hubmap_commons.hm_auth import AuthHelper
+from hubmap_commons.exceptions import HTTPException
 
 privs_blueprint = Blueprint('privs', __name__)
 logger = logging.getLogger(__name__)
-
 
 
 @privs_blueprint.route('/privs')
 def privs_for_groups_token():
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
-    read_privs: bool = auth_helper_instance.has_read_privs(groups_token)
-    write_privs: bool = auth_helper_instance.has_write_privs(groups_token)
+
+    read_privs = auth_helper_instance.has_read_privs(groups_token)
+    if isinstance(read_privs, Response):
+        return read_privs
+
+    write_privs = auth_helper_instance.has_write_privs(groups_token)
+    if isinstance(write_privs, Response):
+        return write_privs
+
     data: dict = {
         "read_privs": read_privs,
         "write_privs": write_privs
@@ -29,11 +37,29 @@ def privs_for_groups_token():
 def privs_has_write_on_group_uuid(group_uuid):
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
-    has_write_privs: bool = auth_helper_instance.check_write_privs(groups_token, group_uuid)
+    try:
+        has_write_privs: bool = auth_helper_instance.check_write_privs(groups_token, group_uuid)
+    except HTTPException as e:
+        return make_response(e.description, e.status_code)
     headers: dict = {
         "Content-Type": "application/json"
     }
     return make_response(jsonify({"has_write_privs": has_write_privs}), 200, headers)
+
+# a list of groups that the user is a member of with write privs
+@privs_blueprint.route('/privs/user-write-groups')
+def privs_get_user_write_groups():
+    groups_token: str = get_groups_token()
+    auth_helper_instance: AuthHelper = AuthHelper.instance()
+
+    user_write_groups: List[str] = auth_helper_instance.get_user_write_groups(groups_token)
+    if isinstance(user_write_groups, Response):
+        return user_write_groups
+
+    headers: dict = {
+        "Content-Type": "application/json"
+    }
+    return make_response(jsonify({"user_write_groups": user_write_groups}), 200, headers)
 
 
 def get_groups_token() -> str:
