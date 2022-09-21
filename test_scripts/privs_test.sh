@@ -62,6 +62,12 @@ curl $VERBOSE -X GET -si "${SCHEME_HOST_PORT}/privs/${GROUP_UUID}/has-write" \
  -H "Authorization: Bearer $BEARER_TOKEN"
 echo
 
+GROUP_UUID='57192604-18e0-11ed-b79b-972795fc9504'
+echo
+curl $VERBOSE -X GET -si "${SCHEME_HOST_PORT}/privs/${GROUP_UUID}/has-write" \
+ -H "Authorization: Bearer $BEARER_TOKEN"
+echo
+
 curl $VERBOSE -X GET -si "${SCHEME_HOST_PORT}/privs/user-write-groups" \
  -H "Authorization: Bearer $BEARER_TOKEN"
 echo

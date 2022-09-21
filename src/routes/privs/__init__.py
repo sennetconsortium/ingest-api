@@ -44,7 +44,12 @@ def privs_has_write_on_group_uuid(group_uuid):
     headers: dict = {
         "Content-Type": "application/json"
     }
-    return make_response(jsonify({"has_write_privs": has_write_privs}), 200, headers)
+    data: dict = {
+        "group_uuid": group_uuid,
+        "has_write_privs": has_write_privs
+    }
+    return make_response(jsonify(data), 200, headers)
+
 
 # a list of groups that the user is a member of with write privs
 @privs_blueprint.route('/privs/user-write-groups')
@@ -52,7 +57,7 @@ def privs_get_user_write_groups():
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
 
-    user_write_groups: List[str] = auth_helper_instance.get_user_write_groups(groups_token)
+    user_write_groups: List[dict] = auth_helper_instance.get_user_write_groups(groups_token)
     if isinstance(user_write_groups, Response):
         return user_write_groups
 
