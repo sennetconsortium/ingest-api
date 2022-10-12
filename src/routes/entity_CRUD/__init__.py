@@ -298,6 +298,8 @@ def create_samples_from_bulk():
             del item['lab_id']
             item['protocol_url'] = item['preparation_protocol']
             del item['preparation_protocol']
+            item['organ'] = item['organ_type']
+            del item['organ_type']
             if group_uuid is not None:
                 item['group_uuid'] = group_uuid
             r = requests.post(
