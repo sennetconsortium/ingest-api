@@ -16,6 +16,9 @@ from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
 
+# Local Modules
+from routes.entity_CRUD.file_upload_helper import UploadFileHelper
+
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
 # Log rotation is handled via logrotate on the host system with a configuration file
@@ -79,6 +82,29 @@ try:
         auth_helper_instance = AuthHelper.instance()
 except Exception:
     msg = "Failed to initialize the AuthHelper class"
+    # Log the full stack trace, prepend a line with our message
+    logger.exception(msg)
+
+####################################################################################################
+## File upload initialization
+####################################################################################################
+
+try:
+    # Initialize the UploadFileHelper class and ensure singleton
+    if UploadFileHelper.is_initialized() == False:
+        file_upload_helper_instance = UploadFileHelper.create(app.config['FILE_UPLOAD_TEMP_DIR'],
+                                                              app.config['FILE_UPLOAD_DIR'],
+                                                              app.config['UUID_WEBSERVICE_URL'])
+
+        logger.info("Initialized UploadFileHelper class successfully :)")
+
+        # This will delete all the temp dirs on restart
+        #file_upload_helper_instance.clean_temp_dir()
+    else:
+        file_upload_helper_instance = UploadFileHelper.instance()
+# Use a broad catch-all here
+except Exception:
+    msg = "Failed to initialize the UploadFileHelper class"
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 

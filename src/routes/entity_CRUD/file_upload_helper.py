@@ -55,9 +55,12 @@ class UploadFileHelper:
         return True
 
     def __init__(self, upload_temp_dir, upload_dir, uuid_api_url):
+        global instance
         self.upload_temp_dir = file_helper.ensureTrailingSlash(upload_temp_dir)
         self.upload_dir = file_helper.ensureTrailingSlash(upload_dir)
         self.uuid_api_url = uuid_api_url
+        if instance is None:
+            instance = self
 
     # def clean_temp_dir(self):
     #    for dirname in os.listdir(self.upload_temp_dir):

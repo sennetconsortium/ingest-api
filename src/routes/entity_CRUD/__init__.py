@@ -16,31 +16,8 @@ entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
 
 # Local modules
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
-
-####################################################################################################
-## File upload initialization
-####################################################################################################
-def initialize_file_helper():
-    try:
-        # Initialize the UploadFileHelper class and ensure singleton
-        if UploadFileHelper.is_initialized() == False:
-            file_upload_helper_instance = UploadFileHelper.create(current_app.config['FILE_UPLOAD_TEMP_DIR'],
-                                                                  current_app.config['FILE_UPLOAD_DIR'],
-                                                                  current_app.config['UUID_WEBSERVICE_URL'])
-
-            logger.info("Initialized UploadFileHelper class successfully :)")
-
-            # This will delete all the temp dirs on restart
-            #file_upload_helper_instance.clean_temp_dir()
-        else:
-            file_upload_helper_instance = UploadFileHelper.instance()
-    # Use a broad catch-all here
-    except Exception:
-        msg = "Failed to initialize the UploadFileHelper class"
-        # Log the full stack trace, prepend a line with our message
-        logger.exception(msg)
+from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
 def create_dataset():
@@ -83,6 +60,7 @@ def create_dataset():
 
 @entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
 def bulk_sources_upload_and_validate():
+    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
     if 'file' not in request.files:
         bad_request_error('No file part')
     file = request.files['file']
@@ -212,6 +190,7 @@ def create_sources_from_bulk():
 
 @entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
 def bulk_samples_upload_and_validate():
+    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     header = {'Authorization': 'Bearer ' + token}
