@@ -293,11 +293,11 @@ def create_samples_from_bulk():
         entity_failed_to_create = False
         for item in records:
             item['direct_ancestor_uuid'] = item['ancestor_id']
-            del item['source_id']
+            del item['ancestor_id']
             item['lab_tissue_sample_id'] = item['lab_id']
             del item['lab_id']
             item['protocol_url'] = item['preparation_protocol']
-            del item['sample_protocol']
+            del item['preparation_protocol']
             if group_uuid is not None:
                 item['group_uuid'] = group_uuid
             r = requests.post(
@@ -398,7 +398,7 @@ def validate_samples(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'description']
+    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'description', 'organ_type']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -410,6 +410,10 @@ def validate_samples(headers, records, header):
             error_msg.append(f"{field} is not an accepted field")
 
     allowed_categories = ["block", "section", "suspension", "bodily fluid", "organ", "organ piece"]
+
+    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml') as urlfile:
+        organ_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
+
     rownum = 1
     valid_ancestor_ids = []
     if file_is_valid is True:
@@ -468,6 +472,21 @@ def validate_samples(headers, records, header):
                     f"Row Number: {rownum}. sample_category can only be one of the following (not case sensitive): {', '.join(allowed_categories)}"
                 )
 
+            # validate organ_type
+            organ_type = data_row['organ_type']
+            if sample_category.lower() != "organ":
+                if len(organ_type) > 0:
+                    file_is_valid = False
+                    error_msg.append(f"Row Number: {rownum}. organ_type field must be blank if sample_category is not 'organ'")
+            if sample_category.lower() == "organ":
+                if len(organ_type) < 1:
+                    file_is_valid = False
+                    error_msg.append(f"Row Number: {rownum}. organ_type field is required if sample_category is 'organ'")
+            if len(organ_type) > 0:
+                if organ_type.upper() not in organ_resource_file:
+                    file_is_valid = False
+                    error_msg.append(f"Row Number: {rownum}. organ_type value must be an organ code listed in organ type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)")
+
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
             if len(ancestor_id) < 1:
@@ -485,20 +504,27 @@ def validate_samples(headers, records, header):
                                 ancestor_saved = True
                 if ancestor_saved is False:
                     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + ancestor_id
-                    resp = requests.get(url, headers=header)
-                    if resp.status_code == 404:
+                    try:
+                        resp = requests.get(url, headers=header)
+                        if resp.status_code == 404:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
+                        if resp.status_code > 499:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                        if resp.status_code == 401:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
+                        if resp.status_code == 400:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. {ancestor_id} is not a valid id format")
+                        if resp.status_code < 300:
+                            ancestor_dict = resp.json()
+                            valid_ancestor_ids.append(ancestor_dict)
+                            resp_status_code = True
+                    except Exception as e:
                         file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
-                    if resp.status_code == 401:
-                        file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
-                    if resp.status_code == 400:
-                        file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. {ancestor_id} is not a valid id format")
-                    if resp.status_code < 300:
-                        ancestor_dict = resp.json()
-                        valid_ancestor_ids.append(ancestor_dict)
-                        resp_status_code = True
+                        error_msg.append(f"Row Number: {rownum}. Failled to reach UUID Web Service")
                 if ancestor_saved or resp_status_code:
                     data_row['ancestor_id'] = ancestor_dict['uuid']
                     if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
