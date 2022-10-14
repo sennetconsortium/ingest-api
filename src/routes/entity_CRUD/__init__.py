@@ -366,6 +366,9 @@ def validate_sources(headers, records):
             if len(lab_id) > 1024:
                 file_is_valid = False
                 error_msg.append(f"Row Number: {rownum}. lab_id must be fewer than 1024 characters")
+            if len(lab_id) < 1:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. lab_id must have 1 or more characters")
 
             # validate selection_protocol
             protocol = data_row['selection_protocol']
