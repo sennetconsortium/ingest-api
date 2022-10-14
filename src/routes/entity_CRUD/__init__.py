@@ -300,6 +300,8 @@ def create_samples_from_bulk():
             del item['preparation_protocol']
             item['organ'] = item['organ_type']
             del item['organ_type']
+            if item['organ'] == '':
+                del item['organ']
             if group_uuid is not None:
                 item['group_uuid'] = group_uuid
             r = requests.post(
