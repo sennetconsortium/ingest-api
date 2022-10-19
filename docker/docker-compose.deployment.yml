@@ -5,5 +5,10 @@ services:
   ingest-api: 
     # Use the published image and tag from DockerHub
     image: sennet/ingest-api:${INGEST_API_VERSION:?err}
-
+    volumes:  
+      # Mount the VERSION file and BUILD file 
+      - "../VERSION:/usr/src/app/VERSION" 
+      - "../BUILD:/usr/src/app/BUILD" 
+      # Mount data directory for Globus transfer PROD
+      - "/codcc/data:/codcc/data"
 
