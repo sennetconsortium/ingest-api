@@ -67,8 +67,8 @@ python3 -m flask run -p 5000
 There are a few configurable environment variables to keep in mind:
 
 - `COMMONS_BRANCH`: build argument only to be used during image creation when we need to use a branch of commons from github rather than the published PyPI package. Default to main branch if not set or null.
-- `HOST_UID`: the user id on the host machine to be mapped to the container. Default to 1000 if not set or null.
-- `HOST_GID`: the user's group id on the host machine to be mapped to the container. Default to 1000 if not set or null.
+- `HOST_UID`: the user id on the host machine to be mapped to the container. Default to 1001 if not set or null.
+- `HOST_GID`: the user's group id on the host machine to be mapped to the container. Default to 1001 if not set or null.
 
 ```
 cd docker
@@ -79,7 +79,6 @@ cd docker
 
 ```
 cd docker
-export ENTITY_API_VERSION=a.b.c (replace with the actual released version number)
 ./docker-deployment.sh [start|stop|down]
 ```
 
