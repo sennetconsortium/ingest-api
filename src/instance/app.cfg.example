@@ -15,6 +15,15 @@ GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/public'
 GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/consortium'
 GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc/dev-test/data-dev/protected'
 
+# Directory where file uploads will be placed temporarily
+# until they are committed
+# Remember to set the proper file system user and group permission
+FILE_UPLOAD_TEMP_DIR = ''
+
+# Directory where file uploads are permanantly stored ()
+# Remember to set the proper file system user and group permission
+FILE_UPLOAD_DIR = ''
+
 # Relative file paths of the Globus endpoints(shown are for DEV, change for TEST/STAGE/PROD deployment)
 RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
 RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/consortium'
@@ -36,3 +45,11 @@ GLOBUS_CLIENT_APP_NAME = 'SenNet Portal UI'
 
 # Point to remote URL for testing and production deployment
 GLOBUS_CLIENT_APP_URI = 'http://localhost:8585/'
+
+# URL for talking to UUID API ()
+# Don't use http://localhost since uuid-api running on a different container
+# Point to remote https URL for DEV/TEST/STAGE/PROD deployment
+UUID_WEBSERVICE_URL = ''
+
+# URL for talking to Entity API ()
+ENTITY_WEBSERVICE_URL = ''
