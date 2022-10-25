@@ -100,6 +100,10 @@ def bulk_sources_upload_and_validate():
         response_body = {"status": "fail", "data": return_validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400,
                         mimetype='application/json')  # The exact format of the return to be determined
+    else:
+        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
+        response_body = {"status": "fail", "message": message}
+        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
 
 
 @entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
@@ -233,6 +237,10 @@ def bulk_samples_upload_and_validate():
             error_num = error_num + 1
         response_body = {"status": "fail", "data": return_validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    else:
+        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
+        response_body = {"status": "fail", "message": message}
+        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
 
 
 @entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
@@ -306,6 +314,185 @@ def create_samples_from_bulk():
                 item['group_uuid'] = group_uuid
             r = requests.post(
                 commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/sample',
+                headers=header, json=item)
+            entity_response[row_num] = r.json()
+            row_num = row_num + 1
+            if r.status_code > 399:
+                entity_failed_to_create = True
+            else:
+                entity_created = True
+        if entity_created and not entity_failed_to_create:
+            response_status = "Success - All Entities Created Successfully"
+            status_code = 201
+        elif entity_failed_to_create and not entity_created:
+            response_status = "Failure - None of the Entities Created Successfully"
+            status_code = 500
+        elif entity_created and entity_failed_to_create:
+            response_status = "Partial Success - Some Entities Created Successfully"
+            status_code = 207
+        response = {"status": response_status, "data": entity_response}
+        return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+
+
+@entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
+def bulk_datasets_upload_and_validate():
+    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
+    auth_helper_instance = AuthHelper.instance()
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    header = {'Authorization': 'Bearer ' + token}
+    if 'file' not in request.files:
+        bad_request_error('No file part')
+    file = request.files['file']
+    if file.filename == '':
+        bad_request_error('No selected file')
+    file.filename = file.filename.replace(" ", "_")
+    try:
+        temp_id = file_upload_helper_instance.save_temp_file(file)
+    except Exception as e:
+        bad_request_error(f"Failed to create temp_id: {e}")
+    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
+    records = []
+    headers = []
+    file.filename = utils.secure_filename(file.filename)
+    file_location = commons_file_helper.ensureTrailingSlash(
+        current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
+    with open(file_location, newline='') as tsvfile:
+        reader = csv.DictReader(tsvfile, delimiter='\t')
+        first = True
+        for row in reader:
+            data_row = {}
+            for key in row.keys():
+                if first:
+                    headers.append(key)
+                data_row[key] = row[key]
+            records.append(data_row)
+            if first:
+                first = False
+    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    for record in records:
+        if record.get('ancestor_id'):
+            ancestor_id_string = record['ancestor_id']
+            ancestor_id_list = ancestor_id_string.split(',')
+            for ancestor in ancestor_id_list:
+                ancestor_id_list[ancestor] = ancestor.strip()
+            record['ancestor_id'] = ancestor_id_list
+        if record.get('data_types'):
+            data_types_string = record['data_types']
+            data_types_list = data_types_string.split(',')
+            for data_type in data_types_list:
+                data_types_list[data_type] = data_type.strip()
+        if record.get('human_gene_sequences'):
+            gene_sequences_string = record['human_gene_sequences']
+            if gene_sequences_string.lower == "true":
+                record['human_gene_sequences'] = True
+            if gene_sequences_string.lower == "false":
+                record['human_gene_sequences'] = False
+
+    validfile = validate_datasets(headers, records, header)
+    if validfile == True:
+        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
+    if type(validfile) == list:
+        return_validfile = {}
+        error_num = 0
+        for item in validfile:
+            return_validfile[str(error_num)] = str(item)
+            error_num = error_num + 1
+        response_body = {"status": "fail", "data": return_validfile}
+        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    else:
+        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
+        response_body = {"status": "fail", "message": message}
+        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+
+
+@entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
+def create_datasets_from_bulk():
+    request_data = request.get_json()
+    auth_helper_instance = AuthHelper.instance()
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    header = {'Authorization': 'Bearer ' + token}
+    temp_id = request_data['temp_id']
+    group_uuid = None
+    if "group_uuid" in request_data:
+        group_uuid = request_data['group_uuid']
+    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
+    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
+    if not os.path.exists(tsv_directory):
+        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
+        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
+    fcount = 0
+    temp_file_name = None
+    for tfile in os.listdir(tsv_directory):
+        fcount = fcount + 1
+        temp_file_name = tfile
+    if fcount == 0:
+        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
+                                   sort_keys=True), 400, mimetype='application/json')
+    if fcount > 1:
+        return Response(
+            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
+                       sort_keys=True), 400, mimetype='application/json')
+    tsvfile_name = tsv_directory + temp_file_name
+    records = []
+    headers = []
+    with open(tsvfile_name, newline='') as tsvfile:
+        reader = csv.DictReader(tsvfile, delimiter='\t')
+        first = True
+        for row in reader:
+            data_row = {}
+            for key in row.keys():
+                if first:
+                    headers.append(key)
+                data_row[key] = row[key]
+            records.append(data_row)
+            if first:
+                first = False
+    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    for record in records:
+        if record.get('ancestor_id'):
+            ancestor_id_string = record['ancestor_id']
+            ancestor_id_list = ancestor_id_string.split(',')
+            for ancestor in ancestor_id_list:
+                ancestor_id_list[ancestor] = ancestor.strip()
+            record['ancestor_id'] = ancestor_id_list
+        if record.get('data_types'):
+            data_types_string = record['data_types']
+            data_types_list = data_types_string.split(',')
+            for data_type in data_types_list:
+                data_types_list[data_type] = data_type.strip()
+        if record.get('human_gene_sequences'):
+            gene_sequences_string = record['human_gene_sequences']
+            if gene_sequences_string.lower == "true":
+                record['human_gene_sequences'] = True
+            if gene_sequences_string.lower == "false":
+                record['human_gene_sequences'] = False
+
+    validfile = validate_datasets(headers, records, header)
+    if type(validfile) == list:
+        return_validfile = {}
+        error_num = 0
+        for item in validfile:
+            return_validfile[str(error_num)] = str(item)
+            error_num = error_num + 1
+        response_body = {"status": "fail", "data": return_validfile}
+        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    entity_response = {}
+    row_num = 1
+    if validfile == True:
+        entity_created = False
+        entity_failed_to_create = False
+        for item in records:
+            item['direct_ancestor_uuids'] = item['ancestor_id']
+            del item['ancestor_id']
+            item['lab_tissue_dataset_id'] = item['lab_id']
+            del item['lab_id']
+            item['contains_human_genetic_sequences'] = item['human_gene_sequences']
+            del item['human_gene_sequences']
+            if group_uuid is not None:
+                item['group_uuid'] = group_uuid
+            r = requests.post(
+                commons_file_helper.ensureTrailingSlashURL(
+                    current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset',
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
@@ -510,7 +697,7 @@ def validate_samples(headers, records, header):
                                 ancestor_dict = item
                                 ancestor_saved = True
                 if ancestor_saved is False:
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + ancestor_id
+                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
                     try:
                         resp = requests.get(url, headers=header)
                         if resp.status_code == 404:
@@ -550,6 +737,117 @@ def validate_samples(headers, records, header):
         return file_is_valid
     if file_is_valid == False:
         return error_msg
+
+
+def validate_datasets(headers, records, header):
+    error_msg = []
+    file_is_valid = True
+
+    required_headers = ['ancestor_id', 'lab_id', 'description', 'human_gene_sequences', 'data_types']
+    for field in required_headers:
+        if field not in headers:
+            file_is_valid = False
+            error_msg.append(f"{field} is a required field")
+    required_headers.append(None)
+    for field in headers:
+        if field not in required_headers:
+            file_is_valid = False
+            error_msg.append(f"{field} is not an accepted field")
+
+    # retrieve yaml file containing all accepted data types
+    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
+        assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
+
+    for each in assay_resource_file:
+        assay_resource_file[each] = each.upper()
+
+    rownum = 1
+    valid_ancestor_ids = []
+    if file_is_valid is True:
+        for data_row in records:
+            # validate that no fields in data_row are none. If they are none, ,then we cannot verify even if the entry
+            # we are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
+            none_present = False
+            for each in data_row.keys():
+                if data_row[each] is None:
+                    none_present = True
+            if none_present:
+                file_is_valid = False
+                error_msg.append(
+                    f"Row Number: {rownum}. This row has too few entries. Check file; verify spaces were not used where a tab should be")
+                continue
+
+            # validate that no headers are None. This indicates taht there are fields present.
+            if data_row.get(None) is not None:
+                file_is_valid = False
+                error_msg.append(
+                    f"Row Number: {rownum}. This row has too many entries. Check file; verify that there are are only as many fields as there are headers")
+                continue
+
+            # validate description
+            description = data_row['description']
+            if len(description) > 10000:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+
+            # validate ancestor_id
+            ancestor_id = data_row['ancestor_id']
+            for ancestor in ancestor_id:
+                ancestor_saved = False
+                if len(valid_ancestor_ids) > 0:
+                    for item in valid_ancestor_ids:
+                        if item['uuid'] or item['sennet_id']:
+                            if ancestor == item['uuid'] or ancestor == item['sennet_id']:
+                                ancestor_saved = True
+                if ancestor_saved is False:
+                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
+                    try:
+                        resp = requests.get(url, headers=header)
+                        if resp.status_code == 404:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
+                        if resp.status_code > 499:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                        if resp.status_code == 401:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
+                        if resp.status_code == 400:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. {ancestor_id} is not a valid id format")
+                        if resp.status_code < 300:
+                            ancestor_dict = resp.json()
+                            valid_ancestor_ids.append(ancestor_dict)
+                    except Exception as e:
+                        file_is_valid = False
+                        error_msg.append(f"Row Number: {rownum}. Failled to reach UUID Web Service")
+
+            # validate lab_id
+            lab_id = data_row['lab_id']
+            if len(lab_id) > 1024:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. lab_id must be fewer than 1024 characters")
+
+            # validate human_gene_sequences
+            has_gene_sequence = data_row['human_gene_sequences']
+            if type(has_gene_sequence) is not bool:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. has_gene_sequences must be 'true' or 'false'")
+
+            # validate data_type
+            data_types = data_row['data_types']
+            for data_type in data_types:
+                if data_type.upper() not in assay_resource_file:
+                    file_is_valid = False
+                    error_msg.append(f"Row Number: {rownum}. data_type value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
+
+            rownum = rownum + 1
+
+    if file_is_valid:
+        return file_is_valid
+    if file_is_valid == False:
+        return error_msg
+
 
 ####################################################################################################
 ## Internal Functions
