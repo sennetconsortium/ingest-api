@@ -373,19 +373,22 @@ def bulk_datasets_upload_and_validate():
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
             ancestor_id_list = ancestor_id_string.split(',')
+            ancestor_stripped = []
             for ancestor in ancestor_id_list:
-                ancestor_id_list[ancestor] = ancestor.strip()
-            record['ancestor_id'] = ancestor_id_list
+                ancestor_stripped.append(ancestor.strip())
+            record['ancestor_id'] = ancestor_stripped
         if record.get('data_types'):
             data_types_string = record['data_types']
             data_types_list = data_types_string.split(',')
+            data_type_stripped = []
             for data_type in data_types_list:
-                data_types_list[data_type] = data_type.strip()
+                data_type_stripped.append(data_type.strip())
+            record['data_types'] = data_type_stripped
         if record.get('human_gene_sequences'):
             gene_sequences_string = record['human_gene_sequences']
-            if gene_sequences_string.lower == "true":
+            if gene_sequences_string.lower() == "true":
                 record['human_gene_sequences'] = True
-            if gene_sequences_string.lower == "false":
+            if gene_sequences_string.lower() == "false":
                 record['human_gene_sequences'] = False
 
     validfile = validate_datasets(headers, records, header)
@@ -410,7 +413,7 @@ def create_datasets_from_bulk():
     request_data = request.get_json()
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
+    header = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }
     temp_id = request_data['temp_id']
     group_uuid = None
     if "group_uuid" in request_data:
@@ -452,19 +455,22 @@ def create_datasets_from_bulk():
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
             ancestor_id_list = ancestor_id_string.split(',')
+            ancestor_stripped = []
             for ancestor in ancestor_id_list:
-                ancestor_id_list[ancestor] = ancestor.strip()
-            record['ancestor_id'] = ancestor_id_list
+                ancestor_stripped.append(ancestor.strip())
+            record['ancestor_id'] = ancestor_stripped
         if record.get('data_types'):
             data_types_string = record['data_types']
             data_types_list = data_types_string.split(',')
+            data_type_stripped = []
             for data_type in data_types_list:
-                data_types_list[data_type] = data_type.strip()
+                data_type_stripped.append(data_type.strip())
+            record['data_types'] = data_type_stripped
         if record.get('human_gene_sequences'):
             gene_sequences_string = record['human_gene_sequences']
-            if gene_sequences_string.lower == "true":
+            if gene_sequences_string.lower() == "true":
                 record['human_gene_sequences'] = True
-            if gene_sequences_string.lower == "false":
+            if gene_sequences_string.lower() == "false":
                 record['human_gene_sequences'] = False
 
     validfile = validate_datasets(headers, records, header)
@@ -484,7 +490,7 @@ def create_datasets_from_bulk():
         for item in records:
             item['direct_ancestor_uuids'] = item['ancestor_id']
             del item['ancestor_id']
-            item['lab_tissue_dataset_id'] = item['lab_id']
+            item['lab_dataset_id'] = item['lab_id']
             del item['lab_id']
             item['contains_human_genetic_sequences'] = item['human_gene_sequences']
             del item['human_gene_sequences']
@@ -738,7 +744,6 @@ def validate_samples(headers, records, header):
     if file_is_valid == False:
         return error_msg
 
-
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
@@ -800,7 +805,7 @@ def validate_datasets(headers, records, header):
                             if ancestor == item['uuid'] or ancestor == item['sennet_id']:
                                 ancestor_saved = True
                 if ancestor_saved is False:
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
+                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor
                     try:
                         resp = requests.get(url, headers=header)
                         if resp.status_code == 404:
@@ -808,13 +813,14 @@ def validate_datasets(headers, records, header):
                             error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
                         if resp.status_code > 499:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                            #error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                            error_msg.append(resp.request.url)
                         if resp.status_code == 401:
                             file_is_valid = False
                             error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
                         if resp.status_code == 400:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. {ancestor_id} is not a valid id format")
+                            error_msg.append(f"Row Number: {rownum}. {ancestor} is not a valid id format")
                         if resp.status_code < 300:
                             ancestor_dict = resp.json()
                             valid_ancestor_ids.append(ancestor_dict)
