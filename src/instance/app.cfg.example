@@ -43,8 +43,4 @@ GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/public'
 GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/consortium'
 GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
 
-# Relative file paths of the Globus endpoints(shown are for DEV, change for TEST/STAGE/PROD deployment)
-RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
-RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/consortium'
-RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/protected'
 
