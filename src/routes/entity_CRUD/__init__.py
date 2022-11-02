@@ -575,7 +575,7 @@ def validate_sources(headers, records):
                     f"Row Number: {rownum}. selection_protocol must either be of the format https://dx.doi.org/##.####/protocols.io.* or ##.####/protocols.io.*")
 
             # validate source_type
-            if data_row['source_type'] not in allowed_source_types:
+            if data_row['source_type'].lower() not in allowed_source_types:
                 file_is_valid = False
                 error_msg.append(
                     f"Row Number: {rownum}. source_type can only be one of the following (not case sensitive): {', '.join(allowed_source_types)}"
