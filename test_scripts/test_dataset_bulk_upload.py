@@ -17,7 +17,8 @@ class Test_Entity_Crud(TestCase):
     def setUp(self):
         app.app.testing = True
         self.app = app.app.test_client()
-
+        ctx = app.app.app_context()
+        ctx.push()
 
     # @patch.object(requests, 'get')
     # def test_test(self, mock_requests):
@@ -56,12 +57,14 @@ class Test_Entity_Crud(TestCase):
     # Test Validate Datasets
 ########################################################################################################################
     #@patch.object(entity_CRUD.request, 'get')
-    def test_bulk_dataset_upload_happy_path(self, mock_requests):
-        mock_requests.json().return_value = json.dumps('"uuid": "11111111111111111111111111111111"')
-        mock_requests.status_code = 201
+    def test_bulk_dataset_upload_happy_path(self):
+        ctx = app.app.app_context()
+        ctx.push()
+        #mock_requests.json().return_value = json.dumps('"uuid": "11111111111111111111111111111111"')
+        #mock_requests.status_code = 201
         headers = []
         records = []
-        header = {'Authorization': 'Bearer 1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111'}
+        header = {'Authorization': 'Bearer Ag1q7OMnG2vwe0W9rwagMd8jyzQwnEamd8zQEXMkB9rn3E3zmof2Cd80WYO43qnMBwva67qj8W0ldzi9meJw0ikqo8'}
         with open('sennet_datasets_good.tsv', newline='') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             first = True
@@ -75,7 +78,7 @@ class Test_Entity_Crud(TestCase):
                 if first:
                     first = False
         result = entity_CRUD.validate_datasets(headers, records, header)
-        mock_requests.assert_called()
+        #mock_requests.assert_called()
         self.assertEqual(result, True)
 
     # @patch.object(app.requests, 'get')
