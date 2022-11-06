@@ -373,6 +373,8 @@ def bulk_datasets_upload_and_validate():
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
             ancestor_id_list = ancestor_id_string.split(',')
+            if isinstance(ancestor_id_list, str):
+                ancestor_id_list = [ancestor_id_list]
             ancestor_stripped = []
             for ancestor in ancestor_id_list:
                 ancestor_stripped.append(ancestor.strip())

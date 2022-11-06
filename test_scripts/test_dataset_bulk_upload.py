@@ -58,13 +58,11 @@ class Test_Entity_Crud(TestCase):
 ########################################################################################################################
     #@patch.object(entity_CRUD.request, 'get')
     def test_bulk_dataset_upload_happy_path(self):
-        ctx = app.app.app_context()
-        ctx.push()
         #mock_requests.json().return_value = json.dumps('"uuid": "11111111111111111111111111111111"')
         #mock_requests.status_code = 201
         headers = []
         records = []
-        header = {'Authorization': 'Bearer Ag1q7OMnG2vwe0W9rwagMd8jyzQwnEamd8zQEXMkB9rn3E3zmof2Cd80WYO43qnMBwva67qj8W0ldzi9meJw0ikqo8'}
+        header = {'Authorization': 'Bearer 11111111111111111111111111111111'}
         with open('sennet_datasets_good.tsv', newline='') as tsvfile:
             reader = csv.DictReader(tsvfile, delimiter='\t')
             first = True
@@ -77,6 +75,29 @@ class Test_Entity_Crud(TestCase):
                 records.append(data_row)
                 if first:
                     first = False
+        for record in records:
+            if record.get('ancestor_id'):
+                ancestor_id_string = record['ancestor_id']
+                ancestor_id_list = ancestor_id_string.split(',')
+                if isinstance(ancestor_id_list, str):
+                    ancestor_id_list = [ancestor_id_list]
+                ancestor_stripped = []
+                for ancestor in ancestor_id_list:
+                    ancestor_stripped.append(ancestor.strip())
+                record['ancestor_id'] = ancestor_stripped
+            if record.get('data_types'):
+                data_types_string = record['data_types']
+                data_types_list = data_types_string.split(',')
+                data_type_stripped = []
+                for data_type in data_types_list:
+                    data_type_stripped.append(data_type.strip())
+                record['data_types'] = data_type_stripped
+            if record.get('human_gene_sequences'):
+                gene_sequences_string = record['human_gene_sequences']
+                if gene_sequences_string.lower() == "true":
+                    record['human_gene_sequences'] = True
+                if gene_sequences_string.lower() == "false":
+                    record['human_gene_sequences'] = False
         result = entity_CRUD.validate_datasets(headers, records, header)
         #mock_requests.assert_called()
         self.assertEqual(result, True)
