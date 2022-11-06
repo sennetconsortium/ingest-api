@@ -815,7 +815,7 @@ def validate_datasets(headers, records, header):
                             file_is_valid = False
                             #error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
                             error_msg.append(resp.request.url)
-                        if resp.status_code == 401:
+                        if resp.status_code == 401 or resp.status_code == 403:
                             file_is_valid = False
                             error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
                         if resp.status_code == 400:
