@@ -824,7 +824,7 @@ def validate_datasets(headers, records, header):
                             file_is_valid = False
                             error_msg.append(f"Row Number: {rownum}. {ancestor} is not a valid id format")
                         if resp.status_code < 300:
-                            ancestor_dict = resp.json()
+                            ancestor_dict = resp.json
                             valid_ancestor_ids.append(ancestor_dict)
                     except Exception as e:
                         file_is_valid = False

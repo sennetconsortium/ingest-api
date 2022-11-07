@@ -5,6 +5,7 @@ import csv
 from unittest import TestCase, main
 from unittest.mock import Mock, patch
 
+import requests
 from flask import current_app, Flask
 filepath = os.path.abspath(__file__)
 parentpath = os.path.dirname(os.path.dirname(filepath))
@@ -56,10 +57,22 @@ class Test_Entity_Crud(TestCase):
 ########################################################################################################################
     # Test Validate Datasets
 ########################################################################################################################
-    #@patch.object(entity_CRUD.request, 'get')
-    def test_bulk_dataset_upload_happy_path(self):
-        #mock_requests.json().return_value = json.dumps('"uuid": "11111111111111111111111111111111"')
-        #mock_requests.status_code = 201
+    @patch.object(entity_CRUD.requests, 'get')
+    #@patch.object(entity_CRUD, 'requests')
+    def test_bulk_dataset_upload_happy_path(self, mock_requests):
+        # mock_requests.json().return_value = json.dumps('"uuid": "11111111111111111111111111111111"')
+        # mock_requests.status_code.return_value = 201
+        data = {"uuid": "11111111111111111111111111111111"}
+
+        def res():
+            r = requests.Response()
+            r.status_code = 201
+
+            def json_func():
+                return data
+            r.json = json_func()
+            return r
+        mock_requests.return_value = res()
         headers = []
         records = []
         header = {'Authorization': 'Bearer 11111111111111111111111111111111'}
@@ -99,7 +112,7 @@ class Test_Entity_Crud(TestCase):
                 if gene_sequences_string.lower() == "false":
                     record['human_gene_sequences'] = False
         result = entity_CRUD.validate_datasets(headers, records, header)
-        #mock_requests.assert_called()
+        mock_requests.assert_called()
         self.assertEqual(result, True)
 
     # @patch.object(app.requests, 'get')
