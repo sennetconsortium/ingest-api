@@ -1,4 +1,3 @@
-
 # Globus App ID and secret
 APP_CLIENT_ID = ''
 APP_CLIENT_SECRET = ''
@@ -43,4 +42,5 @@ ACCESS_LEVEL_PUBLIC = 'public'
 GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/public'
 GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/consortium'
 GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
+
 
