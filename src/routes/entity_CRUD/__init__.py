@@ -373,6 +373,8 @@ def bulk_datasets_upload_and_validate():
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
             ancestor_id_list = ancestor_id_string.split(',')
+            if isinstance(ancestor_id_list, str):
+                ancestor_id_list = [ancestor_id_list]
             ancestor_stripped = []
             for ancestor in ancestor_id_list:
                 ancestor_stripped.append(ancestor.strip())
@@ -815,7 +817,7 @@ def validate_datasets(headers, records, header):
                             file_is_valid = False
                             #error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
                             error_msg.append(resp.request.url)
-                        if resp.status_code == 401:
+                        if resp.status_code == 401 or resp.status_code == 403:
                             file_is_valid = False
                             error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
                         if resp.status_code == 400:
@@ -826,7 +828,7 @@ def validate_datasets(headers, records, header):
                             valid_ancestor_ids.append(ancestor_dict)
                     except Exception as e:
                         file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Failled to reach UUID Web Service")
+                        error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
 
             # validate lab_id
             lab_id = data_row['lab_id']
