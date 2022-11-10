@@ -7,8 +7,7 @@ import requests
 
 from hubmap_commons import neo4j_driver
 from hubmap_commons.hm_auth import AuthHelper
-
-import string_helper
+from hubmap_commons import string_helper
 
 # Local modules
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
