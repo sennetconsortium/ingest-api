@@ -135,9 +135,9 @@ class DatasetHelper:
                 if asset_dir_exists:
                     self.ingest_helper.relink_to_public(dataset_uuid)
 
-            acls_cmd = self.ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
-                                                                  True,
-                                                                  no_indexing_and_acls)
+            # acls_cmd = self.ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
+            #                                                       True,
+            #                                                       no_indexing_and_acls)
 
             # TODO: Need to add DOI generation support
             # if is_primary:
@@ -179,7 +179,8 @@ class DatasetHelper:
                 neo_session.run(update_q)
 
         if no_indexing_and_acls:
-            r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
+            # r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
+            r_val = {'sources_for_indexing': sources_to_reindex}
         else:
             r_val = {'acl_cmd': '', 'sources_for_indexing': []}
 
