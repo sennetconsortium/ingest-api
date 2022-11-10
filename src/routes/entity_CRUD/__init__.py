@@ -148,7 +148,11 @@ def create_sources_from_bulk():
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     header = {'Authorization': 'Bearer ' + token}
-    temp_id = request_data['temp_id']
+    try:
+        temp_id = request_data['temp_id']
+    except KeyError:
+        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
+        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
     group_uuid = None
     if "group_uuid" in request_data:
         group_uuid = request_data['group_uuid']
@@ -285,7 +289,11 @@ def create_samples_from_bulk():
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     header = {'Authorization': 'Bearer ' + token}
-    temp_id = request_data['temp_id']
+    try:
+        temp_id = request_data['temp_id']
+    except KeyError:
+        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
+        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
     group_uuid = None
     if "group_uuid" in request_data:
         group_uuid = request_data['group_uuid']
@@ -452,7 +460,11 @@ def create_datasets_from_bulk():
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     header = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }
-    temp_id = request_data['temp_id']
+    try:
+        temp_id = request_data['temp_id']
+    except KeyError:
+        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
+        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
     group_uuid = None
     if "group_uuid" in request_data:
         group_uuid = request_data['group_uuid']
