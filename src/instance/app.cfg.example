@@ -1,3 +1,12 @@
+# Neo4j connection (default value used for docker dev environment)
+# Point to remote neo4j for testing and production deployment
+NEO4J_SERVER = 'bolt://sennet-neo4j:7687'
+NEO4J_USERNAME = 'neo4j'
+NEO4J_PASSWORD = '123'
+
+# URL for talking to UUID API (default value used for localhost docker environment)
+UUID_WEBSERVICE_URL = 'https://uuid-api.dev.sennetconsortium.org/uuid'
+
 # Globus App ID and secret
 APP_CLIENT_ID = ''
 APP_CLIENT_SECRET = ''

@@ -5,11 +5,12 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
 from shutil import rmtree # Used by file removal
-from flask import Flask, jsonify, abort, request, session, redirect, Response
+from flask import Flask, jsonify, g, abort, request, session, redirect, Response
 from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
+from hubmap_commons import neo4j_driver
 
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
@@ -82,6 +83,35 @@ except Exception:
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 
+####################################################################################################
+## Neo4j connection initialization
+####################################################################################################
+
+# The neo4j_driver (from commons package) is a singleton module
+# This neo4j_driver_instance will be used for application-specific neo4j queries
+# as well as being passed to the schema_manager
+try:
+    neo4j_driver_instance = neo4j_driver.instance(app.config['NEO4J_SERVER'],
+                                                  app.config['NEO4J_USERNAME'],
+                                                  app.config['NEO4J_PASSWORD'])
+
+    logger.info("Initialized neo4j_driver module successfully :)")
+except Exception:
+    msg = "Failed to initialize the neo4j_driver module"
+    # Log the full stack trace, prepend a line with our message
+    logger.exception(msg)
+
+
+"""
+Close the current neo4j connection at the end of every request
+"""
+@app.teardown_appcontext
+def close_neo4j_driver(error):
+    if hasattr(g, 'neo4j_driver_instance'):
+        # Close the driver instance
+        neo4j_driver.close()
+        # Also remove neo4j_driver_instance from Flask's application context
+        g.neo4j_driver_instance = None
 
 # The only endpoint that should be in this file, all others should be route Blueprints...
 @app.route('/', methods=['GET'])
