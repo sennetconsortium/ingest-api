@@ -918,7 +918,7 @@ def validate_datasets(headers, records, header):
                         entity_to_validate["data_types"] = data_types
                     ancestor_entity_type = ancestor_dict['type'].lower()
                     ancestor_to_validate = {"entity_type": ancestor_entity_type}
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + ancestor
+                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor
                     try:
                         ancestor_result = requests.get(url, headers=header).json()
                         if ancestor_entity_type == "dataset":
