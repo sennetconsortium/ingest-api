@@ -819,6 +819,7 @@ def validate_datasets(headers, records, header):
         assay_resource_file[each] = each.upper()
 
     rownum = 1
+    entity_constraint_list = []
     valid_ancestor_ids = []
     if file_is_valid is True:
         for data_row in records:
@@ -834,7 +835,7 @@ def validate_datasets(headers, records, header):
                     f"Row Number: {rownum}. This row has too few entries. Check file; verify spaces were not used where a tab should be")
                 continue
 
-            # validate that no headers are None. This indicates taht there are fields present.
+            # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
                 error_msg.append(
@@ -894,13 +895,51 @@ def validate_datasets(headers, records, header):
 
             # validate data_type
             data_types = data_row['data_types']
+            data_types_valid = True
             for data_type in data_types:
                 if data_type.upper() not in assay_resource_file:
                     file_is_valid = False
-                    error_msg.append(f"Row Number: {rownum}. data_type value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
+                    data_types_valid = False
+                    error_msg.append(f"Row Number: {rownum}. data_types value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
+            if len(data_types) < 1:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. data_types must not be empty. Must contain at least one assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
+            # prepare entity constraints for validation
+            entity_to_validate = {"entity_type": "dataset"}
+            if data_types_valid
+                entity_to_validate["data_types"] = data_types
+            ancestor_entity_type = ancestor_dict['type'].lower()
+            ancestor_to_validate = {"entity_type": ancestor_entity_type}
+            url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + ancestor_id
+            try:
+                ancestor_result = requests.get(url, headers=header).json()
+                if ancestor_entity_type == "dataset":
+                    ancestor_to_validate['data_types'] = ancestor_result['data_types']
+                    if isinstance(ancestor_to_validate['data_types'], str):
+                        ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
+                if ancestor_entity_type == "sample":
+                    ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
+                    if ancestor_result['sample_category'] == 'organ':
+                        ancestor_to_validate['organ'] = ancestor_result['organ']
+                dict_to_validate = {"ancestor": ancestor_to_validate, "descendant", entity_to_validate}
+                entity_constraint_list.append(dict_to_validate)
+            except Exception as e:
+                file_is_valid = False
+                error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
 
             rownum = rownum + 1
 
+    # validate entity constraints
+    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
+    try:
+        validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
+        if not validate_constraint_result.ok:
+            constraint_errors = validate_constraint_result.json()
+            error_msg = error_msg + constraint_errors
+            file_is_valid = False
+    except Exception as e:
+        file_is_valid = False
+        error_msg.append(f"Row Number: {rownum}. Unable to validate constraints. Entity Api returned the following: {e}")
     if file_is_valid:
         return file_is_valid
     if file_is_valid == False:
