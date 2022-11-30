@@ -848,39 +848,6 @@ def validate_datasets(headers, records, header):
                 file_is_valid = False
                 error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
 
-            # validate ancestor_id
-            ancestor_id = data_row['ancestor_id']
-            for ancestor in ancestor_id:
-                ancestor_saved = False
-                if len(valid_ancestor_ids) > 0:
-                    for item in valid_ancestor_ids:
-                        if item['uuid'] or item['sennet_id']:
-                            if ancestor == item['uuid'] or ancestor == item['sennet_id']:
-                                ancestor_saved = True
-                if ancestor_saved is False:
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor
-                    try:
-                        resp = requests.get(url, headers=header)
-                        if resp.status_code == 404:
-                            file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
-                        if resp.status_code > 499:
-                            file_is_valid = False
-                            #error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
-                            error_msg.append(resp.request.url)
-                        if resp.status_code == 401 or resp.status_code == 403:
-                            file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
-                        if resp.status_code == 400:
-                            file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. {ancestor} is not a valid id format")
-                        if resp.status_code < 300:
-                            ancestor_dict = resp.json()
-                            valid_ancestor_ids.append(ancestor_dict)
-                    except Exception as e:
-                        file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
-
             # validate lab_id
             lab_id = data_row['lab_id']
             if len(lab_id) > 1024:
@@ -900,32 +867,73 @@ def validate_datasets(headers, records, header):
                 if data_type.upper() not in assay_resource_file:
                     file_is_valid = False
                     data_types_valid = False
-                    error_msg.append(f"Row Number: {rownum}. data_types value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
+                    error_msg.append(
+                        f"Row Number: {rownum}. data_types value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
             if len(data_types) < 1:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. data_types must not be empty. Must contain at least one assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
-            # prepare entity constraints for validation
-            entity_to_validate = {"entity_type": "dataset"}
-            if data_types_valid
-                entity_to_validate["data_types"] = data_types
-            ancestor_entity_type = ancestor_dict['type'].lower()
-            ancestor_to_validate = {"entity_type": ancestor_entity_type}
-            url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + ancestor_id
-            try:
-                ancestor_result = requests.get(url, headers=header).json()
-                if ancestor_entity_type == "dataset":
-                    ancestor_to_validate['data_types'] = ancestor_result['data_types']
-                    if isinstance(ancestor_to_validate['data_types'], str):
-                        ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
-                if ancestor_entity_type == "sample":
-                    ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
-                    if ancestor_result['sample_category'] == 'organ':
-                        ancestor_to_validate['organ'] = ancestor_result['organ']
-                dict_to_validate = {"ancestor": ancestor_to_validate, "descendant", entity_to_validate}
-                entity_constraint_list.append(dict_to_validate)
-            except Exception as e:
-                file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
+                error_msg.append(
+                    f"Row Number: {rownum}. data_types must not be empty. Must contain at least one assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
+
+            # validate ancestor_id
+            ancestor_id = data_row['ancestor_id']
+            for ancestor in ancestor_id:
+                if len(ancestor) < 1:
+                    file_is_valid = False
+                    error_msg.append(f"Row Number: {rownum}. ancestor_id cannot be blank")
+                if len(ancestor) > 0:
+                    ancestor_dict = {}
+                    ancestor_saved = False
+                    if len(valid_ancestor_ids) > 0:
+                        for item in valid_ancestor_ids:
+                            if item['uuid'] or item['sennet_id']:
+                                if ancestor == item['uuid'] or ancestor == item['sennet_id']:
+                                    ancestor_dict = item
+                                    ancestor_saved = True
+                    if ancestor_saved is False:
+                        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor
+                        try:
+                            resp = requests.get(url, headers=header)
+                            if resp.status_code == 404:
+                                file_is_valid = False
+                                error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
+                            if resp.status_code > 499:
+                                file_is_valid = False
+                                error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                            if resp.status_code == 401 or resp.status_code == 403:
+                                file_is_valid = False
+                                error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
+                            if resp.status_code == 400:
+                                file_is_valid = False
+                                error_msg.append(f"Row Number: {rownum}. {ancestor} is not a valid id format")
+                            if resp.status_code < 300:
+                                ancestor_dict = resp.json()
+                                valid_ancestor_ids.append(ancestor_dict)
+                        except Exception as e:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+
+                    # prepare entity constraints for validation
+                    entity_to_validate = {"entity_type": "dataset"}
+                    if data_types_valid:
+                        entity_to_validate["data_types"] = data_types
+                    ancestor_entity_type = ancestor_dict['type'].lower()
+                    ancestor_to_validate = {"entity_type": ancestor_entity_type}
+                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + ancestor
+                    try:
+                        ancestor_result = requests.get(url, headers=header).json()
+                        if ancestor_entity_type == "dataset":
+                            ancestor_to_validate['data_types'] = ancestor_result['data_types']
+                            if isinstance(ancestor_to_validate['data_types'], str):
+                                ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
+                        if ancestor_entity_type == "sample":
+                            ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
+                            if ancestor_result['sample_category'] == 'organ':
+                                ancestor_to_validate['organ'] = ancestor_result['organ']
+                        dict_to_validate = {"ancestor": ancestor_to_validate, "descendant": entity_to_validate}
+                        entity_constraint_list.append(dict_to_validate)
+                    except Exception as e:
+                        file_is_valid = False
+                        error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
 
             rownum = rownum + 1
 
