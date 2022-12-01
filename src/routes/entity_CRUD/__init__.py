@@ -1,3 +1,5 @@
+import sys
+
 from flask import Blueprint, jsonify, request, Response, current_app, abort, json
 import logging
 import requests
@@ -818,13 +820,14 @@ def validate_datasets(headers, records, header):
     for each in assay_resource_file:
         assay_resource_file[each] = each.upper()
 
-    rownum = 1
+    rownum = 0
     entity_constraint_list = []
     valid_ancestor_ids = []
     if file_is_valid is True:
         for data_row in records:
             # validate that no fields in data_row are none. If they are none, ,then we cannot verify even if the entry
             # we are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
+            rownum = rownum + 1
             none_present = False
             for each in data_row.keys():
                 if data_row[each] is None:
@@ -883,9 +886,10 @@ def validate_datasets(headers, records, header):
                 if len(ancestor) > 0:
                     ancestor_dict = {}
                     ancestor_saved = False
+                    resp_status_code = False
                     if len(valid_ancestor_ids) > 0:
                         for item in valid_ancestor_ids:
-                            if item['uuid'] or item['sennet_id']:
+                            if item.get('uuid') or item.get('sennet_id'):
                                 if ancestor == item['uuid'] or ancestor == item['sennet_id']:
                                     ancestor_dict = item
                                     ancestor_saved = True
@@ -908,34 +912,34 @@ def validate_datasets(headers, records, header):
                             if resp.status_code < 300:
                                 ancestor_dict = resp.json()
                                 valid_ancestor_ids.append(ancestor_dict)
+                                resp_status_code = True
                         except Exception as e:
                             file_is_valid = False
                             error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                    if ancestor_saved or resp_status_code:
+                        # prepare entity constraints for validation
+                        entity_to_validate = {"entity_type": "dataset"}
+                        if data_types_valid:
+                            entity_to_validate["data_types"] = data_types
+                        ancestor_entity_type = ancestor_dict['type'].lower()
+                        ancestor_to_validate = {"entity_type": ancestor_entity_type}
+                        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor
+                        try:
+                            ancestor_result = requests.get(url, headers=header).json()
+                            if ancestor_entity_type == "dataset":
+                                ancestor_to_validate['data_types'] = ancestor_result['data_types']
+                                if isinstance(ancestor_to_validate['data_types'], str):
+                                    ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
+                            if ancestor_entity_type == "sample":
+                                ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
+                                if ancestor_result['sample_category'] == 'organ':
+                                    ancestor_to_validate['organ'] = ancestor_result['organ']
+                            dict_to_validate = {"ancestor": ancestor_to_validate, "descendant": entity_to_validate}
+                            entity_constraint_list.append(dict_to_validate)
+                        except Exception as e:
+                            file_is_valid = False
+                            error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
 
-                    # prepare entity constraints for validation
-                    entity_to_validate = {"entity_type": "dataset"}
-                    if data_types_valid:
-                        entity_to_validate["data_types"] = data_types
-                    ancestor_entity_type = ancestor_dict['type'].lower()
-                    ancestor_to_validate = {"entity_type": ancestor_entity_type}
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor
-                    try:
-                        ancestor_result = requests.get(url, headers=header).json()
-                        if ancestor_entity_type == "dataset":
-                            ancestor_to_validate['data_types'] = ancestor_result['data_types']
-                            if isinstance(ancestor_to_validate['data_types'], str):
-                                ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
-                        if ancestor_entity_type == "sample":
-                            ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
-                            if ancestor_result['sample_category'] == 'organ':
-                                ancestor_to_validate['organ'] = ancestor_result['organ']
-                        dict_to_validate = {"ancestor": ancestor_to_validate, "descendant": entity_to_validate}
-                        entity_constraint_list.append(dict_to_validate)
-                    except Exception as e:
-                        file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
-
-            rownum = rownum + 1
 
     # validate entity constraints
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
@@ -947,7 +951,7 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
     except Exception as e:
         file_is_valid = False
-        error_msg.append(f"Row Number: {rownum}. Unable to validate constraints. Entity Api returned the following: {e}")
+        error_msg.append(f"Unable to validate constraints. Entity Api returned the following: {e}")
     if file_is_valid:
         return file_is_valid
     if file_is_valid == False:
