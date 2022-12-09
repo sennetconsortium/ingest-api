@@ -42,5 +42,3 @@ ACCESS_LEVEL_PUBLIC = 'public'
 GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/public'
 GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/consortium'
 GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
-
-
