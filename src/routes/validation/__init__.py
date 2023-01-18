@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 def validate_metadata_upload():
     upload = ValidateUpload()
 
-    fullpath = os.path.abspath('ingest_validation_tools/examples/dataset-examples/bad-scatacseq-data/upload/scatacseq-metadata.tsv')
-    fullpath2 = os.path.abspath('ingest_validation_tools/examples/dataset-examples/good-scatacseq-metadata-v1/upload/metadata.tsv')
+    fullpath = os.path.abspath('routes/validation/ingest_validation_tools/examples/dataset-examples/bad-scatacseq-data/upload/scatacseq-metadata.tsv')
+    fullpath2 = os.path.abspath('routes/validation/ingest_validation_tools/examples/dataset-examples/good-scatacseq-metadata-v1/upload/metadata.tsv')
     report = upload.validate_tsvs(path=fullpath)
     # report = upload.validate_tsvs(path=fullpath2)
 
