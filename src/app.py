@@ -16,6 +16,7 @@ from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
+from routes.validation import validation_blueprint
 
 # Local Modules
 from routes.entity_CRUD.file_upload_helper import UploadFileHelper
@@ -35,6 +36,7 @@ app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
+app.register_blueprint(validation_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
