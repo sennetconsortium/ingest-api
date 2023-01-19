@@ -3,6 +3,7 @@ import os
 from flask import Blueprint, make_response, request, abort, current_app
 from hubmap_commons import file_helper as commons_file_helper
 from werkzeug import utils
+import csv
 
 from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 from .ingest_validation_tools.src.validate_upload import ValidateUpload
@@ -51,6 +52,24 @@ def check_upload():
         print(e)
     return result
 
+def get_metadata(upload):
+    records = []
+    headers = []
+    with open(upload['location'], newline='') as tsvfile:
+        reader = csv.DictReader(tsvfile, delimiter='\t')
+        first = True
+        for row in reader:
+            data_row = {}
+            for key in row.keys():
+                if first:
+                    headers.append(key)
+                data_row[key] = row[key]
+            records.append(data_row)
+            if first:
+                first = False
+
+    return records
+
 
 @validation_blueprint.route('/validation', methods=['POST'])
 def validate_metadata_upload():
@@ -61,14 +80,16 @@ def validate_metadata_upload():
     if error is None:
         validator = ValidateUpload()
         validation_results = validator.validate_tsvs(path=upload['location'])
-        if validation_results is not None:
+        if len(validation_results) > 2:
             response = {
                 'code': 406,
+                'name': 'Unacceptable Metadata',
                 'description': validation_results
             }
         else:
             response = {
-                'code': 200
+                'code': 200,
+                'metadata': get_metadata(upload)
             }
 
     headers: dict = {
