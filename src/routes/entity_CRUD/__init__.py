@@ -191,6 +191,10 @@ def create_sources_from_bulk():
             if first:
                 first = False
     validfile = validate_sources(headers, records)
+
+    # Replace 'lab_notes' with 'description
+    headers = ['description' if i == 'lab_notes' else i for i in headers]
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -332,6 +336,10 @@ def create_samples_from_bulk():
             if first:
                 first = False
     validfile = validate_samples(headers, records, header)
+
+    # Replace 'lab_notes' with 'description
+    headers = ['description' if i == 'lab_notes' else i for i in headers]
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -526,6 +534,10 @@ def create_datasets_from_bulk():
                 record['human_gene_sequences'] = False
 
     validfile = validate_datasets(headers, records, header)
+
+    # Replace 'doi_abstract' with 'description
+    headers = ['description' if i == 'doi_abstract' else i for i in headers]
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -839,6 +851,7 @@ def validate_samples(headers, records, header):
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
+    assays = []
 
     required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
@@ -856,7 +869,7 @@ def validate_datasets(headers, records, header):
         assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
     for each in assay_resource_file:
-        assay_resource_file[each] = each.upper()
+        assays.append(each.upper())
 
     rownum = 0
     entity_constraint_list = []
@@ -905,7 +918,7 @@ def validate_datasets(headers, records, header):
             data_types = data_row['data_types']
             data_types_valid = True
             for data_type in data_types:
-                if data_type.upper() not in assay_resource_file:
+                if data_type.upper() not in assays:
                     file_is_valid = False
                     data_types_valid = False
                     error_msg.append(
@@ -913,7 +926,7 @@ def validate_datasets(headers, records, header):
             if len(data_types) < 1:
                 file_is_valid = False
                 error_msg.append(
-                    f"Row Number: {rownum}. data_types must not be empty. Must contain at least one assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
+                    f"Row Number: {rownum}. data_types must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
