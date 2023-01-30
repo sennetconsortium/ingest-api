@@ -192,9 +192,6 @@ def create_sources_from_bulk():
                 first = False
     validfile = validate_sources(headers, records)
 
-    # Replace 'lab_notes' with 'description
-    headers = ['description' if i == 'lab_notes' else i for i in headers]
-
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -213,6 +210,8 @@ def create_sources_from_bulk():
             del item['lab_id']
             item['protocol_url'] = item['selection_protocol']
             del item['selection_protocol']
+            item['description'] = item['lab_notes']
+            del item['lab_notes']
             if group_uuid is not None:
                 item['group_uuid'] = group_uuid
             r = requests.post(
@@ -337,9 +336,6 @@ def create_samples_from_bulk():
                 first = False
     validfile = validate_samples(headers, records, header)
 
-    # Replace 'lab_notes' with 'description
-    headers = ['description' if i == 'lab_notes' else i for i in headers]
-
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -358,6 +354,8 @@ def create_samples_from_bulk():
             del item['ancestor_id']
             item['lab_tissue_sample_id'] = item['lab_id']
             del item['lab_id']
+            item['description'] = item['lab_notes']
+            del item['lab_notes']
             item['protocol_url'] = item['preparation_protocol']
             del item['preparation_protocol']
             item['organ'] = item['organ_type']
@@ -535,9 +533,6 @@ def create_datasets_from_bulk():
 
     validfile = validate_datasets(headers, records, header)
 
-    # Replace 'doi_abstract' with 'description
-    headers = ['description' if i == 'doi_abstract' else i for i in headers]
-
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -556,6 +551,8 @@ def create_datasets_from_bulk():
             del item['ancestor_id']
             item['lab_dataset_id'] = item['lab_id']
             del item['lab_id']
+            item['description'] = item['doi_abstract']
+            del item['doi_abstract']
             item['contains_human_genetic_sequences'] = item['human_gene_sequences']
             del item['human_gene_sequences']
             if group_uuid is not None:
