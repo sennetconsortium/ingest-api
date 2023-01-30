@@ -576,7 +576,7 @@ def validate_sources(headers, records):
     file_is_valid = True
     allowed_source_types = ["human", "human organoid", "mouse", "mouse organoid"]
 
-    required_headers = ['lab_id', 'source_type', 'selection_protocol', 'description']
+    required_headers = ['lab_id', 'source_type', 'selection_protocol', 'lab_notes']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -635,10 +635,10 @@ def validate_sources(headers, records):
                 )
 
             # validate description
-            description = data_row['description']
+            description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
 
 
 
@@ -651,7 +651,7 @@ def validate_samples(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'description', 'organ_type']
+    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'lab_notes', 'organ_type']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -693,10 +693,10 @@ def validate_samples(headers, records, header):
                 continue
 
             # validate description
-            description = data_row['description']
+            description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
@@ -840,7 +840,7 @@ def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'lab_id', 'description', 'human_gene_sequences', 'data_types']
+    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -884,10 +884,10 @@ def validate_datasets(headers, records, header):
                 continue
 
             # validate description
-            description = data_row['description']
+            description = data_row['doi_abstract']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. DOI Abstract must be fewer than 10,000 characters")
 
             # validate lab_id
             lab_id = data_row['lab_id']
