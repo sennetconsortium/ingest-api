@@ -191,6 +191,7 @@ def create_sources_from_bulk():
             if first:
                 first = False
     validfile = validate_sources(headers, records)
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -209,6 +210,8 @@ def create_sources_from_bulk():
             del item['lab_id']
             item['protocol_url'] = item['selection_protocol']
             del item['selection_protocol']
+            item['description'] = item['lab_notes']
+            del item['lab_notes']
             if group_uuid is not None:
                 item['group_uuid'] = group_uuid
             r = requests.post(
@@ -332,6 +335,7 @@ def create_samples_from_bulk():
             if first:
                 first = False
     validfile = validate_samples(headers, records, header)
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -350,6 +354,8 @@ def create_samples_from_bulk():
             del item['ancestor_id']
             item['lab_tissue_sample_id'] = item['lab_id']
             del item['lab_id']
+            item['description'] = item['lab_notes']
+            del item['lab_notes']
             item['protocol_url'] = item['preparation_protocol']
             del item['preparation_protocol']
             item['organ'] = item['organ_type']
@@ -526,6 +532,7 @@ def create_datasets_from_bulk():
                 record['human_gene_sequences'] = False
 
     validfile = validate_datasets(headers, records, header)
+
     if type(validfile) == list:
         return_validfile = {}
         error_num = 0
@@ -544,6 +551,8 @@ def create_datasets_from_bulk():
             del item['ancestor_id']
             item['lab_dataset_id'] = item['lab_id']
             del item['lab_id']
+            item['description'] = item['doi_abstract']
+            del item['doi_abstract']
             item['contains_human_genetic_sequences'] = item['human_gene_sequences']
             del item['human_gene_sequences']
             if group_uuid is not None:
@@ -576,7 +585,7 @@ def validate_sources(headers, records):
     file_is_valid = True
     allowed_source_types = ["human", "human organoid", "mouse", "mouse organoid"]
 
-    required_headers = ['lab_id', 'source_type', 'selection_protocol', 'description']
+    required_headers = ['lab_id', 'source_type', 'selection_protocol', 'lab_notes']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -635,10 +644,10 @@ def validate_sources(headers, records):
                 )
 
             # validate description
-            description = data_row['description']
+            description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
 
 
 
@@ -651,7 +660,7 @@ def validate_samples(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'description', 'organ_type']
+    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'lab_notes', 'organ_type']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -693,10 +702,10 @@ def validate_samples(headers, records, header):
                 continue
 
             # validate description
-            description = data_row['description']
+            description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
@@ -839,8 +848,9 @@ def validate_samples(headers, records, header):
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
+    assays = []
 
-    required_headers = ['ancestor_id', 'lab_id', 'description', 'human_gene_sequences', 'data_types']
+    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -856,7 +866,7 @@ def validate_datasets(headers, records, header):
         assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
     for each in assay_resource_file:
-        assay_resource_file[each] = each.upper()
+        assays.append(each.upper())
 
     rownum = 0
     entity_constraint_list = []
@@ -884,10 +894,10 @@ def validate_datasets(headers, records, header):
                 continue
 
             # validate description
-            description = data_row['description']
+            description = data_row['doi_abstract']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Description must be fewer than 10,000 characters")
+                error_msg.append(f"Row Number: {rownum}. DOI Abstract must be fewer than 10,000 characters")
 
             # validate lab_id
             lab_id = data_row['lab_id']
@@ -905,7 +915,7 @@ def validate_datasets(headers, records, header):
             data_types = data_row['data_types']
             data_types_valid = True
             for data_type in data_types:
-                if data_type.upper() not in assay_resource_file:
+                if data_type.upper() not in assays:
                     file_is_valid = False
                     data_types_valid = False
                     error_msg.append(
@@ -913,7 +923,7 @@ def validate_datasets(headers, records, header):
             if len(data_types) < 1:
                 file_is_valid = False
                 error_msg.append(
-                    f"Row Number: {rownum}. data_types must not be empty. Must contain at least one assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
+                    f"Row Number: {rownum}. data_types must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
