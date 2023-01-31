@@ -4,6 +4,7 @@ from flask import Blueprint, make_response, request, abort, current_app
 from hubmap_commons import file_helper as commons_file_helper
 from werkzeug import utils
 import csv
+import json
 
 from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 from .ingest_validation_tools.src.validate_upload import ValidateUpload
@@ -84,7 +85,7 @@ def validate_metadata_upload():
             response = {
                 'code': 406,
                 'name': 'Unacceptable Metadata',
-                'description': validation_results
+                'description': json.loads(validation_results)
             }
         else:
             response = {
