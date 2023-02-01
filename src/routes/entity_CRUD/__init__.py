@@ -708,7 +708,7 @@ def validate_samples(headers, records, header):
                     f"Row Number: {rownum}. preparation_protocol must either be of the format https://dx.doi.org/##.####/protocols.io.* or ##.####/protocols.io.*")
             if len(protocol) < 1:
                 file_is_valid = False
-                error_msg.append(f"row Number: {rownum}. preparation_protocol is a required filed and cannot be blank.")
+                error_msg.append(f"Row Number: {rownum}. preparation_protocol is a required filed and cannot be blank.")
 
             # validate lab_id
             lab_id = data_row['lab_id']
