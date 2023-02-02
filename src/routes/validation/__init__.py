@@ -1,99 +1,26 @@
-import logging
+import sys
 import os
-from flask import Blueprint, make_response, request, abort, current_app
-from hubmap_commons import file_helper as commons_file_helper
-from werkzeug import utils
-import csv
-import json
+from importlib import import_module
 
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
-from .ingest_validation_tools.src.validate_upload import ValidateUpload
+sys.path.append(os.path.join(os.path.dirname(__file__),
+                             'ingest_validation_tools', 'src'))
 
-validation_blueprint = Blueprint('validation', __name__)
-logger = logging.getLogger(__name__)
+ingest_validation_tools_upload = import_module('ingest_validation_tools.upload')
+ingest_validation_tools_error_report = import_module('ingest_validation_tools.error_report')
+ingest_validation_tools_validation_utils = import_module('ingest_validation_tools.validation_utils')
+ingest_validation_tools_plugin_validator = import_module('ingest_validation_tools.plugin_validator')
+ingest_validation_tools_schema_loader = import_module('ingest_validation_tools.schema_loader')
+ingest_validation_tools_table_validator = import_module('ingest_validation_tools.table_validator')
 
+__all__ = ["ingest_validation_tools_validation_utils",
+           "ingest_validation_tools_upload",
+           "ingest_validation_tools_error_report",
+           "ingest_validation_tools_plugin_validator",
+           "ingest_validation_tools_schema_loader",
+           "ingest_validation_tools_table_validator"
+           ]
 
-def bad_request_error(err_msg):
-    abort(400, description = err_msg)
+sys.path.pop()
+sys.path.pop()
 
-
-def check_upload():
-    file = None
-    result: dict = {
-        'error': None
-    }
-    try:
-        if not UploadFileHelper.is_initialized():
-            file_upload_helper_instance = UploadFileHelper.create(current_app.config['FILE_UPLOAD_TEMP_DIR'],
-                                                                  current_app.config['FILE_UPLOAD_DIR'],
-                                                                  current_app.config['UUID_WEBSERVICE_URL'])
-            logger.info("Initialized UploadFileHelper class successfully :)")
-        else:
-            file_upload_helper_instance = UploadFileHelper.instance()
-
-        key = 'metadata'
-        if key not in request.files:
-            bad_request_error('No file part')
-        file = request.files[key]
-        if file.filename == '':
-            bad_request_error('No selected file')
-
-        file.filename = file.filename.replace(" ", "_")
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-        file.filename = utils.secure_filename(file.filename)
-        base_path = commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
-        result['location'] = base_path + temp_id + os.sep + file.filename
-        result['file'] = file
-    except Exception as e:
-        result['error'] = {
-            'code': e.code,
-            'name': e.name,
-            'description': e.description
-        }
-        print(e)
-    return result
-
-def get_metadata(upload):
-    records = []
-    headers = []
-    with open(upload['location'], newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-
-    return records
-
-
-@validation_blueprint.route('/validation', methods=['POST'])
-def validate_metadata_upload():
-
-    upload = check_upload()
-    error = upload['error']
-    response = error
-    if error is None:
-        validator = ValidateUpload()
-        validation_results = validator.validate_tsvs(path=upload['location'])
-        if len(validation_results) > 2:
-            response = {
-                'code': 406,
-                'name': 'Unacceptable Metadata',
-                'description': json.loads(validation_results)
-            }
-        else:
-            response = {
-                'code': 200,
-                'metadata': get_metadata(upload)
-            }
-
-    headers: dict = {
-        "Content-Type": "application/json"
-    }
-    return make_response(response, response['code'], headers)
+from .validation import *
