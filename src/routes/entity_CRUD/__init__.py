@@ -574,6 +574,25 @@ def _ln_err(error: str, row: int = None, column: str = None):
         'row': row
     }
 
+def _common_ln_errs(err, val):
+    match err:
+        case 1:
+            return _ln_err(f" `{val}` is a required field", 1)
+        case 2:
+            return _ln_err(f" `{val}` is not an accepted field", 1)
+        case 3:
+            return _ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
+        case 4:
+            return _ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", val)
+        case 5:
+            return _ln_err("Failed to reach UUID Web Service", val)
+        case 6:
+            return _ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", val)
+        case 7:
+            return _ln_err("Unauthorized. Cannot access UUID-api", val)
+        case 8:
+            return _ln_err("Unable to verify `ancestor_id` exists", val)
+
 def validate_sources(headers, records):
     error_msg = []
     file_is_valid = True
@@ -583,12 +602,12 @@ def validate_sources(headers, records):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is a required field", 1))
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is not an accepted field", 1))
+            error_msg.append(_common_ln_errs(2, field))
     rownum = 0
     if file_is_valid is True:
         for data_row in records:
@@ -601,14 +620,13 @@ def validate_sources(headers, records):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(_ln_err(
-                    "This row has too few entries. Check file; verify spaces were not used where a tab should be", rownum))
+                error_msg.append(_common_ln_errs(4, rownum))
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(_ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", rownum))
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate lab_id
@@ -652,12 +670,12 @@ def validate_samples(headers, records, header):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is a required field"))
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is not an accepted field", 1))
+            error_msg.append(_common_ln_errs(2, field))
 
     allowed_categories = ["block", "section", "suspension", "bodily fluid", "organ", "organ piece"]
 
@@ -678,13 +696,13 @@ def validate_samples(headers, records, header):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(_ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", rownum))
+                error_msg.append(_common_ln_errs(4, rownum))
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(_ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", rownum))
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate description
@@ -758,13 +776,13 @@ def validate_samples(headers, records, header):
                         resp = requests.get(url, headers=header)
                         if resp.status_code == 404:
                             file_is_valid = False
-                            error_msg.append(_ln_err("Unable to verify ancestor_id exists", rownum))
+                            error_msg.append(_common_ln_errs(8, rownum))
                         if resp.status_code > 499:
                             file_is_valid = False
-                            error_msg.append(_ln_err("Failed to reach UUID Web Service", rownum))
+                            error_msg.append(_common_ln_errs(5, rownum))
                         if resp.status_code == 401:
                             file_is_valid = False
-                            error_msg.append(_ln_err("Unauthorized. Cannot access UUID-api", rownum))
+                            error_msg.append(_common_ln_errs(7, rownum))
                         if resp.status_code == 400:
                             file_is_valid = False
                             error_msg.append(_ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
@@ -774,7 +792,7 @@ def validate_samples(headers, records, header):
                             resp_status_code = True
                     except Exception as e:
                         file_is_valid = False
-                        error_msg.append(_ln_err("Failed to reach UUID Web Service", rownum))
+                        error_msg.append(_common_ln_errs(5, rownum))
                 if ancestor_saved or resp_status_code:
                     data_row['ancestor_id'] = ancestor_dict['uuid']
                     if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
@@ -813,16 +831,20 @@ def validate_samples(headers, records, header):
 
 
     # validate entity constraints
+    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
+
+
+def validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list):
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
     try:
         validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
         if not validate_constraint_result.ok:
             constraint_errors = validate_constraint_result.json()
-            error_msg = error_msg + constraint_errors
+            error_msg.extend(constraint_errors)
             file_is_valid = False
     except Exception as e:
         file_is_valid = False
-        error_msg.append(_ln_err(f"Unable to validate constraints. Entity Api returned the following: {e}"))
+        error_msg.append(_common_ln_errs(3, e))
     if file_is_valid:
         return file_is_valid
     if file_is_valid == False:
@@ -837,12 +859,12 @@ def validate_datasets(headers, records, header):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is a required field"))
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(_ln_err(f"`{field}` is not an accepted field"))
+            error_msg.append(_common_ln_errs(2, field))
 
     # retrieve yaml file containing all accepted data types
     with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
@@ -865,14 +887,14 @@ def validate_datasets(headers, records, header):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(_ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", rownum))
+                error_msg.append(_common_ln_errs(4, rownum))
 
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(_ln_err("This row has too many entries. Check file; verify that there are are only as many fields as there are headers", rownum))
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate description
@@ -928,13 +950,13 @@ def validate_datasets(headers, records, header):
                             resp = requests.get(url, headers=header)
                             if resp.status_code == 404:
                                 file_is_valid = False
-                                error_msg.append(_ln_err("Unable to verify `ancestor_id` exists", rownum))
+                                error_msg.append(_common_ln_errs(8, rownum))
                             if resp.status_code > 499:
                                 file_is_valid = False
-                                error_msg.append(_ln_err("Failed to reach UUID Web Service", rownum))
+                                error_msg.append(_common_ln_errs(5, rownum))
                             if resp.status_code == 401 or resp.status_code == 403:
                                 file_is_valid = False
-                                error_msg.append(_ln_err(f"Unauthorized. Cannot access UUID-api", rownum))
+                                error_msg.append(_common_ln_errs(7, rownum))
                             if resp.status_code == 400:
                                 file_is_valid = False
                                 error_msg.append(_ln_err(f"`{ancestor}` is not a valid id format", rownum))
@@ -944,7 +966,7 @@ def validate_datasets(headers, records, header):
                                 resp_status_code = True
                         except Exception as e:
                             file_is_valid = False
-                            error_msg.append(_ln_err("Failed to reach UUID Web Service", rownum))
+                            error_msg.append(_common_ln_errs(5, rownum))
                     if ancestor_saved or resp_status_code:
                         # prepare entity constraints for validation
                         entity_to_validate = {"entity_type": "dataset"}
@@ -971,20 +993,7 @@ def validate_datasets(headers, records, header):
 
 
     # validate entity constraints
-    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
-    try:
-        validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
-        if not validate_constraint_result.ok:
-            constraint_errors = validate_constraint_result.json()
-            error_msg = error_msg + constraint_errors
-            file_is_valid = False
-    except Exception as e:
-        file_is_valid = False
-        error_msg.append(_ln_err(f"Unable to validate constraints. Entity Api returned the following: {e}"))
-    if file_is_valid:
-        return file_is_valid
-    if file_is_valid == False:
-        return error_msg
+    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
 
 
 ####################################################################################################
