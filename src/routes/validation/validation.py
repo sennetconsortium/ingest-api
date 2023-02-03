@@ -95,6 +95,7 @@ def validate_metadata_upload():
     upload = check_upload()
     error = upload['error']
     response = error
+    entity = request.values['entity']
     if error is None:
         validation_results = validate_tsvs(path=upload['location'])
         if len(validation_results) > 2:
