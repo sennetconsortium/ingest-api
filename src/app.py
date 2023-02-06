@@ -155,6 +155,6 @@ if __name__ == '__main__':
         port = 8484
         if args.port:
             port = int(args.port)
-        app.run(port=port, host='0.0.0.0', debug=True)
+        app.run(port=port, host='0.0.0.0')
     finally:
         pass

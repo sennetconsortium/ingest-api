@@ -19,7 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def bad_request_error(err_msg):
-    abort(400, description = err_msg)
+    abort(400, description=err_msg)
+
 
 def check_upload():
     file = None
