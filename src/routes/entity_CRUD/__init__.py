@@ -575,23 +575,22 @@ def _ln_err(error: str, row: int = None, column: str = None):
     }
 
 def _common_ln_errs(err, val):
-    match err:
-        case 1:
-            return _ln_err(f" `{val}` is a required field", 1)
-        case 2:
-            return _ln_err(f" `{val}` is not an accepted field", 1)
-        case 3:
-            return _ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
-        case 4:
-            return _ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", val)
-        case 5:
-            return _ln_err("Failed to reach UUID Web Service", val)
-        case 6:
-            return _ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", val)
-        case 7:
-            return _ln_err("Unauthorized. Cannot access UUID-api", val)
-        case 8:
-            return _ln_err("Unable to verify `ancestor_id` exists", val)
+    if err == 1:
+        return _ln_err(f" `{val}` is a required field", 1)
+    elif err == 2:
+        return _ln_err(f" `{val}` is not an accepted field", 1)
+    elif err == 3:
+        return _ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
+    elif err == 4:
+        return _ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", val)
+    elif err == 5:
+        return _ln_err("Failed to reach UUID Web Service", val)
+    elif err == 6:
+        return _ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", val)
+    elif err == 7:
+        return _ln_err("Unauthorized. Cannot access UUID-api", val)
+    elif err == 8:
+        return _ln_err("Unable to verify `ancestor_id` exists", val)
 
 def validate_sources(headers, records):
     error_msg = []
