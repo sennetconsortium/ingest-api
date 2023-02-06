@@ -90,7 +90,7 @@ def validate_tsvs(schema='metadata', path=None):
     return json.dumps(errors)
 
 
-@validation_blueprint.route('/validation', methods=['POST', 'GET'])
+@validation_blueprint.route('/validation', methods=['POST'])
 def validate_metadata_upload():
 
     upload = check_upload()
