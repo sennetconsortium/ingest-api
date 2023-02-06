@@ -130,12 +130,12 @@ def bulk_sources_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
+        # return_validfile = {}
+        # error_num = 0
+        # for item in validfile:
+        #     return_validfile[str(error_num)] = str(item)
+        #     error_num = error_num + 1
+        response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400,
                         mimetype='application/json')  # The exact format of the return to be determined
     else:
@@ -224,17 +224,7 @@ def create_sources_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        if entity_created and not entity_failed_to_create:
-            response_status = "Success - All Entities Created Successfully"
-            status_code = 201
-        elif entity_failed_to_create and not entity_created:
-            response_status = "Failure - None of the Entities Created Successfully"
-            status_code = 500
-        elif entity_created and entity_failed_to_create:
-            response_status = "Partial Success - Some Entities Created Successfully"
-            status_code = 207
-        response = {"status": response_status, "data": entity_response}
-        return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
 @entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
@@ -275,12 +265,12 @@ def bulk_samples_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
+        # return_validfile = {}
+        # error_num = 0
+        # for item in validfile:
+        #     return_validfile[str(error_num)] = str(item)
+        #     error_num = error_num + 1
+        response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     else:
         message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
@@ -337,12 +327,12 @@ def create_samples_from_bulk():
     validfile = validate_samples(headers, records, header)
 
     if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
+    #     return_validfile = {}
+    #     error_num = 0
+    #     for item in validfile:
+    #         return_validfile[str(error_num)] = str(item)
+    #         error_num = error_num + 1
+        response_body = {"status": False, "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     entity_response = {}
     row_num = 1
@@ -373,17 +363,7 @@ def create_samples_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        if entity_created and not entity_failed_to_create:
-            response_status = "Success - All Entities Created Successfully"
-            status_code = 201
-        elif entity_failed_to_create and not entity_created:
-            response_status = "Failure - None of the Entities Created Successfully"
-            status_code = 500
-        elif entity_created and entity_failed_to_create:
-            response_status = "Partial Success - Some Entities Created Successfully"
-            status_code = 207
-        response = {"status": response_status, "data": entity_response}
-        return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
@@ -449,12 +429,12 @@ def bulk_datasets_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
+        # return_validfile = {}
+        # error_num = 0
+        # for item in validfile:
+        #     return_validfile[str(error_num)] = str(item)
+        #     error_num = error_num + 1
+        response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     else:
         message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
@@ -534,12 +514,12 @@ def create_datasets_from_bulk():
     validfile = validate_datasets(headers, records, header)
 
     if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
+        # return_validfile = {}
+        # error_num = 0
+        # for item in validfile:
+        #     return_validfile[str(error_num)] = str(item)
+        #     error_num = error_num + 1
+        response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     entity_response = {}
     row_num = 1
@@ -567,18 +547,51 @@ def create_datasets_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        if entity_created and not entity_failed_to_create:
-            response_status = "Success - All Entities Created Successfully"
-            status_code = 201
-        elif entity_failed_to_create and not entity_created:
-            response_status = "Failure - None of the Entities Created Successfully"
-            status_code = 500
-        elif entity_created and entity_failed_to_create:
-            response_status = "Partial Success - Some Entities Created Successfully"
-            status_code = 207
-        response = {"status": response_status, "data": entity_response}
-        return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
+
+def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
+    response_status = ''
+    if entity_created and not entity_failed_to_create:
+        response_status = "Success - All Entities Created Successfully"
+        status_code = 201
+    elif entity_failed_to_create and not entity_created:
+        response_status = "Failure - None of the Entities Created Successfully"
+        status_code = 500
+    elif entity_created and entity_failed_to_create:
+        response_status = "Partial Success - Some Entities Created Successfully"
+        status_code = 207
+    response = {"status": response_status, "data": entity_response}
+    return _send_response(response, status_code)
+
+def _send_response(response, status_code):
+    return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+
+def _ln_err(error: str, row: int = None, column: str = None):
+    return {
+        'column': column,
+        'error': error,
+        'row': row
+    }
+
+def _common_ln_errs(err, val):
+    match err:
+        case 1:
+            return _ln_err(f" `{val}` is a required field", 1)
+        case 2:
+            return _ln_err(f" `{val}` is not an accepted field", 1)
+        case 3:
+            return _ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
+        case 4:
+            return _ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", val)
+        case 5:
+            return _ln_err("Failed to reach UUID Web Service", val)
+        case 6:
+            return _ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", val)
+        case 7:
+            return _ln_err("Unauthorized. Cannot access UUID-api", val)
+        case 8:
+            return _ln_err("Unable to verify `ancestor_id` exists", val)
 
 def validate_sources(headers, records):
     error_msg = []
@@ -589,12 +602,12 @@ def validate_sources(headers, records):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(f"{field} is a required field")
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(f"{field} is not an accepted field")
+            error_msg.append(_common_ln_errs(2, field))
     rownum = 0
     if file_is_valid is True:
         for data_row in records:
@@ -607,25 +620,23 @@ def validate_sources(headers, records):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too few entries. Check file; verify spaces were not used where a tab should be")
+                error_msg.append(_common_ln_errs(4, rownum))
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too many entries. Check file; verify that there are only as many fields as there are headers")
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate lab_id
             lab_id = data_row['lab_id']
             if len(lab_id) > 1024:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. lab_id must be fewer than 1024 characters")
+                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
             if len(lab_id) < 1:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. lab_id must have 1 or more characters")
+                error_msg.append(_ln_err("must have 1 or more characters", rownum, "lab_id"))
 
             # validate selection_protocol
             protocol = data_row['selection_protocol']
@@ -633,23 +644,18 @@ def validate_sources(headers, records):
             selection_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
             if selection_protocol_pattern2 is None and selection_protocol_pattern1 is None:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. selection_protocol must either be of the format https://dx.doi.org/##.####/protocols.io.* or ##.####/protocols.io.*")
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "selection_protocol"))
 
             # validate source_type
             if data_row['source_type'].lower() not in allowed_source_types:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. source_type can only be one of the following (not case sensitive): {', '.join(allowed_source_types)}"
-                )
+                error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_source_types)}", rownum, "source_type"))
 
             # validate description
             description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
-
-
+                error_msg.append(_ln_err("must be fewer than 10,000 characters", rownum, "lab_notes"))
 
     if file_is_valid:
         return file_is_valid
@@ -664,12 +670,12 @@ def validate_samples(headers, records, header):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(f"{field} is a required field")
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(f"{field} is not an accepted field")
+            error_msg.append(_common_ln_errs(2, field))
 
     allowed_categories = ["block", "section", "suspension", "bodily fluid", "organ", "organ piece"]
 
@@ -690,22 +696,20 @@ def validate_samples(headers, records, header):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too few entries. Check file; verify spaces were not used where a tab should be")
+                error_msg.append(_common_ln_errs(4, rownum))
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too many entries. Check file; verify that there are only as many fields as there are headers")
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate description
             description = data_row['lab_notes']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. Lab Notes must be fewer than 10,000 characters")
+                error_msg.append(_ln_err("must be fewer than 10,000 characters", rownum, "lab_notes"))
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
@@ -713,20 +717,19 @@ def validate_samples(headers, records, header):
             preparation_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
             if preparation_protocol_pattern2 is None and preparation_protocol_pattern1 is None:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. preparation_protocol must either be of the format https://dx.doi.org/##.####/protocols.io.* or ##.####/protocols.io.*")
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "preparation_protocol"))
             if len(protocol) < 1:
                 file_is_valid = False
-                error_msg.append(f"row Number: {rownum}. preparation_protocol is a required filed and cannot be blank.")
+                error_msg.append(_ln_err("is a required filed and cannot be blank", rownum, "preparation_protocol"))
 
             # validate lab_id
             lab_id = data_row['lab_id']
             if len(lab_id) > 1024:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. lab_id must be fewer than 1024 characters")
+                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
             if len(lab_id) < 1:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. lab_id value cannot be blank")
+                error_msg.append(_ln_err("value cannot be blank", rownum, "lab_id"))
 
             # validate sample_category
             valid_category = True
@@ -734,30 +737,29 @@ def validate_samples(headers, records, header):
             if sample_category.lower() not in allowed_categories:
                 file_is_valid = False
                 valid_category = False
-                error_msg.append(
-                    f"Row Number: {rownum}. sample_category can only be one of the following (not case sensitive): {', '.join(allowed_categories)}"
-                )
+                error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_categories)}", rownum, "sample_category"))
 
             # validate organ_type
             organ_type = data_row['organ_type']
             if sample_category.lower() != "organ":
                 if len(organ_type) > 0:
                     file_is_valid = False
-                    error_msg.append(f"Row Number: {rownum}. organ_type field must be blank if sample_category is not 'organ'")
+                    error_msg.append(_ln_err("field must be blank if `sample_category` is not `organ`", rownum, "organ_type"))
             if sample_category.lower() == "organ":
                 if len(organ_type) < 1:
                     file_is_valid = False
-                    error_msg.append(f"Row Number: {rownum}. organ_type field is required if sample_category is 'organ'")
+                    error_msg.append(_ln_err("field is required if `sample_category` is `organ`", rownum, "organ_type"))
             if len(organ_type) > 0:
                 if organ_type.upper() not in organ_resource_file:
                     file_is_valid = False
-                    error_msg.append(f"Row Number: {rownum}. organ_type value must be an organ code listed in organ type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)")
+                    error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)", rownum, "organ_type"))
+
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
             if len(ancestor_id) < 1:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. ancestor_id cannot be blank")
+                error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
             if len(ancestor_id) > 0:
                 ancestor_dict = {}
                 ancestor_saved = False
@@ -774,33 +776,32 @@ def validate_samples(headers, records, header):
                         resp = requests.get(url, headers=header)
                         if resp.status_code == 404:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
+                            error_msg.append(_common_ln_errs(8, rownum))
                         if resp.status_code > 499:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                            error_msg.append(_common_ln_errs(5, rownum))
                         if resp.status_code == 401:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
+                            error_msg.append(_common_ln_errs(7, rownum))
                         if resp.status_code == 400:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. {ancestor_id} is not a valid id format")
+                            error_msg.append(_ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
                         if resp.status_code < 300:
                             ancestor_dict = resp.json()
                             valid_ancestor_ids.append(ancestor_dict)
                             resp_status_code = True
                     except Exception as e:
                         file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Failled to reach UUID Web Service")
+                        error_msg.append(_common_ln_errs(5, rownum))
                 if ancestor_saved or resp_status_code:
                     data_row['ancestor_id'] = ancestor_dict['uuid']
                     if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
                         file_is_valid = False
-                        error_msg.append(
-                            f"Row Number: {rownum}. If sample category is organ, ancestor_id must point to a source")
+                        error_msg.append(_ln_err("If `sample_category` is `organ`, `ancestor_id` must point to a source", rownum))
+
                     if sample_category.lower() != 'organ' and ancestor_dict['type'].lower() != 'sample':
                         file_is_valid = False
-                        error_msg.append(
-                            f"Row Number: {rownum}. If sample category is not organ, ancestor_id must point to a sample")
+                        error_msg.append(_ln_err("If `sample_category` is not `organ`, `ancestor_id` must point to a sample", rownum))
 
                     # prepare entity constraints for validation
                     entity_to_validate = {"entity_type": "sample"}
@@ -825,21 +826,25 @@ def validate_samples(headers, records, header):
                         entity_constraint_list.append(dict_to_validate)
                     except Exception as e:
                         file_is_valid = False
-                        error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
+                        error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
 
 
 
     # validate entity constraints
+    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
+
+
+def validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list):
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
     try:
         validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
         if not validate_constraint_result.ok:
             constraint_errors = validate_constraint_result.json()
-            error_msg = error_msg + constraint_errors
+            error_msg.extend(constraint_errors)
             file_is_valid = False
     except Exception as e:
         file_is_valid = False
-        error_msg.append(f"Unable to validate constraints. Entity Api returned the following: {e}")
+        error_msg.append(_common_ln_errs(3, e))
     if file_is_valid:
         return file_is_valid
     if file_is_valid == False:
@@ -854,12 +859,12 @@ def validate_datasets(headers, records, header):
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
-            error_msg.append(f"{field} is a required field")
+            error_msg.append(_common_ln_errs(1, field))
     required_headers.append(None)
     for field in headers:
         if field not in required_headers:
             file_is_valid = False
-            error_msg.append(f"{field} is not an accepted field")
+            error_msg.append(_common_ln_errs(2, field))
 
     # retrieve yaml file containing all accepted data types
     with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
@@ -882,34 +887,33 @@ def validate_datasets(headers, records, header):
                     none_present = True
             if none_present:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too few entries. Check file; verify spaces were not used where a tab should be")
+                error_msg.append(_common_ln_errs(4, rownum))
+
                 continue
 
             # validate that no headers are None. This indicates that there are fields present.
             if data_row.get(None) is not None:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. This row has too many entries. Check file; verify that there are are only as many fields as there are headers")
+                error_msg.append(_common_ln_errs(6, rownum))
                 continue
 
             # validate description
             description = data_row['doi_abstract']
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. DOI Abstract must be fewer than 10,000 characters")
+                error_msg.append(_ln_err("DOI Abstract must be fewer than 10,000 characters", rownum, "doi_abstract"))
 
             # validate lab_id
             lab_id = data_row['lab_id']
             if len(lab_id) > 1024:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. lab_id must be fewer than 1024 characters")
+                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
 
             # validate human_gene_sequences
             has_gene_sequence = data_row['human_gene_sequences']
             if type(has_gene_sequence) is not bool:
                 file_is_valid = False
-                error_msg.append(f"Row Number: {rownum}. has_gene_sequences must be 'true' or 'false'")
+                error_msg.append(_ln_err("must be `true` or `false`", rownum, "has_gene_sequences"))
 
             # validate data_type
             data_types = data_row['data_types']
@@ -918,19 +922,18 @@ def validate_datasets(headers, records, header):
                 if data_type.upper() not in assays:
                     file_is_valid = False
                     data_types_valid = False
-                    error_msg.append(
-                        f"Row Number: {rownum}. data_types value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)")
+                    error_msg.append(_ln_err("value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)", rownum, "data_types"))
+
             if len(data_types) < 1:
                 file_is_valid = False
-                error_msg.append(
-                    f"Row Number: {rownum}. data_types must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml")
+                error_msg.append(_ln_err("must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml", rownum, "data_types"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
             for ancestor in ancestor_id:
                 if len(ancestor) < 1:
                     file_is_valid = False
-                    error_msg.append(f"Row Number: {rownum}. ancestor_id cannot be blank")
+                    error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
                 if len(ancestor) > 0:
                     ancestor_dict = {}
                     ancestor_saved = False
@@ -947,23 +950,23 @@ def validate_datasets(headers, records, header):
                             resp = requests.get(url, headers=header)
                             if resp.status_code == 404:
                                 file_is_valid = False
-                                error_msg.append(f"Row Number: {rownum}. Unable to verify ancestor_id exists")
+                                error_msg.append(_common_ln_errs(8, rownum))
                             if resp.status_code > 499:
                                 file_is_valid = False
-                                error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                                error_msg.append(_common_ln_errs(5, rownum))
                             if resp.status_code == 401 or resp.status_code == 403:
                                 file_is_valid = False
-                                error_msg.append(f"Row Number: {rownum}. Unauthorized. Cannot access UUID-api")
+                                error_msg.append(_common_ln_errs(7, rownum))
                             if resp.status_code == 400:
                                 file_is_valid = False
-                                error_msg.append(f"Row Number: {rownum}. {ancestor} is not a valid id format")
+                                error_msg.append(_ln_err(f"`{ancestor}` is not a valid id format", rownum))
                             if resp.status_code < 300:
                                 ancestor_dict = resp.json()
                                 valid_ancestor_ids.append(ancestor_dict)
                                 resp_status_code = True
                         except Exception as e:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Failed to reach UUID Web Service")
+                            error_msg.append(_common_ln_errs(5, rownum))
                     if ancestor_saved or resp_status_code:
                         # prepare entity constraints for validation
                         entity_to_validate = {"entity_type": "dataset"}
@@ -986,24 +989,11 @@ def validate_datasets(headers, records, header):
                             entity_constraint_list.append(dict_to_validate)
                         except Exception as e:
                             file_is_valid = False
-                            error_msg.append(f"Row Number: {rownum}. Unable to access Entity Api during constraint validation. Received response: {e}")
+                            error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
 
 
     # validate entity constraints
-    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
-    try:
-        validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
-        if not validate_constraint_result.ok:
-            constraint_errors = validate_constraint_result.json()
-            error_msg = error_msg + constraint_errors
-            file_is_valid = False
-    except Exception as e:
-        file_is_valid = False
-        error_msg.append(f"Unable to validate constraints. Entity Api returned the following: {e}")
-    if file_is_valid:
-        return file_is_valid
-    if file_is_valid == False:
-        return error_msg
+    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
 
 
 ####################################################################################################
