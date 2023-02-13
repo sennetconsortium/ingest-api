@@ -58,11 +58,7 @@ def check_upload():
                 'description': e.description
             }
         else:
-            result['error'] = {
-                'code': 500,
-                'name': 'Server Error',
-                'description': f"{e}"
-            }
+            result['error'] = server_error(e)
 
     return result
 
@@ -84,6 +80,12 @@ def get_metadata(upload):
 
     return records
 
+def server_error(e):
+    return {
+        'code': 500,
+        'name': 'Server Error',
+        'description': f"{e}"
+    }
 
 def validate_tsvs(schema='metadata', path=None):
     try:
@@ -94,7 +96,10 @@ def validate_tsvs(schema='metadata', path=None):
     except schema_loader.PreflightError as e:
         errors = {'Preflight': str(e)}
     else:
-        errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+        try:
+            errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+        except Exception as e:
+            errors = server_error(e)
     return json.dumps(errors)
 
 
