@@ -33,5 +33,4 @@ src/VERSION
 venv
 *.DS_Store
 *venv*
-src/routes/validation/ingest_validation_tools
 .vscode/
