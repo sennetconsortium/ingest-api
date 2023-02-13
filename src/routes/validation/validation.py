@@ -50,12 +50,19 @@ def check_upload():
         result['location'] = base_path + temp_id + os.sep + file.filename
         result['file'] = file
     except Exception as e:
-        result['error'] = {
-            'code': e.code,
-            'name': e.name,
-            'description': e.description
-        }
         print(e)
+        if hasattr(e, 'code'):
+            result['error'] = {
+                'code': e.code,
+                'name': e.name,
+                'description': e.description
+            }
+        else:
+            result['error'] = {
+                'code': 500,
+                'description': f"{e}"
+            }
+
     return result
 
 def get_metadata(upload):
@@ -101,7 +108,7 @@ def validate_metadata_upload():
         validation_results = validate_tsvs(path=upload['location'])
         if len(validation_results) > 2:
             response = {
-                'code': 400,
+                'code': 406,
                 'name': 'Unacceptable Metadata',
                 'description': json.loads(validation_results)
             }
