@@ -60,6 +60,7 @@ def check_upload():
         else:
             result['error'] = {
                 'code': 500,
+                'name': 'Server Error',
                 'description': f"{e}"
             }
 
