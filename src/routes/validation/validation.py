@@ -50,12 +50,16 @@ def check_upload():
         result['location'] = base_path + temp_id + os.sep + file.filename
         result['file'] = file
     except Exception as e:
-        result['error'] = {
-            'code': e.code,
-            'name': e.name,
-            'description': e.description
-        }
         print(e)
+        if hasattr(e, 'code'):
+            result['error'] = {
+                'code': e.code,
+                'name': e.name,
+                'description': e.description
+            }
+        else:
+            result['error'] = server_error(e)
+
     return result
 
 def get_metadata(upload):
@@ -76,6 +80,12 @@ def get_metadata(upload):
 
     return records
 
+def server_error(e):
+    return {
+        'code': 500,
+        'name': 'Server Error',
+        'description': f"{e}"
+    }
 
 def validate_tsvs(schema='metadata', path=None):
     try:
@@ -86,7 +96,10 @@ def validate_tsvs(schema='metadata', path=None):
     except schema_loader.PreflightError as e:
         errors = {'Preflight': str(e)}
     else:
-        errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+        try:
+            errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+        except Exception as e:
+            errors = server_error(e)
     return json.dumps(errors)
 
 
@@ -101,7 +114,7 @@ def validate_metadata_upload():
         validation_results = validate_tsvs(path=upload['location'])
         if len(validation_results) > 2:
             response = {
-                'code': 400,
+                'code': 406,
                 'name': 'Unacceptable Metadata',
                 'description': json.loads(validation_results)
             }
