@@ -47,7 +47,8 @@ def check_upload():
         temp_id = file_upload_helper_instance.save_temp_file(file)
         file.filename = utils.secure_filename(file.filename)
         base_path = commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
-        result['location'] = base_path + temp_id + os.sep + file.filename
+        result['dir'] = base_path + temp_id
+        result['location'] = result['dir'] + os.sep + file.filename
         result['file'] = file
     except Exception as e:
         print(e)
@@ -109,20 +110,27 @@ def validate_metadata_upload():
     upload = check_upload()
     error = upload['error']
     response = error
-    entity = request.values['entity']
-    if error is None:
-        validation_results = validate_tsvs(path=upload['location'])
-        if len(validation_results) > 2:
-            response = {
-                'code': 406,
-                'name': 'Unacceptable Metadata',
-                'description': json.loads(validation_results)
-            }
-        else:
-            response = {
-                'code': 200,
-                'metadata': get_metadata(upload)
-            }
+    # entity = request.values['entity']
+    try:
+        if error is None:
+            validation_results = validate_tsvs(path=upload['location'])
+            if len(validation_results) > 2:
+                response = {
+                    'code': 406,
+                    'name': 'Unacceptable Metadata',
+                    'description': json.loads(validation_results)
+                }
+            else:
+                response = {
+                    'code': 200,
+                    'metadata': get_metadata(upload)
+                }
+
+            os.remove(upload['location'])
+            os.rmdir(upload['dir'])
+
+    except Exception as e:
+        response = server_error(e)
 
     headers: dict = {
         "Content-Type": "application/json"
