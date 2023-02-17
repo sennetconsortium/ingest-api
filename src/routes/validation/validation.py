@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 def bad_request_error(err_msg):
     abort(400, description=err_msg)
 
+def get_base_path():
+    return commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
 
 def check_upload():
     file = None
@@ -46,9 +48,9 @@ def check_upload():
         file.filename = file.filename.replace(" ", "_")
         temp_id = file_upload_helper_instance.save_temp_file(file)
         file.filename = utils.secure_filename(file.filename)
-        base_path = commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
-        result['dir'] = base_path + temp_id
-        result['location'] = result['dir'] + os.sep + file.filename
+        base_path = get_base_path()
+        result['pathname'] = temp_id + os.sep + file.filename
+        result['location'] = base_path + temp_id + os.sep + file.filename
         result['file'] = file
     except Exception as e:
         print(e)
@@ -106,12 +108,21 @@ def validate_tsvs(schema='metadata', path=None):
 
 @validation_blueprint.route('/validation', methods=['POST'])
 def validate_metadata_upload():
-
-    upload = check_upload()
-    error = upload['error']
-    response = error
-    # entity = request.values['entity']
     try:
+        if request.content_type == 'application/json':
+            pathname = request.json.get('pathname')
+        else:
+            pathname = request.values.get('pathname')
+
+        if pathname is None:
+            upload = check_upload()
+        else:
+            upload = {
+                'pathname': pathname,
+                'location': get_base_path() + pathname
+            }
+        error = upload.get('error')
+        response = error
         if error is None:
             validation_results = validate_tsvs(path=upload['location'])
             if len(validation_results) > 2:
@@ -123,11 +134,9 @@ def validate_metadata_upload():
             else:
                 response = {
                     'code': 200,
+                    'pathname': upload['pathname'],
                     'metadata': get_metadata(upload)
                 }
-
-            os.remove(upload['location'])
-            os.rmdir(upload['dir'])
 
     except Exception as e:
         response = server_error(e)
