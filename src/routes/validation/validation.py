@@ -108,16 +108,21 @@ def validate_tsvs(schema='metadata', path=None):
 
 @validation_blueprint.route('/validation', methods=['POST'])
 def validate_metadata_upload():
-    pathname = request.values.get('pathname')
-    if pathname is None:
-        upload = check_upload()
-    else:
-        upload = {
-            'location': get_base_path() + pathname
-        }
-    error = upload['error']
-    response = error
     try:
+        if request.content_type == 'application/json':
+            pathname = request.json.get('pathname')
+        else:
+            pathname = request.values.get('pathname')
+
+        if pathname is None:
+            upload = check_upload()
+        else:
+            upload = {
+                'pathname': pathname,
+                'location': get_base_path() + pathname
+            }
+        error = upload.get('error')
+        response = error
         if error is None:
             validation_results = validate_tsvs(path=upload['location'])
             if len(validation_results) > 2:
