@@ -83,8 +83,11 @@ def validate_metadata_upload():
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
                                          json.loads(validation_results))
             else:
-                response = rest_response(StatusCodes.OK, None, get_metadata(upload.get('fullpath')))
-                response['pathname'] = upload.get('pathname')
+                response = {
+                    'code': StatusCodes.OK,
+                    'pathname': upload.get('pathname'),
+                    'metadata': get_metadata(upload.get('fullpath'))
+                }
 
     except Exception as e:
         response = server_error(e)
