@@ -1,96 +1,51 @@
 import logging
 import os
-from flask import Blueprint, make_response, request, abort, current_app
-from hubmap_commons import file_helper as commons_file_helper
-from werkzeug import utils
-import csv
+from flask import Blueprint, make_response, request
 import json
 
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
-
-# from . import ingest_validation_tools_error_report as error_report
-# from . import ingest_validation_tools_upload as upload
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
+from lib.rest import StatusCodes, get_json_header, server_error, bad_request_error, \
+    rest_response, is_json_request, full_response
+
+from lib.file import get_csv_records, get_base_path, check_upload
 
 validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
 
 
-def bad_request_error(err_msg):
-    abort(400, description=err_msg)
-
-def get_base_path():
-    return commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
-
-def check_upload():
-    file = None
+def check_metadata_upload():
     result: dict = {
         'error': None
     }
-    try:
-        if not UploadFileHelper.is_initialized():
-            file_upload_helper_instance = UploadFileHelper.create(current_app.config['FILE_UPLOAD_TEMP_DIR'],
-                                                                  current_app.config['FILE_UPLOAD_DIR'],
-                                                                  current_app.config['UUID_WEBSERVICE_URL'])
-            logger.info("Initialized UploadFileHelper class successfully :)")
-        else:
-            file_upload_helper_instance = UploadFileHelper.instance()
-
-        key = 'metadata'
-        if key not in request.files:
-            bad_request_error('No file part')
-        file = request.files[key]
-        if file.filename == '':
-            bad_request_error('No selected file')
-
-        file.filename = file.filename.replace(" ", "_")
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-        file.filename = utils.secure_filename(file.filename)
-        base_path = get_base_path()
-        result['pathname'] = temp_id + os.sep + file.filename
-        result['location'] = base_path + temp_id + os.sep + file.filename
-        result['file'] = file
-    except Exception as e:
-        print(e)
-        if hasattr(e, 'code'):
-            result['error'] = {
-                'code': e.code,
-                'name': e.name,
-                'description': e.description
-            }
-        else:
-            result['error'] = server_error(e)
+    file_upload = check_upload('metadata')
+    if file_upload.get('code') is StatusCodes.OK:
+        file = file_upload.get('description')
+        file_id = file.get('id')
+        file = file.get('file')
+        pathname = file_id + os.sep + file.filename
+        result = set_file_details(pathname)
+    else:
+        result['error'] = file_upload
 
     return result
 
-def get_metadata(upload):
-    records = []
-    headers = []
-    with open(upload['location'], newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
 
-    return records
-
-def server_error(e):
+def set_file_details(pathname):
+    base_path = get_base_path()
     return {
-        'code': 500,
-        'name': 'Server Error',
-        'description': f"{e}"
+        'pathname': pathname,
+        'fullpath': base_path + pathname
     }
 
-def validate_tsvs(schema='metadata', path=None):
+
+def get_metadata(path):
+    result = get_csv_records(path)
+    return result.get('records')
+
+
+def validate_tsv(schema='metadata', path=None):
     try:
         schema_name = (
             schema if schema != 'metadata'
@@ -109,39 +64,29 @@ def validate_tsvs(schema='metadata', path=None):
 @validation_blueprint.route('/validation', methods=['POST'])
 def validate_metadata_upload():
     try:
-        if request.content_type == 'application/json':
+        if is_json_request():
             pathname = request.json.get('pathname')
         else:
             pathname = request.values.get('pathname')
 
         if pathname is None:
-            upload = check_upload()
+            upload = check_metadata_upload()
         else:
-            upload = {
-                'pathname': pathname,
-                'location': get_base_path() + pathname
-            }
+            upload = set_file_details(pathname)
+
         error = upload.get('error')
         response = error
+
         if error is None:
-            validation_results = validate_tsvs(path=upload['location'])
+            validation_results = validate_tsv(path=upload.get('fullpath'))
             if len(validation_results) > 2:
-                response = {
-                    'code': 406,
-                    'name': 'Unacceptable Metadata',
-                    'description': json.loads(validation_results)
-                }
+                response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
+                                         json.loads(validation_results))
             else:
-                response = {
-                    'code': 200,
-                    'pathname': upload['pathname'],
-                    'metadata': get_metadata(upload)
-                }
+                response = rest_response(StatusCodes.OK, None, get_metadata(upload.get('fullpath')))
+                response['pathname'] = upload.get('pathname')
 
     except Exception as e:
         response = server_error(e)
 
-    headers: dict = {
-        "Content-Type": "application/json"
-    }
-    return make_response(response, response['code'], headers)
+    return full_response(response)
