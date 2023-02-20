@@ -7,7 +7,7 @@ from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
 from lib.rest import StatusCodes, get_json_header, server_error, bad_request_error, \
-    rest_response, is_json_request
+    rest_response, is_json_request, full_response
 
 from lib.file import get_csv_records, get_base_path, check_upload
 
@@ -83,9 +83,10 @@ def validate_metadata_upload():
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
                                          json.loads(validation_results))
             else:
-                response = rest_response(StatusCodes.OK, upload.get('pathname'), get_metadata(upload.get('fullpath')))
+                response = rest_response(StatusCodes.OK, None, get_metadata(upload.get('fullpath')))
+                response['pathname'] = upload.get('pathname')
 
     except Exception as e:
         response = server_error(e)
 
-    return make_response(response, response.get('code'), get_json_header())
+    return full_response(response)

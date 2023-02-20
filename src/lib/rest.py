@@ -1,5 +1,5 @@
 from enum import IntEnum
-from flask import request, abort
+from flask import request, abort, make_response
 
 
 class StatusCodes(IntEnum):
@@ -25,6 +25,10 @@ def rest_response(code: StatusCodes, name: str, desc):
         'name': name,
         'description': desc
     }
+
+
+def full_response(response: dict):
+    return make_response(response, int(response.get('code')), get_json_header())
 
 
 def get_json_header(headers: dict = None):
