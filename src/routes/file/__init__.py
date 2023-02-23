@@ -98,7 +98,7 @@ def commit_file():
     # /hive/hubmap/hm_uploads/<entity_uuid>/<file_uuid>/<filename> (for PROD)
     source_file_path = os.path.join(str(current_app.config['FILE_UPLOAD_DIR']), entity_uuid, file_uuid, filename)
     # /hive/hubmap/assets/<file_uuid>/<filename> (for PROD)
-    target_file_dir = os.path.join(str(current_app.config['HUBMAP_WEBSERVICE_FILEPATH']), file_uuid)
+    target_file_dir = os.path.join(str(current_app.config['SENNET_WEBSERVICE_FILEPATH']), file_uuid)
     target_file_path = os.path.join(target_file_dir, filename)
 
     # Create the file_uuid directory under assets dir
@@ -151,7 +151,7 @@ def remove_file():
 
         # Also remove the dir contains the symlink to the uploaded file under assets
         # /hive/hubmap/assets/<file_uuid> (for PROD)
-        assets_file_dir = os.path.join(str(current_app.config['HUBMAP_WEBSERVICE_FILEPATH']), file_uuid)
+        assets_file_dir = os.path.join(str(current_app.config['SENNET_WEBSERVICE_FILEPATH']), file_uuid)
         # Delete an entire directory tree
         # path must point to a directory (but not a symbolic link to a directory)
         rmtree(assets_file_dir)
