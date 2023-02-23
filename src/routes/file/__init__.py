@@ -18,14 +18,14 @@ def get_upload_file_helper_instance() -> UploadFileHelper:
                                            current_app.config['FILE_UPLOAD_DIR'],
                                            current_app.config['UUID_WEBSERVICE_URL'])
         return UploadFileHelper.instance()
-    except Exception as e:
+    except Exception:
         msg = "Failed to initialize the UploadFileHelper class"
         logger.exception(msg)
         internal_server_error(msg)
 
 
 """
-File upload handling for Donor and Sample
+File upload handling for Source and Sample
 
 Returns
 -------
@@ -53,7 +53,7 @@ def upload_file():
         }
 
         return jsonify(rspn_data), 201
-    except Exception as e:
+    except Exception:
         # Log the full stack trace, prepend a line with our message
         msg = "Failed to upload files"
         logger.exception(msg)
@@ -61,14 +61,14 @@ def upload_file():
 
 
 """
-File commit triggered by entity-api trigger method for Donor/Sample/Dataset
+File commit triggered by entity-api trigger method for Source/Sample/Dataset
 
-Donor: image files
-Sample: image files and metadata files
+Source: image files
+Sample: image files and thumbnails
 Dataset: only the one thumbnail file
 
-This call also creates the symbolic from the file uuid dir under uploads
-to the assets dir so the uploaded files can be exposed via gateway's file assets service
+This call also creates the symbolic link from the file uuid dir under uploads
+to the assets dir so the uploaded files can be exposed via the file assets service
 
 Returns
 -------
@@ -106,7 +106,7 @@ def commit_file():
     try:
         Path(target_file_dir).mkdir(parents=True, exist_ok=True)
         os.symlink(source_file_path, target_file_path)
-    except Exception as e:
+    except Exception:
         logger.exception(f"Failed to create the symbolic link from {source_file_path} to {target_file_path}")
 
     # Send back the updated file_uuid_info
@@ -114,12 +114,11 @@ def commit_file():
 
 
 """
-File removal triggered by entity-api trigger method for Donor/Sample/Dataset
+File removal triggered by entity-api trigger method for Source/Sample/Dataset
 during entity update
 
-Donor: image files
-Sample: image files and metadata files
-Dataset: only the one thumbnail file
+Source: image files
+Sample: image files and thumbnails
 
 Returns
 -------
@@ -162,32 +161,13 @@ def remove_file():
 
 
 def require_json(request):
-    """
-    Always expect a json body from user request
-    request : Flask request object
-        The Flask request passed from the API endpoint
-    """
     if not request.is_json:
         bad_request_error("A json body and appropriate Content-Type header are required")
 
 
 def internal_server_error(err_msg):
-    """
-    Throws error for 500 Internal Server Error with message
-    Parameters
-    ----------
-    err_msg : str
-        The custom error message to return to end users
-    """
     abort(500, description=err_msg)
 
 
 def bad_request_error(err_msg):
-    """
-    Throws error for 400 Bad Reqeust with message
-    Parameters
-    ----------
-    err_msg : str
-        The custom error message to return to end users
-    """
     abort(400, description=err_msg)
