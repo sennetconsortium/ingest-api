@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, Enum
 from flask import request, abort, make_response
 
 
@@ -9,14 +9,29 @@ class StatusCodes(IntEnum):
     UNACCEPTABLE = 406
     SERVER_ERR = 500
 
-# TODO: Use these methods and DRY routes.entity_CRUD and else where
+
+class StatusMsgs(str, Enum):
+    OK = 'OK'
+    BAD_REQUEST = 'Bad Request'
+    NOT_FOUND = 'Not Found'
+    UNACCEPTABLE = 'Unacceptable Request'
+    SERVER_ERR = 'Internal Server Error'
+
 
 def is_json_request():
     return request.content_type == 'application/json'
 
 
-def server_error(e):
-    return rest_response(StatusCodes.SERVER_ERR, 'Sever Error', f"{e}")
+def rest_server_err(e):
+    return rest_response(StatusCodes.SERVER_ERR, StatusMsgs.SERVER_ERR, f"{e}")
+
+
+def rest_ok(desc):
+    return rest_response(StatusCodes.OK, StatusMsgs.OK, desc)
+
+
+def rest_bad_req(desc):
+    return rest_response(StatusCodes.BAD_REQUEST, StatusMsgs.BAD_REQUEST, desc)
 
 
 def rest_response(code: StatusCodes, name: str, desc):
@@ -36,8 +51,3 @@ def get_json_header(headers: dict = None):
         headers = {}
     headers["Content-Type"] = "application/json"
     return headers
-
-
-def bad_request_error(desc):
-    abort(StatusCodes.BAD_REQUEST, description=desc)
-
