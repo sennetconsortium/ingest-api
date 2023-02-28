@@ -133,11 +133,6 @@ def bulk_sources_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
         response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400,
                         mimetype='application/json')  # The exact format of the return to be determined
@@ -268,11 +263,6 @@ def bulk_samples_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
         response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     else:
@@ -330,11 +320,6 @@ def create_samples_from_bulk():
     validfile = validate_samples(headers, records, header)
 
     if type(validfile) == list:
-    #     return_validfile = {}
-    #     error_num = 0
-    #     for item in validfile:
-    #         return_validfile[str(error_num)] = str(item)
-    #         error_num = error_num + 1
         response_body = {"status": False, "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     entity_response = {}
@@ -432,11 +417,6 @@ def bulk_datasets_upload_and_validate():
     if validfile == True:
         return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
     if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
         response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     else:
@@ -517,11 +497,6 @@ def create_datasets_from_bulk():
     validfile = validate_datasets(headers, records, header)
 
     if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
         response_body = {"status": "fail", "data": validfile}
         return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
     entity_response = {}
@@ -901,12 +876,11 @@ def validate_datasets(headers, records, header):
                 file_is_valid, error_msg, ancestor_saved, resp_status_code, ancestor_dict \
                     = itemgetter('file_is_valid', 'error_msg', 'ancestor_saved', 'resp_status_code', 'ancestor_dict')(validation_results)
 
-                ancestor_dict = validation_results.get('ancestor_dict')
-
                 if ancestor_saved or resp_status_code:
 
                     # prepare entity constraints for validation
 
+                    sub_type = None
                     if data_types_valid:
                         sub_type = get_as_list(data_types)
 
