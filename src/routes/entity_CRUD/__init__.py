@@ -26,7 +26,7 @@ from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
 from lib.ontology import Entities
 from lib.file import get_csv_records, get_base_path, check_upload
-from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes
+from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes, bad_request_error
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -319,6 +319,7 @@ def _format_dataset_records(records):
                 record['human_gene_sequences'] = False
 
     return records
+
 
 def _check_request_for_bulk():
     request_data = request.get_json()
@@ -755,6 +756,7 @@ def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_
         'ancestor_saved': ancestor_saved
     }
 
+
 def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id):
 
     ancestor_entity_type = ancestor_dict['type'].lower()
@@ -777,19 +779,3 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
     entity_constraint_list.append(dict_to_validate)
 
     return entity_constraint_list
-
-
-####################################################################################################
-## Internal Functions
-####################################################################################################
-
-
-"""
-Throws error for 400 Bad Request with message
-Parameters
-----------
-err_msg : str 
-    The custom error message to return to end users
-"""
-def bad_request_error(err_msg):
-    abort(400, description = err_msg)
