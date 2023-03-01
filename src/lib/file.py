@@ -37,7 +37,7 @@ def get_base_path():
     return commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR'])
 
 
-def check_upload(key: str):
+def check_upload(key: str = 'file'):
     try:
         if not UploadFileHelper.is_initialized():
             file_upload_helper_instance = UploadFileHelper.create(current_app.config['FILE_UPLOAD_TEMP_DIR'],

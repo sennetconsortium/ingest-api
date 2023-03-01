@@ -4,6 +4,7 @@ from flask import request, abort, make_response
 
 class StatusCodes(IntEnum):
     OK = 200
+    OK_PARTIAL = 207
     BAD_REQUEST = 400
     NOT_FOUND = 404
     UNACCEPTABLE = 406
@@ -51,3 +52,7 @@ def get_json_header(headers: dict = None):
         headers = {}
     headers["Content-Type"] = "application/json"
     return headers
+
+
+def bad_request_error(desc):
+    abort(StatusCodes.BAD_REQUEST, description=desc)
