@@ -23,6 +23,10 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
+from routes.auth import get_auth_header
+from lib.ontology import Entities
+from lib.file import get_csv_records, get_base_path, check_upload
+from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -101,106 +105,22 @@ def publish_datastage(identifier):
 
 @entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
 def bulk_sources_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_sources(headers, records)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400,
-                        mimetype='application/json')  # The exact format of the return to be determined
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.SOURCE)
 
 
 @entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
 def create_sources_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_sources(headers, records)
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
+    valid_file = validate_sources(headers, records)
 
-    if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    if type(valid_file) is list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -227,104 +147,23 @@ def create_sources_from_bulk():
 
 @entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
 def bulk_samples_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(
-        current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_samples(headers, records, header)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.SAMPLE)
 
 
 @entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
 def create_samples_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_samples(headers, records, header)
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
 
-    if type(validfile) == list:
-        response_body = {"status": False, "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    valid_file = validate_samples(headers, records, header)
+
+    if type(valid_file) is list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -356,121 +195,16 @@ def create_samples_from_bulk():
 
 @entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
 def bulk_datasets_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(
-        current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
-    for record in records:
-        if record.get('ancestor_id'):
-            ancestor_id_string = record['ancestor_id']
-            ancestor_id_list = ancestor_id_string.split(',')
-            if isinstance(ancestor_id_list, str):
-                ancestor_id_list = [ancestor_id_list]
-            ancestor_stripped = []
-            for ancestor in ancestor_id_list:
-                ancestor_stripped.append(ancestor.strip())
-            record['ancestor_id'] = ancestor_stripped
-        if record.get('data_types'):
-            data_types_string = record['data_types']
-            data_types_list = data_types_string.split(',')
-            data_type_stripped = []
-            for data_type in data_types_list:
-                data_type_stripped.append(data_type.strip())
-            record['data_types'] = data_type_stripped
-        if record.get('human_gene_sequences'):
-            gene_sequences_string = record['human_gene_sequences']
-            if gene_sequences_string.lower() == "true":
-                record['human_gene_sequences'] = True
-            if gene_sequences_string.lower() == "false":
-                record['human_gene_sequences'] = False
-
-    validfile = validate_datasets(headers, records, header)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.DATASET)
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
 def create_datasets_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
+
     # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
     for record in records:
         if record.get('ancestor_id'):
@@ -494,14 +228,13 @@ def create_datasets_from_bulk():
             if gene_sequences_string.lower() == "false":
                 record['human_gene_sequences'] = False
 
-    validfile = validate_datasets(headers, records, header)
+    valid_file = validate_datasets(headers, records, header)
 
-    if type(validfile) == list:
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    if type(valid_file) == list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -528,23 +261,103 @@ def create_datasets_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
+def _bulk_upload_and_validate(entity):
+    header = get_auth_header()
+    upload = check_upload()
+    temp_id, file = itemgetter('id', 'file')(upload.get('description'))
+    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
+    file.filename = utils.secure_filename(file.filename)
+    file_location = get_base_path() + temp_id + os.sep + file.filename
+    csv_records = get_csv_records(file_location)
+    headers, records = itemgetter('headers', 'records')(csv_records)
+
+    if entity == Entities.SOURCE:
+        valid_file = validate_sources(headers, records)
+    elif entity == Entities.SAMPLE:
+        valid_file = validate_samples(headers, records, header)
+    elif entity == Entities.DATASET:
+        records = _format_dataset_records(records)
+        valid_file = validate_datasets(headers, records, header)
+    else:
+        valid_file = False
+
+    if valid_file is True:
+        response = rest_ok({'temp_id': temp_id})
+    elif type(valid_file) is list:
+        response = rest_bad_req(valid_file)
+    else:
+        message = f'Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}'
+        response = rest_server_err(message)
+
+    return full_response(response)
+
+
+def _format_dataset_records(records):
+    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    for record in records:
+        if record.get('ancestor_id'):
+            ancestor_id_string = record['ancestor_id']
+            ancestor_id_list = ancestor_id_string.split(',')
+            if isinstance(ancestor_id_list, str):
+                ancestor_id_list = [ancestor_id_list]
+            ancestor_stripped = []
+            for ancestor in ancestor_id_list:
+                ancestor_stripped.append(ancestor.strip())
+            record['ancestor_id'] = ancestor_stripped
+        if record.get('data_types'):
+            data_types_string = record['data_types']
+            data_types_list = data_types_string.split(',')
+            data_type_stripped = []
+            for data_type in data_types_list:
+                data_type_stripped.append(data_type.strip())
+            record['data_types'] = data_type_stripped
+        if record.get('human_gene_sequences'):
+            gene_sequences_string = record['human_gene_sequences']
+            if gene_sequences_string.lower() == "true":
+                record['human_gene_sequences'] = True
+            if gene_sequences_string.lower() == "false":
+                record['human_gene_sequences'] = False
+
+    return records
+
+def _check_request_for_bulk():
+    request_data = request.get_json()
+    try:
+        temp_id = request_data['temp_id']
+    except KeyError:
+        return full_response(rest_bad_req('No key `temp_id` in request body'))
+    group_uuid = None
+    if "group_uuid" in request_data:
+        group_uuid = request_data['group_uuid']
+    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
+    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
+    if not os.path.exists(tsv_directory):
+        return full_response(rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory"))
+    fcount = 0
+    temp_file_name = None
+    for tfile in os.listdir(tsv_directory):
+        fcount = fcount + 1
+        temp_file_name = tfile
+    if fcount == 0:
+        return full_response(rest_bad_req(f"File not found in temporary directory /{temp_id}"))
+    if fcount > 1:
+        return full_response(rest_bad_req(f"Multiple files found in temporary file path /{temp_id}"))
+    file_location = tsv_directory + temp_file_name
+    return {
+        'csv_records': get_csv_records(file_location),
+        'group_uuid': group_uuid
+    }
+
+
 def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
-    response_status = ''
     if entity_created and not entity_failed_to_create:
-        response_status = "Success - All Entities Created Successfully"
-        status_code = 201
-    elif entity_failed_to_create and not entity_created:
-        response_status = "Failure - None of the Entities Created Successfully"
-        status_code = 500
+        response = rest_ok(entity_response)
     elif entity_created and entity_failed_to_create:
-        response_status = "Partial Success - Some Entities Created Successfully"
-        status_code = 207
-    response = {"status": response_status, "data": entity_response}
-    return _send_response(response, status_code)
+        response = rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
+    else:
+        response = rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
 
-
-def _send_response(response, status_code):
-    return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+    return full_response(response)
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
