@@ -1,5 +1,3 @@
-import sys
-
 from flask import Blueprint, jsonify, request, Response, current_app, abort, json
 import logging
 import requests
@@ -20,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # Local modules
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
+from lib.file_upload_helper import UploadFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header

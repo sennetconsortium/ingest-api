@@ -5,7 +5,7 @@ from flask import current_app
 from lib.rest import *
 from werkzeug import utils
 
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
+from lib.file_upload_helper import UploadFileHelper
 
 logger = logging.getLogger(__name__)
 
