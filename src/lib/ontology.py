@@ -1,5 +1,4 @@
-from enum import Enum
-
+# TODO: Pull these terms from the ontology-api when ready. Auto generate constants via the api. This lib is also within entity-api.
 
 class Entities:
     SOURCE = 'Source'
