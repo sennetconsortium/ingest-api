@@ -2,12 +2,11 @@ import logging
 import os
 from flask import Blueprint, request
 import json
-from operator import itemgetter
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
-from lib.rest import StatusCodes, get_json_header, rest_server_err, \
+from lib.rest import StatusCodes, rest_server_err, \
     rest_response, is_json_request, full_response, rest_bad_req
 
 from lib.file import get_csv_records, get_base_path, check_upload
