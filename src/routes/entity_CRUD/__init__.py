@@ -1,5 +1,3 @@
-import sys
-
 from flask import Blueprint, jsonify, request, Response, current_app, abort, json
 import logging
 import requests
@@ -9,6 +7,7 @@ import re
 import urllib.request
 import yaml
 from werkzeug import utils
+from operator import itemgetter
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
@@ -19,8 +18,12 @@ logger = logging.getLogger(__name__)
 
 # Local modules
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
+from routes.entity_CRUD.constraints_helper import *
+from routes.auth import get_auth_header
+from lib.ontology import Entities
+from lib.file import get_csv_records, get_base_path, check_upload
+from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes, bad_request_error
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -96,113 +99,25 @@ def publish_datastage(identifier):
         logger.error(e, exc_info=True)
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
+
 @entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
 def bulk_sources_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_sources(headers, records)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400,
-                        mimetype='application/json')  # The exact format of the return to be determined
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.SOURCE)
 
 
 @entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
 def create_sources_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_sources(headers, records)
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
+    valid_file = validate_sources(headers, records)
 
-    if type(validfile) == list:
-        return_validfile = {}
-        error_num = 0
-        for item in validfile:
-            return_validfile[str(error_num)] = str(item)
-            error_num = error_num + 1
-        response_body = {"status": "fail", "data": return_validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    if type(valid_file) is list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -229,114 +144,23 @@ def create_sources_from_bulk():
 
 @entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
 def bulk_samples_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(
-        current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_samples(headers, records, header)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.SAMPLE)
 
 
 @entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
 def create_samples_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    validfile = validate_samples(headers, records, header)
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
 
-    if type(validfile) == list:
-    #     return_validfile = {}
-    #     error_num = 0
-    #     for item in validfile:
-    #         return_validfile[str(error_num)] = str(item)
-    #         error_num = error_num + 1
-        response_body = {"status": False, "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    valid_file = validate_samples(headers, records, header)
+
+    if type(valid_file) is list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -368,126 +192,16 @@ def create_samples_from_bulk():
 
 @entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
 def bulk_datasets_upload_and_validate():
-    file_upload_helper_instance: UploadFileHelper = UploadFileHelper.instance()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token}
-    if 'file' not in request.files:
-        bad_request_error('No file part')
-    file = request.files['file']
-    if file.filename == '':
-        bad_request_error('No selected file')
-    file.filename = file.filename.replace(" ", "_")
-    try:
-        temp_id = file_upload_helper_instance.save_temp_file(file)
-    except Exception as e:
-        bad_request_error(f"Failed to create temp_id: {e}")
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    records = []
-    headers = []
-    file.filename = utils.secure_filename(file.filename)
-    file_location = commons_file_helper.ensureTrailingSlash(
-        current_app.config['FILE_UPLOAD_TEMP_DIR']) + temp_id + os.sep + file.filename
-    with open(file_location, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
-    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
-    for record in records:
-        if record.get('ancestor_id'):
-            ancestor_id_string = record['ancestor_id']
-            ancestor_id_list = ancestor_id_string.split(',')
-            if isinstance(ancestor_id_list, str):
-                ancestor_id_list = [ancestor_id_list]
-            ancestor_stripped = []
-            for ancestor in ancestor_id_list:
-                ancestor_stripped.append(ancestor.strip())
-            record['ancestor_id'] = ancestor_stripped
-        if record.get('data_types'):
-            data_types_string = record['data_types']
-            data_types_list = data_types_string.split(',')
-            data_type_stripped = []
-            for data_type in data_types_list:
-                data_type_stripped.append(data_type.strip())
-            record['data_types'] = data_type_stripped
-        if record.get('human_gene_sequences'):
-            gene_sequences_string = record['human_gene_sequences']
-            if gene_sequences_string.lower() == "true":
-                record['human_gene_sequences'] = True
-            if gene_sequences_string.lower() == "false":
-                record['human_gene_sequences'] = False
-
-    validfile = validate_datasets(headers, records, header)
-    if validfile == True:
-        return Response(json.dumps({'temp_id': temp_id}, sort_keys=True), 201, mimetype='application/json')
-    if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting validfile to be of type List or Boolean but got type {type(validfile)}'
-        response_body = {"status": "fail", "message": message}
-        return Response(json.dumps(response_body, sort_keys=True), 500, mimetype='application/json')
+    return _bulk_upload_and_validate(Entities.DATASET)
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
 def create_datasets_from_bulk():
-    request_data = request.get_json()
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    header = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return_body = {"status": "fail", "message": f"No key 'temp_id' in request body"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return_body = {"status": "fail", "message": f"Temporary file with id {temp_id} does not have a temp directory"}
-        return Response(json.dumps(return_body, sort_keys=True), 400, mimetype='application/json')
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return Response(json.dumps({"status": "fail", "message": f"File not found in temporary directory /{temp_id}"},
-                                   sort_keys=True), 400, mimetype='application/json')
-    if fcount > 1:
-        return Response(
-            json.dumps({"status": "fail", "message": f"Multiple files found in temporary file path /{temp_id}"},
-                       sort_keys=True), 400, mimetype='application/json')
-    tsvfile_name = tsv_directory + temp_file_name
-    records = []
-    headers = []
-    with open(tsvfile_name, newline='') as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter='\t')
-        first = True
-        for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
-            records.append(data_row)
-            if first:
-                first = False
+    header = get_auth_header()
+    check_results = _check_request_for_bulk()
+    group_uuid = check_results.get('group_uuid')
+    headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
+
     # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
     for record in records:
         if record.get('ancestor_id'):
@@ -511,19 +225,13 @@ def create_datasets_from_bulk():
             if gene_sequences_string.lower() == "false":
                 record['human_gene_sequences'] = False
 
-    validfile = validate_datasets(headers, records, header)
+    valid_file = validate_datasets(headers, records, header)
 
-    if type(validfile) == list:
-        # return_validfile = {}
-        # error_num = 0
-        # for item in validfile:
-        #     return_validfile[str(error_num)] = str(item)
-        #     error_num = error_num + 1
-        response_body = {"status": "fail", "data": validfile}
-        return Response(json.dumps(response_body, sort_keys=True), 400, mimetype='application/json')
+    if type(valid_file) == list:
+        return full_response(rest_bad_req(valid_file))
     entity_response = {}
     row_num = 1
-    if validfile == True:
+    if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
         for item in records:
@@ -550,22 +258,105 @@ def create_datasets_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
-def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
-    response_status = ''
-    if entity_created and not entity_failed_to_create:
-        response_status = "Success - All Entities Created Successfully"
-        status_code = 201
-    elif entity_failed_to_create and not entity_created:
-        response_status = "Failure - None of the Entities Created Successfully"
-        status_code = 500
-    elif entity_created and entity_failed_to_create:
-        response_status = "Partial Success - Some Entities Created Successfully"
-        status_code = 207
-    response = {"status": response_status, "data": entity_response}
-    return _send_response(response, status_code)
+def _bulk_upload_and_validate(entity):
+    header = get_auth_header()
+    upload = check_upload()
+    temp_id, file = itemgetter('id', 'file')(upload.get('description'))
+    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
+    file.filename = utils.secure_filename(file.filename)
+    file_location = get_base_path() + temp_id + os.sep + file.filename
+    csv_records = get_csv_records(file_location)
+    headers, records = itemgetter('headers', 'records')(csv_records)
 
-def _send_response(response, status_code):
-    return Response(json.dumps(response, sort_keys=True), status_code, mimetype='application/json')
+    if entity == Entities.SOURCE:
+        valid_file = validate_sources(headers, records)
+    elif entity == Entities.SAMPLE:
+        valid_file = validate_samples(headers, records, header)
+    elif entity == Entities.DATASET:
+        records = _format_dataset_records(records)
+        valid_file = validate_datasets(headers, records, header)
+    else:
+        valid_file = False
+
+    if valid_file is True:
+        response = rest_ok({'temp_id': temp_id})
+    elif type(valid_file) is list:
+        response = rest_bad_req(valid_file)
+    else:
+        message = f'Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}'
+        response = rest_server_err(message)
+
+    return full_response(response)
+
+
+def _format_dataset_records(records):
+    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    for record in records:
+        if record.get('ancestor_id'):
+            ancestor_id_string = record['ancestor_id']
+            ancestor_id_list = ancestor_id_string.split(',')
+            if isinstance(ancestor_id_list, str):
+                ancestor_id_list = [ancestor_id_list]
+            ancestor_stripped = []
+            for ancestor in ancestor_id_list:
+                ancestor_stripped.append(ancestor.strip())
+            record['ancestor_id'] = ancestor_stripped
+        if record.get('data_types'):
+            data_types_string = record['data_types']
+            data_types_list = data_types_string.split(',')
+            data_type_stripped = []
+            for data_type in data_types_list:
+                data_type_stripped.append(data_type.strip())
+            record['data_types'] = data_type_stripped
+        if record.get('human_gene_sequences'):
+            gene_sequences_string = record['human_gene_sequences']
+            if gene_sequences_string.lower() == "true":
+                record['human_gene_sequences'] = True
+            if gene_sequences_string.lower() == "false":
+                record['human_gene_sequences'] = False
+
+    return records
+
+
+def _check_request_for_bulk():
+    request_data = request.get_json()
+    try:
+        temp_id = request_data['temp_id']
+    except KeyError:
+        return full_response(rest_bad_req('No key `temp_id` in request body'))
+    group_uuid = None
+    if "group_uuid" in request_data:
+        group_uuid = request_data['group_uuid']
+    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
+    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
+    if not os.path.exists(tsv_directory):
+        return full_response(rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory"))
+    fcount = 0
+    temp_file_name = None
+    for tfile in os.listdir(tsv_directory):
+        fcount = fcount + 1
+        temp_file_name = tfile
+    if fcount == 0:
+        return full_response(rest_bad_req(f"File not found in temporary directory /{temp_id}"))
+    if fcount > 1:
+        return full_response(rest_bad_req(f"Multiple files found in temporary file path /{temp_id}"))
+    file_location = tsv_directory + temp_file_name
+    return {
+        'csv_records': get_csv_records(file_location),
+        'group_uuid': group_uuid
+    }
+
+
+def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
+    if entity_created and not entity_failed_to_create:
+        response = rest_ok(entity_response)
+    elif entity_created and entity_failed_to_create:
+        response = rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
+    else:
+        response = rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
+
+    return full_response(response)
+
 
 def _ln_err(error: str, row: int = None, column: str = None):
     return {
@@ -573,6 +364,7 @@ def _ln_err(error: str, row: int = None, column: str = None):
         'error': error,
         'row': row
     }
+
 
 def _common_ln_errs(err, val):
     if err == 1:
@@ -591,6 +383,7 @@ def _common_ln_errs(err, val):
         return _ln_err("Unauthorized. Cannot access UUID-api", val)
     elif err == 8:
         return _ln_err("Unable to verify `ancestor_id` exists", val)
+
 
 def validate_sources(headers, records):
     error_msg = []
@@ -661,6 +454,7 @@ def validate_sources(headers, records):
     if file_is_valid == False:
         return error_msg
 
+
 def validate_samples(headers, records, header):
     error_msg = []
     file_is_valid = True
@@ -676,7 +470,7 @@ def validate_samples(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    allowed_categories = ["block", "section", "suspension", "bodily fluid", "organ", "organ piece"]
+    allowed_categories = ["block", "section", "suspension", "organ"]
 
     with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml') as urlfile:
         organ_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
@@ -753,93 +547,50 @@ def validate_samples(headers, records, header):
                     file_is_valid = False
                     error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)", rownum, "organ_type"))
 
-
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
-            if len(ancestor_id) < 1:
-                file_is_valid = False
-                error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
-            if len(ancestor_id) > 0:
-                ancestor_dict = {}
-                ancestor_saved = False
-                resp_status_code = False
-                if len(valid_ancestor_ids) > 0:
-                    for item in valid_ancestor_ids:
-                        if item['uuid'] or item['sennet_id']:
-                            if ancestor_id == item['uuid'] or ancestor_id == item['sennet_id']:
-                                ancestor_dict = item
-                                ancestor_saved = True
-                if ancestor_saved is False:
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
-                    try:
-                        resp = requests.get(url, headers=header)
-                        if resp.status_code == 404:
-                            file_is_valid = False
-                            error_msg.append(_common_ln_errs(8, rownum))
-                        if resp.status_code > 499:
-                            file_is_valid = False
-                            error_msg.append(_common_ln_errs(5, rownum))
-                        if resp.status_code == 401:
-                            file_is_valid = False
-                            error_msg.append(_common_ln_errs(7, rownum))
-                        if resp.status_code == 400:
-                            file_is_valid = False
-                            error_msg.append(_ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
-                        if resp.status_code < 300:
-                            ancestor_dict = resp.json()
-                            valid_ancestor_ids.append(ancestor_dict)
-                            resp_status_code = True
-                    except Exception as e:
-                        file_is_valid = False
-                        error_msg.append(_common_ln_errs(5, rownum))
-                if ancestor_saved or resp_status_code:
-                    data_row['ancestor_id'] = ancestor_dict['uuid']
-                    if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
-                        file_is_valid = False
-                        error_msg.append(_ln_err("If `sample_category` is `organ`, `ancestor_id` must point to a source", rownum))
+            validation_results = validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid)
 
-                    if sample_category.lower() != 'organ' and ancestor_dict['type'].lower() != 'sample':
-                        file_is_valid = False
-                        error_msg.append(_ln_err("If `sample_category` is not `organ`, `ancestor_id` must point to a sample", rownum))
+            file_is_valid, error_msg, ancestor_saved, resp_status_code, ancestor_dict \
+                = itemgetter('file_is_valid', 'error_msg', 'ancestor_saved', 'resp_status_code', 'ancestor_dict')(validation_results)
 
-                    # prepare entity constraints for validation
-                    entity_to_validate = {"entity_type": "sample"}
-                    if valid_category:
-                        entity_to_validate["sample_category"] = sample_category
-                    if sample_category.lower() == "organ":
-                        entity_to_validate["organ"] = organ_type
-                    ancestor_entity_type = ancestor_dict['type'].lower()
-                    ancestor_to_validate = {"entity_type": ancestor_entity_type}
-                    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
-                    try:
-                        ancestor_result = requests.get(url, headers=header).json()
-                        if ancestor_entity_type == "dataset":
-                            ancestor_to_validate['data_types'] = ancestor_result['data_types']
-                            if isinstance(ancestor_to_validate['data_types'], str):
-                                ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
-                        if ancestor_entity_type == "sample":
-                            ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
-                            if ancestor_result['sample_category'] == 'organ':
-                                ancestor_to_validate['organ'] = ancestor_result['organ']
-                        dict_to_validate = {"ancestor": ancestor_to_validate, "descendant": entity_to_validate}
-                        entity_constraint_list.append(dict_to_validate)
-                    except Exception as e:
-                        file_is_valid = False
-                        error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
+            if ancestor_saved or resp_status_code:
+                data_row['ancestor_id'] = ancestor_dict['uuid']
+                if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
+                    file_is_valid = False
+                    error_msg.append(_ln_err("If `sample_category` is `organ`, `ancestor_id` must point to a source", rownum))
 
+                if sample_category.lower() != 'organ' and ancestor_dict['type'].lower() != 'sample':
+                    file_is_valid = False
+                    error_msg.append(_ln_err("If `sample_category` is not `organ`, `ancestor_id` must point to a sample", rownum))
 
+                # prepare entity constraints for validation
+                sub_type = None
+                sub_type_val = None
+                if valid_category:
+                    sub_type = get_as_list(sample_category)
+                if sample_category.lower() == "organ":
+                    sub_type_val = get_as_list(organ_type)
+
+                entity_to_validate = build_constraint_unit('Sample', sub_type, sub_type_val)
+                try:
+                    entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
+
+                except Exception as e:
+                    file_is_valid = False
+                    error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
 
     # validate entity constraints
     return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
 
 
 def validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list):
-    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints/validate'
+    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints?match=true&report_type=ln_err'
     try:
         validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
         if not validate_constraint_result.ok:
             constraint_errors = validate_constraint_result.json()
-            error_msg.extend(constraint_errors)
+            error_msg.extend(constraint_errors.get('description'))
             file_is_valid = False
     except Exception as e:
         file_is_valid = False
@@ -848,6 +599,7 @@ def validate_entity_constraints(file_is_valid, error_msg, header, entity_constra
         return file_is_valid
     if file_is_valid == False:
         return error_msg
+
 
 def validate_datasets(headers, records, header):
     error_msg = []
@@ -928,84 +680,99 @@ def validate_datasets(headers, records, header):
                 error_msg.append(_ln_err("must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml", rownum, "data_types"))
 
             # validate ancestor_id
-            ancestor_id = data_row['ancestor_id']
-            for ancestor in ancestor_id:
-                if len(ancestor) < 1:
-                    file_is_valid = False
-                    error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
-                if len(ancestor) > 0:
-                    ancestor_dict = {}
-                    ancestor_saved = False
-                    resp_status_code = False
-                    if len(valid_ancestor_ids) > 0:
-                        for item in valid_ancestor_ids:
-                            if item.get('uuid') or item.get('sennet_id'):
-                                if ancestor == item['uuid'] or ancestor == item['sennet_id']:
-                                    ancestor_dict = item
-                                    ancestor_saved = True
-                    if ancestor_saved is False:
-                        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor
-                        try:
-                            resp = requests.get(url, headers=header)
-                            if resp.status_code == 404:
-                                file_is_valid = False
-                                error_msg.append(_common_ln_errs(8, rownum))
-                            if resp.status_code > 499:
-                                file_is_valid = False
-                                error_msg.append(_common_ln_errs(5, rownum))
-                            if resp.status_code == 401 or resp.status_code == 403:
-                                file_is_valid = False
-                                error_msg.append(_common_ln_errs(7, rownum))
-                            if resp.status_code == 400:
-                                file_is_valid = False
-                                error_msg.append(_ln_err(f"`{ancestor}` is not a valid id format", rownum))
-                            if resp.status_code < 300:
-                                ancestor_dict = resp.json()
-                                valid_ancestor_ids.append(ancestor_dict)
-                                resp_status_code = True
-                        except Exception as e:
-                            file_is_valid = False
-                            error_msg.append(_common_ln_errs(5, rownum))
-                    if ancestor_saved or resp_status_code:
-                        # prepare entity constraints for validation
-                        entity_to_validate = {"entity_type": "dataset"}
-                        if data_types_valid:
-                            entity_to_validate["data_types"] = data_types
-                        ancestor_entity_type = ancestor_dict['type'].lower()
-                        ancestor_to_validate = {"entity_type": ancestor_entity_type}
-                        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor
-                        try:
-                            ancestor_result = requests.get(url, headers=header).json()
-                            if ancestor_entity_type == "dataset":
-                                ancestor_to_validate['data_types'] = ancestor_result['data_types']
-                                if isinstance(ancestor_to_validate['data_types'], str):
-                                    ancestor_to_validate['data_types'] = [ancestor_to_validate['data_types']]
-                            if ancestor_entity_type == "sample":
-                                ancestor_to_validate['sample_category'] = ancestor_result['sample_category']
-                                if ancestor_result['sample_category'] == 'organ':
-                                    ancestor_to_validate['organ'] = ancestor_result['organ']
-                            dict_to_validate = {"ancestor": ancestor_to_validate, "descendant": entity_to_validate}
-                            entity_constraint_list.append(dict_to_validate)
-                        except Exception as e:
-                            file_is_valid = False
-                            error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
+            ancestor_ids = data_row['ancestor_id']
+            for ancestor_id in ancestor_ids:
+                validation_results = validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid)
 
+                file_is_valid, error_msg, ancestor_saved, resp_status_code, ancestor_dict \
+                    = itemgetter('file_is_valid', 'error_msg', 'ancestor_saved', 'resp_status_code', 'ancestor_dict')(validation_results)
+
+                if ancestor_saved or resp_status_code:
+
+                    # prepare entity constraints for validation
+
+                    sub_type = None
+                    if data_types_valid:
+                        sub_type = get_as_list(data_types)
+
+                    entity_to_validate = build_constraint_unit('Dataset', sub_type)
+
+                    try:
+                        entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
+                    except Exception as e:
+                        file_is_valid = False
+                        error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
 
     # validate entity constraints
     return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
 
 
-####################################################################################################
-## Internal Functions
-####################################################################################################
+def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid):
+    if len(ancestor_id) < 1:
+        file_is_valid = False
+        error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
+    if len(ancestor_id) > 0:
+        ancestor_dict = {}
+        ancestor_saved = False
+        resp_status_code = False
+        if len(valid_ancestor_ids) > 0:
+            for item in valid_ancestor_ids:
+                if item.get('uuid') or item.get('sennet_id'):
+                    if ancestor_id == item['uuid'] or ancestor_id == item['sennet_id']:
+                        ancestor_dict = item
+                        ancestor_saved = True
+        if ancestor_saved is False:
+            url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
+            try:
+                resp = requests.get(url, headers=header)
+                if resp.status_code == 404:
+                    file_is_valid = False
+                    error_msg.append(_common_ln_errs(8, rownum))
+                if resp.status_code > 499:
+                    file_is_valid = False
+                    error_msg.append(_common_ln_errs(5, rownum))
+                if resp.status_code == 401 or resp.status_code == 403:
+                    file_is_valid = False
+                    error_msg.append(_common_ln_errs(7, rownum))
+                if resp.status_code == 400:
+                    file_is_valid = False
+                    error_msg.append(_ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
+                if resp.status_code < 300:
+                    ancestor_dict = resp.json()
+                    valid_ancestor_ids.append(ancestor_dict)
+                    resp_status_code = True
+            except Exception as e:
+                file_is_valid = False
+                error_msg.append(_common_ln_errs(5, rownum))
+
+    return {
+        'file_is_valid': file_is_valid,
+        'error_msg': error_msg,
+        'ancestor_dict': ancestor_dict,
+        'resp_status_code': resp_status_code,
+        'ancestor_saved': ancestor_saved
+    }
 
 
-"""
-Throws error for 400 Bad Request with message
-Parameters
-----------
-err_msg : str 
-    The custom error message to return to end users
-"""
-def bad_request_error(err_msg):
-    abort(400, description = err_msg)
+def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id):
+
+    ancestor_entity_type = ancestor_dict['type'].lower()
+    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
+
+    ancestor_result = requests.get(url, headers=header).json()
+    sub_type = None
+    sub_type_val = None
+    if ancestor_entity_type == "dataset":
+        sub_type = get_as_list(ancestor_result['data_types'])
+
+    if ancestor_entity_type == "sample":
+        sub_type = get_as_list(ancestor_result['sample_category'])
+        if ancestor_result['sample_category'] == 'organ':
+            sub_type_val = get_as_list(ancestor_result['organ'])
+
+    ancestor_to_validate = build_constraint_unit(ancestor_entity_type, sub_type, sub_type_val)
+
+    dict_to_validate = build_constraint(ancestor_to_validate, entity_to_validate)
+    entity_constraint_list.append(dict_to_validate)
+
+    return entity_constraint_list

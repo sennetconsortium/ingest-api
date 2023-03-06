@@ -4,9 +4,7 @@ import requests
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
-from shutil import rmtree # Used by file removal
-from flask import Flask, jsonify, g, abort, request, session, redirect, Response
-from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
+from flask import Flask, jsonify, g
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
@@ -17,9 +15,10 @@ from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
 from routes.validation import validation_blueprint
+from routes.file import file_blueprint
 
 # Local Modules
-from routes.entity_CRUD.file_upload_helper import UploadFileHelper
+from lib.file_upload_helper import UploadFileHelper
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -37,6 +36,7 @@ app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
 app.register_blueprint(validation_blueprint)
+app.register_blueprint(file_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
