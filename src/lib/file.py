@@ -67,4 +67,4 @@ def check_upload(key: str = 'file'):
         if hasattr(e, 'code'):
             return rest_response(e.code, e.name, e.description)
         else:
-            return server_error(e)
+            return rest_server_err(e)
