@@ -42,6 +42,7 @@ def submit_dataset(uuid):
             return (auth_tokens)
         elif isinstance(auth_tokens, str):
             token = auth_tokens
+        # Do we need nexus token
         elif 'nexus_token' in auth_tokens:
             token = auth_tokens['nexus_token']
         else:

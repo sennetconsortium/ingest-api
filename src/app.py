@@ -11,6 +11,7 @@ from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import neo4j_driver
 
 from routes.auth import auth_blueprint
+from routes.datasets import datasets_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
@@ -37,6 +38,7 @@ app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
 app.register_blueprint(validation_blueprint)
 app.register_blueprint(file_blueprint)
+app.register_blueprint(datasets_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
