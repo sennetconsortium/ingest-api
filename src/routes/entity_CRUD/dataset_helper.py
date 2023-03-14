@@ -35,6 +35,25 @@ class DatasetHelper:
             # Log the full stack trace, prepend a line with our message
             self.logger.exception(msg)
 
+    def get_group_uuid_by_dataset_uuid(self, uuid):
+        with self.neo4j_driver_instance.session() as session:
+            # query Neo4j db to get the group_uuid
+            stmt = "match (d:Dataset {uuid:'" + uuid.strip() + "'}) return d.group_uuid as group_uuid"
+            records = session.run(stmt)
+            # this assumes there is only one result returned, but we use the for loop
+            # here because standard list (len, [idx]) operators don't work with
+            # the neo4j record list object
+            count = 0
+            group_uuid = None
+            for record in records:
+                count = count + 1
+                group_uuid = record.get('group_uuid', None)
+                if group_uuid is None:
+                    return Response(f"Unable to process submit.  group_uuid not found on entity:{uuid}", 400)
+            if count == 0:
+                return Response(f"Dataset with uuid:{uuid} not found.", 404)
+            return group_uuid
+
     def determine_sources_to_reindex(self, identifier, user_info, dataset_uuid):
         is_primary = self.dataset_is_primary(dataset_uuid)
         suspend_indexing_and_acls = string_helper.isYes(request.args.get('suspend-indexing-and-acls'))
