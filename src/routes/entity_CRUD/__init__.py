@@ -6,12 +6,16 @@ import csv
 import re
 import urllib.request
 import yaml
+from hubmap_sdk import EntitySdk
 from werkzeug import utils
 from operator import itemgetter
+from threading import Thread
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
-from hubmap_commons import file_helper as commons_file_helper
+from hubmap_commons import file_helper as commons_file_helper, neo4j_driver
+
+from lib.file_upload_helper import UploadFileHelper
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -256,6 +260,132 @@ def create_datasets_from_bulk():
             else:
                 entity_created = True
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+
+
+@entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])
+def submit_dataset(uuid):
+    if not request.is_json:
+        return Response("json request required", 400)
+    try:
+        dataset_request = request.json
+        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'],
+                                                     current_app.config['APP_CLIENT_SECRET'])
+        ingest_helper = IngestFileHelper(current_app.config)
+        auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
+        dataset_helper = DatasetHelper(current_app.config)
+        if isinstance(auth_tokens, Response):
+            return (auth_tokens)
+        elif isinstance(auth_tokens, str):
+            token = auth_tokens
+        else:
+            return (Response("Valid auth token required", 401))
+
+        if 'group_uuid' in dataset_request:
+            return Response(
+                "Cannot specify group_uuid.  The group ownership cannot be changed after an entity has been created.",
+                400)
+
+        group_uuid = dataset_helper.get_group_uuid_by_dataset_uuid(uuid)
+
+        user_info = auth_helper.getUserInfo(token, getGroups=True)
+        if isinstance(user_info, Response):
+            return user_info
+        if not 'hmgroupids' in user_info:
+            return Response("user not authorized to submit data, unable to retrieve any group information", 403)
+        if not current_app.config['SENNET_DATA_ADMIN_GROUP_UUID'] in user_info['hmgroupids']:
+            return Response("user not authorized to submit data, must be a member of the SenNet-Data-Admin group", 403)
+
+        # TODO: Temp fix till we can get this in the "Validation Pipeline"... add the validation code here... If it returns any errors fail out of this. Return 412 Precondition Failed with the errors in the description.
+        pipeline_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['INGEST_PIPELINE_URL']) + 'request_ingest'
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
+    try:
+        put_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
+        dataset_request['status'] = 'Processing'
+        response = requests.put(put_url, json=dataset_request,
+                                headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
+                                verify=False)
+        if not response.status_code == 200:
+            error_msg = f"call to {put_url} failed with code:{response.status_code} message:" + response.text
+            logger.error(error_msg)
+            return Response(error_msg, response.status_code)
+    except HTTPException as hte:
+        logger.error(hte)
+        return Response("Unexpected error while updating dataset: " + str(e) + "  Check the logs", 500)
+
+    def call_airflow():
+        try:
+            request_ingest_payload = {
+                "submission_id": "{uuid}".format(uuid=uuid),
+                "process": "SCAN.AND.BEGIN.PROCESSING",
+                "full_path": ingest_helper.get_dataset_directory_absolute_path(dataset_request, group_uuid, uuid),
+                "provider": "{group_name}".format(group_name=AuthHelper.getGroupDisplayName(group_uuid))
+            }
+            logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
+            r = requests.post(pipeline_url, json=request_ingest_payload,
+                              headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
+                                  token=AuthHelper.instance().getProcessSecret())}, verify=False)
+            if r.ok == True:
+                """expect data like this:
+                {"ingest_id": "abc123", "run_id": "run_657-xyz", "overall_file_count": "99", "top_folder_contents": "["IMS", "processed_microscopy","raw_microscopy","VAN0001-RK-1-spatial_meta.txt"]"}
+                """
+                data = json.loads(r.content.decode())
+                submission_data = data['response']
+                dataset_request['ingest_id'] = submission_data['ingest_id']
+                dataset_request['run_id'] = submission_data['run_id']
+            else:
+                error_message = 'Failed call to AirFlow HTTP Response: ' + str(r.status_code) + ' msg: ' + str(r.text)
+                logger.error(error_message)
+                dataset_request['status'] = 'Error'
+                dataset_request['pipeline_message'] = error_message
+            response = requests.put(put_url, json=dataset_request,
+                                    headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
+                                    verify=False)
+            if not response.status_code == 200:
+                error_msg = f"call to {put_url} failed with code:{response.status_code} message:" + response.text
+                logger.error(error_msg)
+            else:
+                logger.info(response.json())
+        except HTTPException as hte:
+            logger.error(hte)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+
+    thread = Thread(target=call_airflow)
+    thread.start()
+    return Response("Request of Dataset Submisssion Accepted", 202)
+
+
+@entity_CRUD_blueprint.route('/datasets/status', methods=['PUT'])
+# @secured(groups="HuBMAP-read")
+def update_ingest_status():
+    if not request.json:
+        abort(400, jsonify({'error': 'no data found cannot process update'}))
+
+    try:
+        auth_helper_instance = AuthHelper.instance()
+        file_upload_helper_instance = UploadFileHelper.instance()
+        entity_api = EntitySdk(token=auth_helper_instance.getAuthorizationTokens(request.headers),
+                               service_url=commons_file_helper.removeTrailingSlashURL(
+                                   current_app.config['ENTITY_WEBSERVICE_URL']))
+        dataset_helper = DatasetHelper(current_app.config)
+
+        return dataset_helper.update_ingest_status_title_thumbnail(current_app.config,
+                                                                request.json,
+                                                                request.headers,
+                                                                entity_api,
+                                                                file_upload_helper_instance)
+    except HTTPException as hte:
+        return Response(hte.get_description(), hte.get_status_code())
+    except ValueError as ve:
+        logger.error(str(ve))
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response("Unexpected error while saving dataset: " + str(e), 500)
 
 
 def _bulk_upload_and_validate(entity):
