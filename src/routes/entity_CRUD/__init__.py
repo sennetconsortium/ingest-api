@@ -321,8 +321,7 @@ def submit_dataset(uuid):
                 "full_path": ingest_helper.get_dataset_directory_absolute_path(dataset_request, group_uuid, uuid),
                 "provider": "{group_name}".format(group_name=AuthHelper.getGroupDisplayName(group_uuid))
             }
-            logger.info('Request_ingest_payload : ')
-            logger.info(request_ingest_payload)
+            logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
             r = requests.post(pipeline_url, json=request_ingest_payload,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
