@@ -6,6 +6,7 @@ import csv
 import re
 import urllib.request
 import yaml
+from hubmap_sdk import EntitySdk
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
@@ -13,6 +14,8 @@ from threading import Thread
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper, neo4j_driver
+
+from lib.file_upload_helper import UploadFileHelper
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -354,6 +357,35 @@ def submit_dataset(uuid):
     thread = Thread(target=call_airflow)
     thread.start()
     return Response("Request of Dataset Submisssion Accepted", 202)
+
+
+@entity_CRUD_blueprint.route('/datasets/status', methods=['PUT'])
+# @secured(groups="HuBMAP-read")
+def update_ingest_status():
+    if not request.json:
+        abort(400, jsonify({'error': 'no data found cannot process update'}))
+
+    try:
+        auth_helper_instance = AuthHelper.instance()
+        file_upload_helper_instance = UploadFileHelper.instance()
+        entity_api = EntitySdk(token=auth_helper_instance.getAuthorizationTokens(request.headers),
+                               service_url=commons_file_helper.removeTrailingSlashURL(
+                                   current_app.config['ENTITY_WEBSERVICE_URL']))
+        dataset_helper = DatasetHelper(current_app.config)
+
+        return dataset_helper.update_ingest_status_title_thumbnail(current_app.config,
+                                                                request.json,
+                                                                request.headers,
+                                                                entity_api,
+                                                                file_upload_helper_instance)
+    except HTTPException as hte:
+        return Response(hte.get_description(), hte.get_status_code())
+    except ValueError as ve:
+        logger.error(str(ve))
+        return jsonify({'error': str(ve)}), 400
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response("Unexpected error while saving dataset: " + str(e), 500)
 
 
 def _bulk_upload_and_validate(entity):
