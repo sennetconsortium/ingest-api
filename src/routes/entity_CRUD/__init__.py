@@ -274,11 +274,8 @@ def submit_dataset(uuid):
             return (auth_tokens)
         elif isinstance(auth_tokens, str):
             token = auth_tokens
-        # Do we need nexus token
-        elif 'nexus_token' in auth_tokens:
-            token = auth_tokens['nexus_token']
         else:
-            return (Response("Valid nexus auth token required", 401))
+            return (Response("Valid auth token required", 401))
 
         if 'group_uuid' in dataset_request:
             return Response(
