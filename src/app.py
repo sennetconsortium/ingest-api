@@ -9,6 +9,7 @@ from flask import Flask, jsonify, g
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import neo4j_driver
+from atlas_consortia_commons.ubkg import initialize_ubkg
 
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
@@ -19,6 +20,7 @@ from routes.file import file_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
+from lib.ontology import init_ontology
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -126,6 +128,24 @@ try:
 # Use a broad catch-all here
 except Exception:
     msg = "Failed to initialize the UploadFileHelper class"
+    # Log the full stack trace, prepend a line with our message
+    logger.exception(msg)
+
+####################################################################################################
+## UBKG Ontology initialization
+####################################################################################################
+
+try:
+    app.ubkg = initialize_ubkg(app.config)
+    with app.app_context():
+        init_ontology()
+
+
+    logger.info("Initialized ubkg module successfully :)")
+
+# Use a broad catch-all here
+except Exception:
+    msg = "Failed to initialize the ubkg module"
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 

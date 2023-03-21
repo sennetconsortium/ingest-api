@@ -1,25 +1,35 @@
 # TODO: Pull these terms from the ontology-api when ready. Auto generate constants via the api. This lib is also within entity-api.
-
-class Entities:
-    SOURCE = 'Source'
-    SAMPLE = 'Sample'
-    DATASET = 'Dataset'
+from atlas_consortia_commons.object import build_enum_class
+from flask import current_app
 
 
-class SpecimenCategory:
-    ORGAN = 'organ'
-    BLOCK = 'block'
-    SECTION = 'section'
-    SUSPENSION = 'suspension'
+def enum_val(e):
+    return e.value
 
+def entities():
+    #TODO use when resolved in api
+    response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.entities)
+    return build_enum_class('Entities', {'SOURCE': 'source', 'SAMPLE': 'sample', 'DATASET': 'dataset'})
 
-class Organs:
-    BLOOD = 'BD'
+def specimen_categories():
+    response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.specimen_categories)
+    return build_enum_class('SpecimenCategories', response, 'term')
 
+def specimen_categories_as_arr():
+    SpecimenCategories = specimen_categories()
+    return list(map(enum_val, SpecimenCategories))
 
-class DataTypes:
-    LIGHTSHEET = 'Lightsheet'
+def organ_types():
+    response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.organ_types)
+    return build_enum_class('OrganTypes', response, 'term')
 
+def init_ontology():
+    specimen_categories()
+    organ_types()
+    entities()
 
-def get_entities() -> list[Entities]:
-    return [Entities.SOURCE, Entities.SAMPLE, Entities.DATASET]
+class Ontology:
+    @staticmethod
+    def entities():
+        return entities()
+

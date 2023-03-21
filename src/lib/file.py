@@ -1,8 +1,8 @@
 import csv
 import logging
 from hubmap_commons import file_helper as commons_file_helper
-from flask import current_app
-from lib.rest import *
+from flask import current_app, request
+from atlas_consortia_commons.rest import *
 from werkzeug import utils
 
 from lib.file_upload_helper import UploadFileHelper
@@ -48,11 +48,11 @@ def check_upload(key: str = 'file'):
             file_upload_helper_instance = UploadFileHelper.instance()
 
         if key not in request.files:
-            bad_request_error('No file part')
+            abort_bad_req('No file part')
 
         file = request.files[key]
         if file.filename == '':
-            bad_request_error('No selected file')
+            abort_bad_req('No selected file')
 
         file.filename = file.filename.replace(' ', '_')
         temp_id = file_upload_helper_instance.save_temp_file(file)
@@ -61,10 +61,10 @@ def check_upload(key: str = 'file'):
         return rest_response(StatusCodes.OK, 'OK', {
             'id': temp_id,
             'file': file
-        })
+        }, True)
 
     except Exception as e:
         if hasattr(e, 'code'):
-            return rest_response(e.code, e.name, e.description)
+            return rest_response(e.code, e.name, e.description, True)
         else:
-            return server_error(e)
+            return rest_server_err(e, True)

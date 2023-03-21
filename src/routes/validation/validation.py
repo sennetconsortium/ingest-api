@@ -1,12 +1,12 @@
 import logging
 import os
-from flask import Blueprint, make_response, request
+from flask import Blueprint, request
 import json
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
-from lib.rest import StatusCodes, get_json_header, rest_server_err, \
+from atlas_consortia_commons.rest import StatusCodes, rest_server_err, \
     rest_response, is_json_request, full_response
 
 from lib.file import get_csv_records, get_base_path, check_upload
@@ -57,7 +57,7 @@ def validate_tsv(schema='metadata', path=None):
         try:
             errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
         except Exception as e:
-            errors = rest_server_err(e)
+            errors = rest_server_err(e, True)
     return json.dumps(errors)
 
 
@@ -81,7 +81,7 @@ def validate_metadata_upload():
             validation_results = validate_tsv(path=upload.get('fullpath'))
             if len(validation_results) > 2:
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
-                                         json.loads(validation_results))
+                                         json.loads(validation_results), True)
             else:
                 response = {
                     'code': StatusCodes.OK,
@@ -90,6 +90,6 @@ def validate_metadata_upload():
                 }
 
     except Exception as e:
-        response = rest_server_err(e)
+        response = rest_server_err(e, True)
 
     return full_response(response)

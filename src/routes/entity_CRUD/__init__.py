@@ -2,7 +2,6 @@ from flask import Blueprint, jsonify, request, Response, current_app, abort, jso
 import logging
 import requests
 import os
-import csv
 import re
 import urllib.request
 import yaml
@@ -12,6 +11,7 @@ from operator import itemgetter
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
+from atlas_consortia_commons.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -21,9 +21,8 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
-from lib.ontology import Entities
+from lib.ontology import Ontology
 from lib.file import get_csv_records, get_base_path, check_upload
-from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes, bad_request_error
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -102,7 +101,7 @@ def publish_datastage(identifier):
 
 @entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
 def bulk_sources_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.SOURCE)
+    return _bulk_upload_and_validate(Ontology.entities().SOURCE)
 
 
 @entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
@@ -114,7 +113,7 @@ def create_sources_from_bulk():
     valid_file = validate_sources(headers, records)
 
     if type(valid_file) is list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
     if valid_file is True:
@@ -144,7 +143,7 @@ def create_sources_from_bulk():
 
 @entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
 def bulk_samples_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.SAMPLE)
+    return _bulk_upload_and_validate(Ontology.entities().SAMPLE)
 
 
 @entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
@@ -157,7 +156,7 @@ def create_samples_from_bulk():
     valid_file = validate_samples(headers, records, header)
 
     if type(valid_file) is list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
     if valid_file is True:
@@ -192,7 +191,7 @@ def create_samples_from_bulk():
 
 @entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
 def bulk_datasets_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.DATASET)
+    return _bulk_upload_and_validate(Ontology.entities().DATASET)
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
@@ -228,7 +227,7 @@ def create_datasets_from_bulk():
     valid_file = validate_datasets(headers, records, header)
 
     if type(valid_file) == list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
     if valid_file is True:
@@ -268,25 +267,23 @@ def _bulk_upload_and_validate(entity):
     csv_records = get_csv_records(file_location)
     headers, records = itemgetter('headers', 'records')(csv_records)
 
-    if entity == Entities.SOURCE:
+    if entity == Ontology.entities().SOURCE:
         valid_file = validate_sources(headers, records)
-    elif entity == Entities.SAMPLE:
+    elif entity == Ontology.entities().SAMPLE:
         valid_file = validate_samples(headers, records, header)
-    elif entity == Entities.DATASET:
+    elif entity == Ontology.entities().DATASET:
         records = _format_dataset_records(records)
         valid_file = validate_datasets(headers, records, header)
     else:
         valid_file = False
 
     if valid_file is True:
-        response = rest_ok({'temp_id': temp_id})
+        return rest_ok({'temp_id': temp_id})
     elif type(valid_file) is list:
-        response = rest_bad_req(valid_file)
+        return rest_bad_req(valid_file)
     else:
         message = f'Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}'
-        response = rest_server_err(message)
-
-    return full_response(response)
+        return rest_server_err(message)
 
 
 def _format_dataset_records(records):
@@ -323,23 +320,23 @@ def _check_request_for_bulk():
     try:
         temp_id = request_data['temp_id']
     except KeyError:
-        return full_response(rest_bad_req('No key `temp_id` in request body'))
+        return rest_bad_req('No key `temp_id` in request body')
     group_uuid = None
     if "group_uuid" in request_data:
         group_uuid = request_data['group_uuid']
     temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
     tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
     if not os.path.exists(tsv_directory):
-        return full_response(rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory"))
+        return rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory")
     fcount = 0
     temp_file_name = None
     for tfile in os.listdir(tsv_directory):
         fcount = fcount + 1
         temp_file_name = tfile
     if fcount == 0:
-        return full_response(rest_bad_req(f"File not found in temporary directory /{temp_id}"))
+        return rest_bad_req(f"File not found in temporary directory /{temp_id}")
     if fcount > 1:
-        return full_response(rest_bad_req(f"Multiple files found in temporary file path /{temp_id}"))
+        return rest_bad_req(f"Multiple files found in temporary file path /{temp_id}")
     file_location = tsv_directory + temp_file_name
     return {
         'csv_records': get_csv_records(file_location),
@@ -349,13 +346,11 @@ def _check_request_for_bulk():
 
 def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
     if entity_created and not entity_failed_to_create:
-        response = rest_ok(entity_response)
+        return rest_ok(entity_response)
     elif entity_created and entity_failed_to_create:
-        response = rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
+        return rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
     else:
-        response = rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
-
-    return full_response(response)
+        return rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
