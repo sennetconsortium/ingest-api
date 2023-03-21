@@ -1,15 +1,10 @@
-# TODO: Pull these terms from the ontology-api when ready. Auto generate constants via the api. This lib is also within entity-api.
 from atlas_consortia_commons.object import build_enum_class
 from flask import current_app
-
-
-def enum_val(e):
-    return e.value
 
 def entities():
     #TODO use when resolved in api
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.entities)
-    return build_enum_class('Entities', {'SOURCE': 'source', 'SAMPLE': 'sample', 'DATASET': 'dataset'})
+    return build_enum_class('Entities', {'SOURCE': 'Source', 'SAMPLE': 'Sample', 'DATASET': 'Dataset'})
 
 def specimen_categories():
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.specimen_categories)
@@ -17,7 +12,7 @@ def specimen_categories():
 
 def specimen_categories_as_arr():
     SpecimenCategories = specimen_categories()
-    return list(map(enum_val, SpecimenCategories))
+    return list(map(str, SpecimenCategories))
 
 def organ_types():
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.organ_types)
