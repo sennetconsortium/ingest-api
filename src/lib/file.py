@@ -9,8 +9,6 @@ from lib.file_upload_helper import UploadFileHelper
 
 logger = logging.getLogger(__name__)
 
-# TODO: Use these methods and DRY routes.entity_CRUD
-
 def get_csv_records(path: str):
     records = []
     headers = []

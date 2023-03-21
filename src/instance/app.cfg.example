@@ -49,6 +49,12 @@ GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/public'
 GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/consortium'
 GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
 
+SENNET_DATA_ADMIN_GROUP_UUID='f654cd0d-1d9c-11ed-b7d5-972795fc9504'
+INGEST_PIPELINE_URL='https://ingest-af.dev.sennetconsortium.org:5555/api/sennet/'
+INGEST_PIPELINE_DEFAULT_PROCESS='SCAN.AND.BEGIN.PROCESSING'
+
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
 UBKG_CODES = '{"specimen_categories":"C020076", "assay_types":{"code": "C004000", "key": "datasets", "endpoint": "datasets?application_context=SENNET"}, "organ_types":"C000008", "entities": "C000012"}'
+
+
