@@ -13,7 +13,7 @@ from threading import Thread
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
-from atlas_consortia_commons.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes
+from atlas_consortia_commons.rest import *
 
 from lib.file_upload_helper import UploadFileHelper
 
@@ -88,7 +88,7 @@ def publish_datastage(identifier):
             return Response("User must be a member of the SenNet Data Admin group to publish data.", 403)
 
         if identifier is None or len(identifier) == 0:
-            abort(400, jsonify({'error': 'identifier parameter is required to publish a dataset'}))
+            abort_bad_req('identifier parameter is required to publish a dataset')
         r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/uuid/" + identifier,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
@@ -363,7 +363,7 @@ def submit_dataset(uuid):
 # @secured(groups="HuBMAP-read")
 def update_ingest_status():
     if not request.json:
-        abort(400, jsonify({'error': 'no data found cannot process update'}))
+        abort_bad_req('no data found cannot process update')
 
     try:
         auth_helper_instance = AuthHelper.instance()
@@ -382,7 +382,7 @@ def update_ingest_status():
         return Response(hte.get_description(), hte.get_status_code())
     except ValueError as ve:
         logger.error(str(ve))
-        return jsonify({'error': str(ve)}), 400
+        abort_bad_req(ve)
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while saving dataset: " + str(e), 500)
