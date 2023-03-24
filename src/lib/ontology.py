@@ -2,17 +2,12 @@ from atlas_consortia_commons.object import build_enum_class
 from flask import current_app
 
 def entities():
-    #TODO use when resolved in api
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.entities)
-    return build_enum_class('Entities', {'SOURCE': 'Source', 'SAMPLE': 'Sample', 'DATASET': 'Dataset'})
+    return build_enum_class('Entities', response, 'term')
 
 def specimen_categories():
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.specimen_categories)
     return build_enum_class('SpecimenCategories', response, 'term')
-
-def specimen_categories_as_arr():
-    SpecimenCategories = specimen_categories()
-    return list(map(str, SpecimenCategories))
 
 def organ_types():
     response = current_app.ubkg.get_ubkg_valueset(current_app.ubkg.organ_types)
@@ -25,6 +20,17 @@ def init_ontology():
 
 class Ontology:
     @staticmethod
-    def entities():
-        return entities()
+    def entities(as_arr: bool = False):
+        Entities = entities()
+        return Entities if not as_arr else list(map(str, Entities))
+
+    @staticmethod
+    def specimen_categories(as_arr: bool = False):
+        SpecimenCategories = specimen_categories()
+        return SpecimenCategories if not as_arr else list(map(str, SpecimenCategories))
+
+    @staticmethod
+    def organ_types(as_arr: bool = False):
+        OrganTypes = organ_types()
+        return OrganTypes if not as_arr else list(map(str, OrganTypes))
 
