@@ -55,6 +55,6 @@ INGEST_PIPELINE_DEFAULT_PROCESS='SCAN.AND.BEGIN.PROCESSING'
 
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
-UBKG_CODES = '{"specimen_categories":"C020076", "assay_types":{"code": "C004000", "key": "datasets", "endpoint": "datasets?application_context=SENNET"}, "organ_types":"C000008", "entities": "C000012"}'
+UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":"C000008", "entities": "C000012", "source_types":"C050020", "data_types": "C004000"}'
 
 

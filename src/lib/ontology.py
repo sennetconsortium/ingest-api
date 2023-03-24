@@ -1,6 +1,5 @@
 from atlas_consortia_commons.object import build_enum_class
 from flask import current_app
-from typing import Union
 
 def _get_obj_type(in_enum):
     return 'enum' if in_enum else 'class'
@@ -21,10 +20,15 @@ def organ_types(in_enum: bool = False):
 def source_types(in_enum: bool = False):
     return _build_enum_class('SourceTypes', current_app.ubkg.source_types, in_enum)
 
+def data_types(in_enum: bool = False):
+    return _build_enum_class('DataTypes', current_app.ubkg.data_types, in_enum)
+
 def init_ontology():
     specimen_categories()
     organ_types()
     entities()
+    source_types()
+    data_types()
 
 def enum_val_lower(val):
     return val.value.lower()
@@ -50,4 +54,9 @@ class Ontology:
     def source_types(as_arr: bool = False, cb=str):
         SourceTypes = source_types(as_arr)
         return SourceTypes if not as_arr else list(map(cb, SourceTypes))
+
+    @staticmethod
+    def data_types(as_arr: bool = False, cb=str):
+        DataTypes = data_types(as_arr)
+        return DataTypes if not as_arr else list(map(cb, DataTypes))
 
