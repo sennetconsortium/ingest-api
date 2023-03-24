@@ -1,4 +1,5 @@
 from atlas_consortia_commons.object import build_enum_class
+from atlas_consortia_commons.ubkg import get_from_node
 from flask import current_app
 
 def _get_obj_type(in_enum):
@@ -33,30 +34,35 @@ def init_ontology():
 def enum_val_lower(val):
     return val.value.lower()
 
+def get_valueset_ep(code):
+    ep = f"{current_app.config['UBKG_SERVER']}{current_app.config['UBKG_ENDPOINT_VALUESET']}"
+    return ep.format(code=code)
+
+def get_organ_types_ep():
+    return get_valueset_ep(get_from_node(current_app.ubkg.organ_types, 'code'))
 
 class Ontology:
     @staticmethod
     def entities(as_arr: bool = False, cb=str):
-        Entities = entities(as_arr)
-        return Entities if not as_arr else list(map(cb, Entities))
+        return Ontology._as_list_or_class(entities(as_arr), as_arr, cb)
 
     @staticmethod
     def specimen_categories(as_arr: bool = False, cb=str):
-        SpecimenCategories = specimen_categories(as_arr)
-        return SpecimenCategories if not as_arr else list(map(cb, SpecimenCategories))
+        return Ontology._as_list_or_class(specimen_categories(as_arr), as_arr, cb)
 
     @staticmethod
     def organ_types(as_arr: bool = False, cb=str):
-        OrganTypes = organ_types(as_arr)
-        return OrganTypes if not as_arr else list(map(cb, OrganTypes))
+        return Ontology._as_list_or_class(organ_types(as_arr), as_arr, cb)
 
     @staticmethod
     def source_types(as_arr: bool = False, cb=str):
-        SourceTypes = source_types(as_arr)
-        return SourceTypes if not as_arr else list(map(cb, SourceTypes))
+        return Ontology._as_list_or_class(source_types(as_arr), as_arr, cb)
 
     @staticmethod
     def data_types(as_arr: bool = False, cb=str):
-        DataTypes = data_types(as_arr)
-        return DataTypes if not as_arr else list(map(cb, DataTypes))
+        return Ontology._as_list_or_class(data_types(as_arr), as_arr, cb)
+
+    @staticmethod
+    def _as_list_or_class(obj, as_arr: bool = False, cb=str):
+        return obj if not as_arr else list(map(cb, obj))
 
