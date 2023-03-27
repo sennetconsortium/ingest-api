@@ -5,24 +5,24 @@ from flask import current_app
 def _get_obj_type(in_enum):
     return 'enum' if in_enum else 'class'
 
-def _build_enum_class(name: str, obj, in_enum: bool = False):
+def _build_enum_class(name: str, obj, key: str = 'term', in_enum: bool = False):
     response = current_app.ubkg.get_ubkg_valueset(obj)
-    return build_enum_class(name, response, 'term', obj_type=_get_obj_type(in_enum))
+    return build_enum_class(name, response, key, obj_type=_get_obj_type(in_enum))
 
 def entities(in_enum: bool = False):
-    return _build_enum_class('Entities', current_app.ubkg.entities, in_enum)
+    return _build_enum_class('Entities', current_app.ubkg.entities, in_enum=in_enum)
 
 def specimen_categories(in_enum: bool = False):
-    return _build_enum_class('SpecimenCategories', current_app.ubkg.specimen_categories, in_enum)
+    return _build_enum_class('SpecimenCategories', current_app.ubkg.specimen_categories, in_enum=in_enum)
 
 def organ_types(in_enum: bool = False):
-    return _build_enum_class('OrganTypes', current_app.ubkg.organ_types, in_enum)
+    return _build_enum_class('OrganTypes', current_app.ubkg.organ_types, in_enum=in_enum)
 
 def source_types(in_enum: bool = False):
-    return _build_enum_class('SourceTypes', current_app.ubkg.source_types, in_enum)
+    return _build_enum_class('SourceTypes', current_app.ubkg.source_types, in_enum=in_enum)
 
 def data_types(in_enum: bool = False):
-    return _build_enum_class('DataTypes', current_app.ubkg.data_types, in_enum)
+    return _build_enum_class('DataTypes', current_app.ubkg.data_types, in_enum=in_enum)
 
 def init_ontology():
     specimen_categories()
