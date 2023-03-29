@@ -262,6 +262,7 @@ def create_datasets_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
+@entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
 @entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
 def get_file_system_absolute_path(ds_uuid: str):
     try:
