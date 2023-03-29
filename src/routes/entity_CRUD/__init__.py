@@ -262,6 +262,91 @@ def create_datasets_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
+@entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
+def get_file_system_absolute_path(ds_uuid: str):
+    try:
+        ingest_helper = IngestFileHelper(current_app.config)
+        return jsonify({'path': get_ds_path(ds_uuid, ingest_helper)}), 200
+    except ResponseException as re:
+        return re.response
+    except HTTPException as hte:
+        return Response(f"Error while getting file-system-abs-path for {ds_uuid}: " +
+                        hte.get_description(), hte.get_status_code())
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
+
+
+@entity_CRUD_blueprint.route('/entities/<entity_uuid>', methods = ['GET'])
+def get_entity(entity_uuid):
+    try:
+        entity = __get_entity(entity_uuid, auth_header = request.headers.get("AUTHORIZATION"))
+        return jsonify (entity), 200
+    except HTTPException as hte:
+        return Response(hte.get_description(), hte.get_status_code())
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(f"Unexpected error while retrieving entity {entity_uuid}: " + str(e), 500)
+
+
+def get_ds_path(ds_uuid: str,
+                ingest_helper: IngestFileHelper) -> str:
+    """Get the path to the dataset files"""
+    dset = __get_entity(ds_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+    ent_type = __get_dict_prop(dset, 'entity_type')
+    group_uuid = __get_dict_prop(dset, 'group_uuid')
+    if ent_type is None or ent_type.strip() == '':
+        raise ResponseException(f"Entity with uuid:{ds_uuid} needs to be a Dataset or Upload.", 400)
+    # if ent_type.lower().strip() == 'upload':
+    #     return ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=ds_uuid)
+    is_phi = __get_dict_prop(dset, 'contains_human_genetic_sequences')
+    if ent_type is None or not (ent_type.lower().strip() == 'dataset' or ent_type.lower().strip() == 'publication'):
+        raise ResponseException(f"Entity with uuid:{ds_uuid} is not a Dataset, Publication or Upload", 400)
+    if group_uuid is None:
+        raise ResponseException(f"Unable to find group uuid on dataset {ds_uuid}", 400)
+    if is_phi is None:
+        raise ResponseException(f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}", 400)
+    return ingest_helper.get_dataset_directory_absolute_path(dset, group_uuid, ds_uuid)
+
+
+def __get_entity(entity_uuid, auth_header=None):
+    if auth_header is None:
+        headers = None
+    else:
+        headers = {'Authorization': auth_header, 'Accept': 'application/json', 'Content-Type': 'application/json'}
+    get_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) +\
+              'entities/' + entity_uuid
+
+    response = requests.get(get_url, headers=headers, verify=False)
+    if response.status_code != 200:
+        err_msg = f"Error while calling {get_url} status code:{response.status_code}  message:{response.text}"
+        logger.error(err_msg)
+        raise HTTPException(err_msg, response.status_code)
+
+    return response.json()
+
+
+def __get_dict_prop(dic, prop_name):
+    if prop_name not in dic:
+        return None
+    val = dic[prop_name]
+    if isinstance(val, str) and val.strip() == '':
+        return None
+    return val
+
+
+class ResponseException(Exception):
+    """Return a HTTP response from deep within the call stack"""
+    def __init__(self, message: str, stat: int):
+        self.message: str = message
+        self.status: int = stat
+
+    @property
+    def response(self) -> Response:
+        logger.error(f'message: {self.message}; status: {self.status}')
+        return Response(self.message, self.status)
+
+
 @entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])
 def submit_dataset(uuid):
     if not request.is_json:
