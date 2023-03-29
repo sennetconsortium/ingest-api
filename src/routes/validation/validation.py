@@ -91,7 +91,7 @@ def validate_metadata_upload():
                 schema = f"sample-{sub_type}"
             else:
                 schema = 'metadata'
-
+            schema = schema.lower()
             validation_results = validate_tsv(path=upload.get('fullpath'), schema=schema)
             if len(validation_results) > 2:
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
