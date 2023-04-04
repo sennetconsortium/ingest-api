@@ -6,11 +6,11 @@ import json
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
-from lib.rest import StatusCodes, rest_server_err, \
+from atlas_consortia_commons.rest import StatusCodes, rest_server_err, \
     rest_response, is_json_request, full_response, rest_bad_req
 
 from lib.file import get_csv_records, get_base_path, check_upload
-from lib.ontology import Entities
+from lib.ontology import Ontology
 
 validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def validate_tsv(schema='metadata', path=None):
         try:
             errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
         except Exception as e:
-            errors = rest_server_err(e)
+            errors = rest_server_err(e, True)
     return json.dumps(errors)
 
 
@@ -83,19 +83,19 @@ def validate_metadata_upload():
         response = error
 
         if error is None:
-            if entity_type == Entities.SOURCE:
+            if entity_type == Ontology.entities().SOURCE:
                 schema = 'donor'
-            elif entity_type == Entities.SAMPLE:
+            elif entity_type == Ontology.entities().SAMPLE:
                 if not sub_type:
-                    return full_response(rest_bad_req("`sub_type` for schema name required."))
+                    return rest_bad_req("`sub_type` for schema name required.")
                 schema = f"sample-{sub_type}"
             else:
                 schema = 'metadata'
-
+            schema = schema.lower()
             validation_results = validate_tsv(path=upload.get('fullpath'), schema=schema)
             if len(validation_results) > 2:
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
-                                         json.loads(validation_results))
+                                         json.loads(validation_results), True)
             else:
                 response = {
                     'code': StatusCodes.OK,
@@ -104,6 +104,6 @@ def validate_metadata_upload():
                 }
 
     except Exception as e:
-        response = rest_server_err(e)
+        response = rest_server_err(e, True)
 
     return full_response(response)

@@ -9,6 +9,8 @@ from flask import Flask, jsonify, g
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import neo4j_driver
+from atlas_consortia_commons.ubkg import initialize_ubkg
+from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
 
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
@@ -19,6 +21,7 @@ from routes.file import file_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
+from lib.ontology import init_ontology
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -43,32 +46,24 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 ####################################################################################################
-## Register error handlers
+## UBKG Ontology initialization
 ####################################################################################################
 
-# Error handler for 400 Bad Request with custom error message
-@app.errorhandler(400)
-def http_bad_request(e):
-    return jsonify(error=str(e)), 400
+try:
+    for exception in get_http_exceptions_classes():
+        app.register_error_handler(exception, abort_err_handler)
+    app.ubkg = initialize_ubkg(app.config)
+    with app.app_context():
+        init_ontology()
 
 
-# Error handler for 401 Unauthorized with custom error message
-@app.errorhandler(401)
-def http_unauthorized(e):
-    return jsonify(error=str(e)), 401
+    logger.info("Initialized ubkg module successfully :)")
 
-
-# Error handler for 404 Not Found with custom error message
-@app.errorhandler(404)
-def http_not_found(e):
-    return jsonify(error=str(e)), 404
-
-
-# Error handler for 500 Internal Server Error with custom error message
-@app.errorhandler(500)
-def http_internal_server_error(e):
-    return jsonify(error=str(e)), 500
-
+# Use a broad catch-all here
+except Exception:
+    msg = "Failed to initialize the ubkg module"
+    # Log the full stack trace, prepend a line with our message
+    logger.exception(msg)
 
 ####################################################################################################
 ## AuthHelper initialization

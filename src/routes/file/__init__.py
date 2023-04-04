@@ -5,6 +5,7 @@ import os
 import logging
 
 from lib.file_upload_helper import UploadFileHelper
+from atlas_consortia_commons.rest import *
 
 file_blueprint = Blueprint('file', __name__)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ def get_upload_file_helper_instance() -> UploadFileHelper:
     except Exception:
         msg = "Failed to initialize the UploadFileHelper class"
         logger.exception(msg)
-        internal_server_error(msg)
+        abort_internal_err(msg)
 
 
 """
@@ -38,12 +39,12 @@ json
 def upload_file():
     # Check if the post request has the file part
     if 'file' not in request.files:
-        bad_request_error('No file part')
+        abort_bad_req('No file part')
 
     file = request.files['file']
 
     if file.filename == '':
-        bad_request_error('No selected file')
+        abort_bad_req('No selected file')
 
     try:
         file_upload_helper_instance: UploadFileHelper = get_upload_file_helper_instance()
@@ -57,7 +58,7 @@ def upload_file():
         # Log the full stack trace, prepend a line with our message
         msg = "Failed to upload files"
         logger.exception(msg)
-        internal_server_error(msg)
+        abort_internal_err(msg)
 
 
 """
@@ -162,12 +163,4 @@ def remove_file():
 
 def require_json(request):
     if not request.is_json:
-        bad_request_error("A json body and appropriate Content-Type header are required")
-
-
-def internal_server_error(err_msg):
-    abort(500, description=err_msg)
-
-
-def bad_request_error(err_msg):
-    abort(400, description=err_msg)
+        abort_bad_req("A json body and appropriate Content-Type header are required")
