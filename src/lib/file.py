@@ -66,3 +66,10 @@ def check_upload(key: str = 'file'):
             return rest_response(e.code, e.name, e.description, True)
         else:
             return rest_server_err(e, True)
+
+def ln_err(error: str, row: int = None, column: str = None):
+    return {
+        'column': column,
+        'error': error,
+        'row': row
+    }

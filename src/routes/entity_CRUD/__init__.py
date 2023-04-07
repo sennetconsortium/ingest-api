@@ -27,8 +27,8 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
-from lib.ontology import Ontology, enum_val_lower
-from lib.file import get_csv_records, get_base_path, check_upload
+from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep
+from lib.file import get_csv_records, get_base_path, check_upload, ln_err
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -105,12 +105,12 @@ def publish_datastage(identifier):
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/validate', methods=['POST'])
 def bulk_sources_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().SOURCE)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/register', methods=['POST'])
 def create_sources_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -147,12 +147,12 @@ def create_sources_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
-@entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/validate', methods=['POST'])
 def bulk_samples_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().SAMPLE)
 
 
-@entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/register', methods=['POST'])
 def create_samples_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -195,12 +195,12 @@ def create_samples_from_bulk():
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/validate', methods=['POST'])
 def bulk_datasets_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().DATASET)
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/register', methods=['POST'])
 def create_datasets_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -486,11 +486,7 @@ def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, 
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
-    return {
-        'column': column,
-        'error': error,
-        'row': row
-    }
+    return ln_err(error, row, column)
 
 
 def _common_ln_errs(err, val):
@@ -602,6 +598,7 @@ def validate_samples(headers, records, header):
     SpecimenCategories = Ontology.specimen_categories()
     Entities = Ontology.entities()
 
+    # TODO: Use ontology
     with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml') as urlfile:
         organ_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
@@ -675,7 +672,8 @@ def validate_samples(headers, records, header):
             if len(organ_type) > 0:
                 if organ_type.upper() not in organ_resource_file:
                     file_is_valid = False
-                    error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)", rownum, "organ_type"))
+                    # TODO: Use get_organ_types_ep()
+                    error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml", rownum, "organ_type"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
