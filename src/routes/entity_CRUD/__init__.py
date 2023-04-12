@@ -121,6 +121,7 @@ def create_sources_from_bulk():
     if type(valid_file) is list:
         return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -139,12 +140,12 @@ def create_sources_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
-            status_code = r.status_code
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
 @entity_CRUD_blueprint.route('/samples/bulk/validate', methods=['POST'])
@@ -164,6 +165,7 @@ def create_samples_from_bulk():
     if type(valid_file) is list:
         return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -188,11 +190,12 @@ def create_samples_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk/validate', methods=['POST'])
@@ -236,6 +239,7 @@ def create_datasets_from_bulk():
         return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
+    status_codes = []
     if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
@@ -260,7 +264,8 @@ def create_datasets_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+            status_codes.append(r.status_code)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
 @entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])
@@ -388,6 +393,13 @@ def update_ingest_status():
         logger.error(e, exc_info=True)
         return Response("Unexpected error while saving dataset: " + str(e), 500)
 
+def _get_status_code__by_priority(codes):
+    if StatusCodes.SERVER_ERR in codes:
+        return StatusCodes.SERVER_ERR
+    elif StatusCodes.UNACCEPTABLE in codes:
+        return StatusCodes.UNACCEPTABLE
+    else:
+        return codes[0]
 
 def _bulk_upload_and_validate(entity):
     header = get_auth_header()
@@ -476,13 +488,14 @@ def _check_request_for_bulk():
     }
 
 
-def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
+def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool,
+                           entity_response, status_code=StatusCodes.SERVER_ERR):
     if entity_created and not entity_failed_to_create:
         return rest_ok(entity_response)
     elif entity_created and entity_failed_to_create:
         return rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
     else:
-        return rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
+        return rest_response(status_code, f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}", entity_response)
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
