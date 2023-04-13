@@ -89,7 +89,7 @@ def create_tsv_from_path(path, row):
 def determine_schema(entity_type, sub_type):
     if equals(entity_type, Ontology.entities().SOURCE):
         schema = 'donor'
-    elif equals(entity_type, 'Sample'): #Ontology.entities().SAMPLE:
+    elif equals(entity_type, Ontology.entities().SAMPLE):
         if not sub_type:
             return rest_bad_req("`sub_type` for schema name required.")
         schema = f"sample-{sub_type}"
@@ -114,7 +114,7 @@ def _get_response(metadata, entity_type, sub_type, validate_uuids, pathname=None
 
 
 def get_col_uuid_name_by_entity_type(entity_type):
-    if equals(entity_type, 'Sample'): #Ontology.entities().SAMPLE
+    if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_id'
     else:
         # TODO: This is subject to change when support is raised for Source of Mouse
@@ -122,7 +122,7 @@ def get_col_uuid_name_by_entity_type(entity_type):
 
 
 def get_sub_type_name_by_entity_type(entity_type):
-    if equals(entity_type, 'Sample'): #Ontology.entities().SAMPLE
+    if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_category'
     else:
         # TODO: This is subject to change when support is raised for Source of Mouse
