@@ -611,9 +611,8 @@ def validate_samples(headers, records, header):
     SpecimenCategories = Ontology.specimen_categories()
     Entities = Ontology.entities()
 
-    # TODO: Use ontology
-    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml') as urlfile:
-        organ_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
+    organ_types = Ontology.organ_types(as_data_dict=True)
+    organ_types_codes = list(organ_types.keys())
 
     rownum = 0
     valid_ancestor_ids = []
@@ -683,10 +682,9 @@ def validate_samples(headers, records, header):
                     file_is_valid = False
                     error_msg.append(_ln_err("field is required if `sample_category` is `organ`", rownum, "organ_type"))
             if len(organ_type) > 0:
-                if organ_type.upper() not in organ_resource_file:
+                if organ_type.upper() not in organ_types_codes:
                     file_is_valid = False
-                    # TODO: Use get_organ_types_ep()
-                    error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml", rownum, "organ_type"))
+                    error_msg.append(_ln_err(f"value must be an organ code listed in `organ_type` files {get_organ_types_ep()}", rownum, "organ_type"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
