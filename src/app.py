@@ -4,7 +4,7 @@ import requests
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
-from flask import Flask, jsonify, g
+from flask import Flask, g
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
@@ -46,7 +46,7 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
 
 ####################################################################################################
-## UBKG Ontology initialization
+## UBKG Ontology and REST initialization
 ####################################################################################################
 
 try:

@@ -15,6 +15,7 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from atlas_consortia_commons.rest import *
 from atlas_consortia_commons.string import equals
+from atlas_consortia_commons.object import includes
 
 from lib.file_upload_helper import UploadFileHelper
 
@@ -611,8 +612,7 @@ def validate_samples(headers, records, header):
     SpecimenCategories = Ontology.specimen_categories()
     Entities = Ontology.entities()
 
-    organ_types = Ontology.organ_types(as_data_dict=True)
-    organ_types_codes = list(organ_types.keys())
+    organ_types_codes = list(Ontology.organ_types(as_data_dict=True).keys())
 
     rownum = 0
     valid_ancestor_ids = []
@@ -672,6 +672,7 @@ def validate_samples(headers, records, header):
                 error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_categories)}", rownum, "sample_category"))
 
             # validate organ_type
+            data_row['organ_type'] = data_row['organ_type'].upper()
             organ_type = data_row['organ_type']
             if not equals(sample_category, SpecimenCategories.ORGAN):
                 if len(organ_type) > 0:
@@ -682,7 +683,7 @@ def validate_samples(headers, records, header):
                     file_is_valid = False
                     error_msg.append(_ln_err("field is required if `sample_category` is `organ`", rownum, "organ_type"))
             if len(organ_type) > 0:
-                if organ_type.upper() not in organ_types_codes:
+                if organ_type not in organ_types_codes:
                     file_is_valid = False
                     error_msg.append(_ln_err(f"value must be an organ code listed in `organ_type` files {get_organ_types_ep()}", rownum, "organ_type"))
 
@@ -760,6 +761,8 @@ def validate_datasets(headers, records, header):
     with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
         assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
+    assay_types = list(Ontology.assay_types(as_data_dict=True, prop_callback=None).keys())
+
     for each in assay_resource_file:
         assays.append(each.upper())
 
@@ -808,11 +811,16 @@ def validate_datasets(headers, records, header):
             # validate data_type
             data_types = data_row['data_types']
             data_types_valid = True
-            for data_type in data_types:
-                if data_type.upper() not in assays:
+            for i, data_type in enumerate(data_types):
+                idx = includes(assay_types, data_type, single_index=True)
+
+                if idx == -1:
                     file_is_valid = False
                     data_types_valid = False
                     error_msg.append(_ln_err("value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)", rownum, "data_types"))
+                else:
+                    # apply formatting
+                    data_types[i] = assay_types[idx]
 
             if len(data_types) < 1:
                 file_is_valid = False
