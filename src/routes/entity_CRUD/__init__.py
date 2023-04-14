@@ -735,7 +735,6 @@ def validate_entity_constraints(file_is_valid, error_msg, header, entity_constra
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
-    assays = []
 
     required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
@@ -748,14 +747,8 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    # retrieve yaml file containing all accepted data types
-    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
-        assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
     assay_types = list(Ontology.assay_types(as_data_dict=True, prop_callback=None).keys())
-
-    for each in assay_resource_file:
-        assays.append(each.upper())
 
     rownum = 0
     entity_constraint_list = []
