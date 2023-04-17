@@ -28,7 +28,7 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
-from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep
+from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload
 
 
@@ -676,7 +676,7 @@ def validate_samples(headers, records, header):
             if len(organ_type) > 0:
                 if organ_type not in organ_types_codes:
                     file_is_valid = False
-                    error_msg.append(_ln_err(f"value must be an organ code listed in `organ_type` files {get_organ_types_ep()}", rownum, "organ_type"))
+                    error_msg.append(_ln_err(f"value must be an organ code listed at {get_organ_types_ep()}", rownum, "organ_type"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
@@ -801,14 +801,14 @@ def validate_datasets(headers, records, header):
                 if idx == -1:
                     file_is_valid = False
                     data_types_valid = False
-                    error_msg.append(_ln_err("value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)", rownum, "data_types"))
+                    error_msg.append(_ln_err(f"value must be an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
                 else:
                     # apply formatting
                     data_types[i] = assay_types[idx]
 
             if len(data_types) < 1:
                 file_is_valid = False
-                error_msg.append(_ln_err("must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml", rownum, "data_types"))
+                error_msg.append(_ln_err(f"must not be empty. Must contain an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
 
             # validate ancestor_id
             ancestor_ids = data_row['ancestor_id']
