@@ -8,7 +8,6 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-
 def _get_obj_type(in_enum, as_data_dict: bool = False):
     if as_data_dict:
         return 'dict'
@@ -54,6 +53,7 @@ def assay_types(in_enum: bool = False, as_data_dict: bool = False,
 def source_types(in_enum: bool = False, as_data_dict: bool = False):
     return _build_enum_class('SourceTypes', current_app.ubkg.source_types,
                              obj_type=_get_obj_type(in_enum, as_data_dict))
+
 
 
 def init_ontology():
@@ -105,3 +105,4 @@ class Ontology:
     @staticmethod
     def _as_list_or_class(obj, as_arr: bool = False, cb=str):
         return obj if not as_arr else list(map(cb, obj))
+

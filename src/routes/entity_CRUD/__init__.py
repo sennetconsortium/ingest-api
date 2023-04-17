@@ -29,7 +29,8 @@ from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
 from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
-from lib.file import get_csv_records, get_base_path, check_upload
+from lib.file import get_csv_records, get_base_path, check_upload, ln_err
+
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -106,12 +107,12 @@ def publish_datastage(identifier):
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/validate', methods=['POST'])
 def bulk_sources_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().SOURCE)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/register', methods=['POST'])
 def create_sources_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -122,6 +123,7 @@ def create_sources_from_bulk():
     if type(valid_file) is list:
         return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -140,20 +142,20 @@ def create_sources_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
-            status_code = r.status_code
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
-@entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/validate', methods=['POST'])
 def bulk_samples_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().SAMPLE)
 
 
-@entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/register', methods=['POST'])
 def create_samples_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -165,6 +167,7 @@ def create_samples_from_bulk():
     if type(valid_file) is list:
         return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -189,19 +192,20 @@ def create_samples_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/validate', methods=['POST'])
 def bulk_datasets_upload_and_validate():
     return _bulk_upload_and_validate(Ontology.entities().DATASET)
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/register', methods=['POST'])
 def create_datasets_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -237,6 +241,7 @@ def create_datasets_from_bulk():
         return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
+    status_codes = []
     if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
@@ -261,7 +266,8 @@ def create_datasets_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+            status_codes.append(r.status_code)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
 @entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
@@ -475,6 +481,13 @@ def update_ingest_status():
         logger.error(e, exc_info=True)
         return Response("Unexpected error while saving dataset: " + str(e), 500)
 
+def _get_status_code__by_priority(codes):
+    if StatusCodes.SERVER_ERR in codes:
+        return StatusCodes.SERVER_ERR
+    elif StatusCodes.UNACCEPTABLE in codes:
+        return StatusCodes.UNACCEPTABLE
+    else:
+        return codes[0]
 
 def _bulk_upload_and_validate(entity):
     header = get_auth_header()
@@ -563,21 +576,18 @@ def _check_request_for_bulk():
     }
 
 
-def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
+def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool,
+                           entity_response, status_code=StatusCodes.SERVER_ERR):
     if entity_created and not entity_failed_to_create:
         return rest_ok(entity_response)
     elif entity_created and entity_failed_to_create:
         return rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
     else:
-        return rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
+        return rest_response(status_code, f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}", entity_response)
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
-    return {
-        'column': column,
-        'error': error,
-        'row': row
-    }
+    return ln_err(error, row, column)
 
 
 def _common_ln_errs(err, val):

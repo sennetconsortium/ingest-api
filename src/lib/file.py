@@ -4,23 +4,31 @@ from hubmap_commons import file_helper as commons_file_helper
 from flask import current_app, request
 from atlas_consortia_commons.rest import *
 from werkzeug import utils
+from collections import OrderedDict
 
 from lib.file_upload_helper import UploadFileHelper
 
 logger = logging.getLogger(__name__)
 
-def get_csv_records(path: str):
+def get_csv_records(path: str, records_as_arr = False, is_ordered = False):
     records = []
     headers = []
     with open(path, newline='') as tsvfile:
         reader = csv.DictReader(tsvfile, delimiter='\t')
         first = True
         for row in reader:
-            data_row = {}
-            for key in row.keys():
-                if first:
-                    headers.append(key)
-                data_row[key] = row[key]
+            if records_as_arr is True:
+                data_row = []
+                for key in row.keys():
+                    if first:
+                        headers.append(key)
+                    data_row.append(row[key])
+            else:
+                data_row = OrderedDict() if is_ordered is True else {}
+                for key in row.keys():
+                    if first:
+                        headers.append(key)
+                    data_row[key] = row[key]
             records.append(data_row)
             if first:
                 first = False
@@ -66,3 +74,10 @@ def check_upload(key: str = 'file'):
             return rest_response(e.code, e.name, e.description, True)
         else:
             return rest_server_err(e, True)
+
+def ln_err(error: str, row: int = None, column: str = None):
+    return {
+        'column': column,
+        'error': error,
+        'row': row
+    }
