@@ -28,8 +28,9 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
-from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep
+from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err
+
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -267,6 +268,92 @@ def create_datasets_from_bulk():
                 entity_created = True
             status_codes.append(r.status_code)
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
+
+
+@entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
+@entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
+def get_file_system_absolute_path(ds_uuid: str):
+    try:
+        ingest_helper = IngestFileHelper(current_app.config)
+        return jsonify({'path': get_ds_path(ds_uuid, ingest_helper)}), 200
+    except ResponseException as re:
+        return re.response
+    except HTTPException as hte:
+        return Response(f"Error while getting file-system-abs-path for {ds_uuid}: " +
+                        hte.get_description(), hte.get_status_code())
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
+
+
+@entity_CRUD_blueprint.route('/entities/<entity_uuid>', methods = ['GET'])
+def get_entity(entity_uuid):
+    try:
+        entity = __get_entity(entity_uuid, auth_header = request.headers.get("AUTHORIZATION"))
+        return jsonify (entity), 200
+    except HTTPException as hte:
+        return Response(hte.get_description(), hte.get_status_code())
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(f"Unexpected error while retrieving entity {entity_uuid}: " + str(e), 500)
+
+
+def get_ds_path(ds_uuid: str,
+                ingest_helper: IngestFileHelper) -> str:
+    """Get the path to the dataset files"""
+    dset = __get_entity(ds_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+    ent_type = __get_dict_prop(dset, 'entity_type')
+    group_uuid = __get_dict_prop(dset, 'group_uuid')
+    if ent_type is None or ent_type.strip() == '':
+        raise ResponseException(f"Entity with uuid:{ds_uuid} needs to be a Dataset or Upload.", 400)
+    # if ent_type.lower().strip() == 'upload':
+    #     return ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=ds_uuid)
+    is_phi = __get_dict_prop(dset, 'contains_human_genetic_sequences')
+    if ent_type is None or not (ent_type.lower().strip() == 'dataset' or ent_type.lower().strip() == 'publication'):
+        raise ResponseException(f"Entity with uuid:{ds_uuid} is not a Dataset, Publication or Upload", 400)
+    if group_uuid is None:
+        raise ResponseException(f"Unable to find group uuid on dataset {ds_uuid}", 400)
+    if is_phi is None:
+        raise ResponseException(f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}", 400)
+    return ingest_helper.get_dataset_directory_absolute_path(dset, group_uuid, ds_uuid)
+
+
+def __get_entity(entity_uuid, auth_header=None):
+    if auth_header is None:
+        headers = None
+    else:
+        headers = {'Authorization': auth_header, 'Accept': 'application/json', 'Content-Type': 'application/json'}
+    get_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) +\
+              'entities/' + entity_uuid
+
+    response = requests.get(get_url, headers=headers, verify=False)
+    if response.status_code != 200:
+        err_msg = f"Error while calling {get_url} status code:{response.status_code}  message:{response.text}"
+        logger.error(err_msg)
+        raise HTTPException(err_msg, response.status_code)
+
+    return response.json()
+
+
+def __get_dict_prop(dic, prop_name):
+    if prop_name not in dic:
+        return None
+    val = dic[prop_name]
+    if isinstance(val, str) and val.strip() == '':
+        return None
+    return val
+
+
+class ResponseException(Exception):
+    """Return a HTTP response from deep within the call stack"""
+    def __init__(self, message: str, stat: int):
+        self.message: str = message
+        self.status: int = stat
+
+    @property
+    def response(self) -> Response:
+        logger.error(f'message: {self.message}; status: {self.status}')
+        return Response(self.message, self.status)
 
 
 @entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])
@@ -685,7 +772,7 @@ def validate_samples(headers, records, header):
             if len(organ_type) > 0:
                 if organ_type not in organ_types_codes:
                     file_is_valid = False
-                    error_msg.append(_ln_err(f"value must be an organ code listed in `organ_type` files {get_organ_types_ep()}", rownum, "organ_type"))
+                    error_msg.append(_ln_err(f"value must be an organ code listed at {get_organ_types_ep()}", rownum, "organ_type"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
@@ -744,7 +831,6 @@ def validate_entity_constraints(file_is_valid, error_msg, header, entity_constra
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
-    assays = []
 
     required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
@@ -757,14 +843,8 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    # retrieve yaml file containing all accepted data types
-    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
-        assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
     assay_types = list(Ontology.assay_types(as_data_dict=True, prop_callback=None).keys())
-
-    for each in assay_resource_file:
-        assays.append(each.upper())
 
     rownum = 0
     entity_constraint_list = []
@@ -817,14 +897,14 @@ def validate_datasets(headers, records, header):
                 if idx == -1:
                     file_is_valid = False
                     data_types_valid = False
-                    error_msg.append(_ln_err("value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)", rownum, "data_types"))
+                    error_msg.append(_ln_err(f"value must be an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
                 else:
                     # apply formatting
                     data_types[i] = assay_types[idx]
 
             if len(data_types) < 1:
                 file_is_valid = False
-                error_msg.append(_ln_err("must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml", rownum, "data_types"))
+                error_msg.append(_ln_err(f"must not be empty. Must contain an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
 
             # validate ancestor_id
             ancestor_ids = data_row['ancestor_id']
