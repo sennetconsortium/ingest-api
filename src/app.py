@@ -22,7 +22,6 @@ from routes.file import file_blueprint
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
 from lib.ontology import init_ontology
-from flask_cors import CORS
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -34,7 +33,6 @@ logger = logging.getLogger(__name__)
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
-cors = CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
