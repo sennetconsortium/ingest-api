@@ -732,8 +732,8 @@ def validate_samples(headers, records, header):
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
-            preparation_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            preparation_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
+            preparation_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+            preparation_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\..*$', protocol)
             if preparation_protocol_pattern2 is None and preparation_protocol_pattern1 is None:
                 file_is_valid = False
                 error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "preparation_protocol"))
