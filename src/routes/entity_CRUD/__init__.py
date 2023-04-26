@@ -609,6 +609,12 @@ def _common_ln_errs(err, val):
         return _ln_err("Unable to verify `ancestor_id` exists", val)
 
 
+def is_invalid_doi(protocol):
+    selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+    selection_protocol_pattern2 = re.match('^dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+    return selection_protocol_pattern2 is None and selection_protocol_pattern1 is None
+
+
 def validate_sources(headers, records):
     error_msg = []
     file_is_valid = True
@@ -656,11 +662,9 @@ def validate_sources(headers, records):
 
             # validate selection_protocol
             protocol = data_row['selection_protocol']
-            selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            selection_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            if selection_protocol_pattern2 is None and selection_protocol_pattern1 is None:
+            if is_invalid_doi(protocol):
                 file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "selection_protocol"))
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "selection_protocol"))
 
             # validate source_type
             if data_row['source_type'].lower() not in allowed_source_types:
@@ -732,11 +736,9 @@ def validate_samples(headers, records, header):
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
-            preparation_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            preparation_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            if preparation_protocol_pattern2 is None and preparation_protocol_pattern1 is None:
+            if is_invalid_doi(protocol):
                 file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "preparation_protocol"))
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "preparation_protocol"))
             if len(protocol) < 1:
                 file_is_valid = False
                 error_msg.append(_ln_err("is a required filed and cannot be blank", rownum, "preparation_protocol"))
