@@ -1,16 +1,21 @@
 import logging
 import os
-from flask import Blueprint, request
+from flask import Blueprint, request, current_app
+from hubmap_commons import file_helper as commons_file_helper
 import json
+import requests
+from routes.auth import get_auth_header
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_validation_utils as iv_utils
 from . import ingest_validation_tools_table_validator as table_validator
-from lib.rest import StatusCodes, rest_server_err, \
-    rest_response, is_json_request, full_response, rest_bad_req
+from atlas_consortia_commons.rest import *
+from atlas_consortia_commons.string import equals, to_title_case
 
-from lib.file import get_csv_records, get_base_path, check_upload
-from lib.ontology import Entities
+from lib.file import get_csv_records, get_base_path, check_upload, ln_err
+from lib.ontology import Ontology
+import time
+import csv
 
 validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
@@ -53,16 +58,119 @@ def validate_tsv(schema='metadata', path=None):
             else iv_utils.get_table_schema_version(path, 'ascii').schema_name
         )
     except schema_loader.PreflightError as e:
-        errors = {'Preflight': str(e)}
+        result = {'Preflight': str(e)}
     else:
         try:
-            errors = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+            result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
         except Exception as e:
-            errors = rest_server_err(e)
-    return json.dumps(errors)
+            result = rest_server_err(e, True)
+    return json.dumps(result)
 
 
-@validation_blueprint.route('/validation', methods=['POST'])
+def create_tsv_from_path(path, row):
+
+    result: dict = {
+        'error': None
+    }
+    try:
+        records = get_csv_records(path, records_as_arr=True)
+        result = set_file_details(f"{time.time()}.tsv")
+
+        with open(result.get('fullpath'), 'wt') as out_file:
+            tsv_writer = csv.writer(out_file, delimiter='\t')
+            tsv_writer.writerow(records.get('headers'))
+            tsv_writer.writerow(records.get('records')[row])
+    except Exception as e:
+        result = rest_server_err(e, True)
+
+    return result
+
+
+def determine_schema(entity_type, sub_type):
+    if equals(entity_type, Ontology.entities().SOURCE):
+        schema = 'donor'
+    elif equals(entity_type, Ontology.entities().SAMPLE):
+        if not sub_type:
+            return rest_bad_req("`sub_type` for schema name required.")
+        schema = f"sample-{sub_type}"
+    else:
+        schema = 'metadata'
+
+    schema = schema.lower()
+    return schema
+
+
+def _get_response(metadata, entity_type, sub_type, validate_uuids, pathname=None):
+    if validate_uuids == '1':
+        response = validate_records_uuids(metadata, entity_type, sub_type, pathname)
+    else:
+        response = {
+            'code': StatusCodes.OK,
+            'pathname': pathname,
+            'metadata': metadata
+        }
+
+    return response
+
+
+def get_col_uuid_name_by_entity_type(entity_type):
+    if equals(entity_type, Ontology.entities().SAMPLE):
+        return 'sample_id'
+    else:
+        # TODO: This is subject to change when support is raised for Source of Mouse
+        return 'uuid'
+
+
+def get_sub_type_name_by_entity_type(entity_type):
+    if equals(entity_type, Ontology.entities().SAMPLE):
+        return 'sample_category'
+    else:
+        # TODO: This is subject to change when support is raised for Source of Mouse
+        return 'sub_type'
+
+
+def validate_records_uuids(records, entity_type, sub_type, pathname):
+    errors = []
+    passing = []
+    header = get_auth_header()
+    ok = True
+    idx = 1
+    for r in records:
+        uuid_col = get_col_uuid_name_by_entity_type(entity_type)
+        uuid = r.get(uuid_col)
+        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
+        resp = requests.get(url, headers=header)
+        if resp.status_code < 300:
+            entity = resp.json()
+            if sub_type is not None:
+                sub_type_col = get_sub_type_name_by_entity_type(entity_type)
+                _sub_type = entity.get(sub_type_col)
+                if not equals(sub_type, _sub_type):
+                    ok = False
+                    errors.append(rest_response(StatusCodes.UNACCEPTABLE, StatusMsgs.UNACCEPTABLE,
+                                                 ln_err(f"got `{to_title_case(_sub_type)}` on check of given `{uuid}`, expected `{sub_type}` for `{sub_type_col}`.",
+                                                        idx, uuid_col), dict_only=True))
+                else:
+                    entity['metadata'] = r
+                    passing.append(rest_ok(entity, True))
+            else:
+                entity['metadata'] = r
+                passing.append(rest_ok(entity, True))
+        else:
+            ok = False
+            errors.append(rest_response(resp.status_code, StatusMsgs.UNACCEPTABLE,
+                                         ln_err(f"invalid `{uuid_col}`: '{uuid}'", idx, uuid_col), dict_only=True))
+
+        idx += 1
+
+    if ok is True:
+        return rest_ok({'data': passing, 'pathname': pathname}, dict_only=True)
+    else:
+        return rest_response(StatusCodes.UNACCEPTABLE,
+                             'There are invalid `uuids` and/or unmatched entity sub types', errors, dict_only=True)
+
+
+@validation_blueprint.route('/metadata/validate', methods=['POST'])
 def validate_metadata_upload():
     try:
         if is_json_request():
@@ -73,37 +181,33 @@ def validate_metadata_upload():
         pathname = data.get('pathname')
         entity_type = data.get('entity_type')
         sub_type = data.get('sub_type')
+        validate_uuids = data.get('validate_uuids')
+        tsv_row = data.get('tsv_row')
 
         if pathname is None:
             upload = check_metadata_upload()
         else:
-            upload = set_file_details(pathname)
+            if tsv_row is None:
+                upload = set_file_details(pathname)
+            else:
+                upload = create_tsv_from_path(get_base_path() + pathname, int(tsv_row))
 
         error = upload.get('error')
         response = error
 
         if error is None:
-            if entity_type == Entities.SOURCE:
-                schema = 'donor'
-            elif entity_type == Entities.SAMPLE:
-                if not sub_type:
-                    return full_response(rest_bad_req("`sub_type` for schema name required."))
-                schema = f"sample-{sub_type}"
-            else:
-                schema = 'metadata'
-
+            schema = determine_schema(entity_type, sub_type)
             validation_results = validate_tsv(path=upload.get('fullpath'), schema=schema)
             if len(validation_results) > 2:
                 response = rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
-                                         json.loads(validation_results))
+                                         json.loads(validation_results), True)
             else:
-                response = {
-                    'code': StatusCodes.OK,
-                    'pathname': upload.get('pathname'),
-                    'metadata': get_metadata(upload.get('fullpath'))
-                }
+                records = get_metadata(upload.get('fullpath'))
+                response = _get_response(records, entity_type, sub_type, validate_uuids, pathname=upload.get('pathname'))
+                if tsv_row is not None:
+                    os.remove(upload.get('fullpath'))
 
     except Exception as e:
-        response = rest_server_err(e)
+        response = rest_server_err(e, True)
 
     return full_response(response)

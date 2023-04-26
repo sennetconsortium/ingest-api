@@ -2,7 +2,6 @@ from flask import Blueprint, jsonify, request, Response, current_app, abort, jso
 import logging
 import requests
 import os
-import csv
 import re
 import urllib.request
 import yaml
@@ -13,9 +12,13 @@ from threading import Thread
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
-from hubmap_commons import file_helper as commons_file_helper, neo4j_driver
+from hubmap_commons import file_helper as commons_file_helper
+from atlas_consortia_commons.rest import *
+from atlas_consortia_commons.string import equals
+from atlas_consortia_commons.object import includes
 
 from lib.file_upload_helper import UploadFileHelper
+
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -25,9 +28,9 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header
-from lib.ontology import Entities
-from lib.file import get_csv_records, get_base_path, check_upload
-from lib.rest import rest_ok, rest_bad_req, rest_server_err, rest_response, full_response, StatusCodes, bad_request_error
+from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
+from lib.file import get_csv_records, get_base_path, check_upload, ln_err
+
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -88,7 +91,7 @@ def publish_datastage(identifier):
             return Response("User must be a member of the SenNet Data Admin group to publish data.", 403)
 
         if identifier is None or len(identifier) == 0:
-            abort(400, jsonify({'error': 'identifier parameter is required to publish a dataset'}))
+            abort_bad_req('identifier parameter is required to publish a dataset')
         r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/uuid/" + identifier,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
@@ -104,12 +107,12 @@ def publish_datastage(identifier):
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/validate', methods=['POST'])
 def bulk_sources_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.SOURCE)
+    return _bulk_upload_and_validate(Ontology.entities().SOURCE)
 
 
-@entity_CRUD_blueprint.route('/sources/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/sources/bulk/register', methods=['POST'])
 def create_sources_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -118,8 +121,9 @@ def create_sources_from_bulk():
     valid_file = validate_sources(headers, records)
 
     if type(valid_file) is list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -138,20 +142,20 @@ def create_sources_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
-            status_code = r.status_code
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
-@entity_CRUD_blueprint.route('/samples/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/validate', methods=['POST'])
 def bulk_samples_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.SAMPLE)
+    return _bulk_upload_and_validate(Ontology.entities().SAMPLE)
 
 
-@entity_CRUD_blueprint.route('/samples/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/samples/bulk/register', methods=['POST'])
 def create_samples_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -161,8 +165,9 @@ def create_samples_from_bulk():
     valid_file = validate_samples(headers, records, header)
 
     if type(valid_file) is list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
+    status_codes = []
     row_num = 1
     if valid_file is True:
         entity_created = False
@@ -187,19 +192,20 @@ def create_samples_from_bulk():
                 headers=header, json=item)
             entity_response[row_num] = r.json()
             row_num = row_num + 1
+            status_codes.append(r.status_code)
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk-upload', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/validate', methods=['POST'])
 def bulk_datasets_upload_and_validate():
-    return _bulk_upload_and_validate(Entities.DATASET)
+    return _bulk_upload_and_validate(Ontology.entities().DATASET)
 
 
-@entity_CRUD_blueprint.route('/datasets/bulk', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/bulk/register', methods=['POST'])
 def create_datasets_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
@@ -232,9 +238,10 @@ def create_datasets_from_bulk():
     valid_file = validate_datasets(headers, records, header)
 
     if type(valid_file) == list:
-        return full_response(rest_bad_req(valid_file))
+        return rest_bad_req(valid_file)
     entity_response = {}
     row_num = 1
+    status_codes = []
     if valid_file is True:
         entity_created = False
         entity_failed_to_create = False
@@ -259,7 +266,8 @@ def create_datasets_from_bulk():
                 entity_failed_to_create = True
             else:
                 entity_created = True
-        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response)
+            status_codes.append(r.status_code)
+        return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
 
 
 @entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
@@ -449,7 +457,7 @@ def submit_dataset(uuid):
 # @secured(groups="HuBMAP-read")
 def update_ingest_status():
     if not request.json:
-        abort(400, jsonify({'error': 'no data found cannot process update'}))
+        abort_bad_req('no data found cannot process update')
 
     try:
         auth_helper_instance = AuthHelper.instance()
@@ -468,11 +476,18 @@ def update_ingest_status():
         return Response(hte.get_description(), hte.get_status_code())
     except ValueError as ve:
         logger.error(str(ve))
-        return jsonify({'error': str(ve)}), 400
+        abort_bad_req(ve)
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while saving dataset: " + str(e), 500)
 
+def _get_status_code__by_priority(codes):
+    if StatusCodes.SERVER_ERR in codes:
+        return StatusCodes.SERVER_ERR
+    elif StatusCodes.UNACCEPTABLE in codes:
+        return StatusCodes.UNACCEPTABLE
+    else:
+        return codes[0]
 
 def _bulk_upload_and_validate(entity):
     header = get_auth_header()
@@ -484,25 +499,23 @@ def _bulk_upload_and_validate(entity):
     csv_records = get_csv_records(file_location)
     headers, records = itemgetter('headers', 'records')(csv_records)
 
-    if entity == Entities.SOURCE:
+    if entity == Ontology.entities().SOURCE:
         valid_file = validate_sources(headers, records)
-    elif entity == Entities.SAMPLE:
+    elif entity == Ontology.entities().SAMPLE:
         valid_file = validate_samples(headers, records, header)
-    elif entity == Entities.DATASET:
+    elif entity == Ontology.entities().DATASET:
         records = _format_dataset_records(records)
         valid_file = validate_datasets(headers, records, header)
     else:
         valid_file = False
 
     if valid_file is True:
-        response = rest_ok({'temp_id': temp_id})
+        return rest_ok({'temp_id': temp_id})
     elif type(valid_file) is list:
-        response = rest_bad_req(valid_file)
+        return rest_bad_req(valid_file)
     else:
         message = f'Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}'
-        response = rest_server_err(message)
-
-    return full_response(response)
+        return rest_server_err(message)
 
 
 def _format_dataset_records(records):
@@ -539,23 +552,23 @@ def _check_request_for_bulk():
     try:
         temp_id = request_data['temp_id']
     except KeyError:
-        return full_response(rest_bad_req('No key `temp_id` in request body'))
+        return rest_bad_req('No key `temp_id` in request body')
     group_uuid = None
     if "group_uuid" in request_data:
         group_uuid = request_data['group_uuid']
     temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
     tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
     if not os.path.exists(tsv_directory):
-        return full_response(rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory"))
+        return rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory")
     fcount = 0
     temp_file_name = None
     for tfile in os.listdir(tsv_directory):
         fcount = fcount + 1
         temp_file_name = tfile
     if fcount == 0:
-        return full_response(rest_bad_req(f"File not found in temporary directory /{temp_id}"))
+        return rest_bad_req(f"File not found in temporary directory /{temp_id}")
     if fcount > 1:
-        return full_response(rest_bad_req(f"Multiple files found in temporary file path /{temp_id}"))
+        return rest_bad_req(f"Multiple files found in temporary file path /{temp_id}")
     file_location = tsv_directory + temp_file_name
     return {
         'csv_records': get_csv_records(file_location),
@@ -563,23 +576,18 @@ def _check_request_for_bulk():
     }
 
 
-def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool, entity_response):
+def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool,
+                           entity_response, status_code=StatusCodes.SERVER_ERR):
     if entity_created and not entity_failed_to_create:
-        response = rest_ok(entity_response)
+        return rest_ok(entity_response)
     elif entity_created and entity_failed_to_create:
-        response = rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
+        return rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
     else:
-        response = rest_server_err(f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}")
-
-    return full_response(response)
+        return rest_response(status_code, f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}", entity_response)
 
 
 def _ln_err(error: str, row: int = None, column: str = None):
-    return {
-        'column': column,
-        'error': error,
-        'row': row
-    }
+    return ln_err(error, row, column)
 
 
 def _common_ln_errs(err, val):
@@ -601,10 +609,16 @@ def _common_ln_errs(err, val):
         return _ln_err("Unable to verify `ancestor_id` exists", val)
 
 
+def is_invalid_doi(protocol):
+    selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+    selection_protocol_pattern2 = re.match('^dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+    return selection_protocol_pattern2 is None and selection_protocol_pattern1 is None
+
+
 def validate_sources(headers, records):
     error_msg = []
     file_is_valid = True
-    allowed_source_types = ["human", "human organoid", "mouse", "mouse organoid"]
+    allowed_source_types = Ontology.source_types(True, enum_val_lower)
 
     required_headers = ['lab_id', 'source_type', 'selection_protocol', 'lab_notes']
     for field in required_headers:
@@ -648,11 +662,9 @@ def validate_sources(headers, records):
 
             # validate selection_protocol
             protocol = data_row['selection_protocol']
-            selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            selection_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            if selection_protocol_pattern2 is None and selection_protocol_pattern1 is None:
+            if is_invalid_doi(protocol):
                 file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "selection_protocol"))
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "selection_protocol"))
 
             # validate source_type
             if data_row['source_type'].lower() not in allowed_source_types:
@@ -686,10 +698,12 @@ def validate_samples(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    allowed_categories = ["block", "section", "suspension", "organ"]
+    allowed_categories = Ontology.specimen_categories(True, enum_val_lower)
+    # Get the ontology classes
+    SpecimenCategories = Ontology.specimen_categories()
+    Entities = Ontology.entities()
 
-    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml') as urlfile:
-        organ_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
+    organ_types_codes = list(Ontology.organ_types(as_data_dict=True).keys())
 
     rownum = 0
     valid_ancestor_ids = []
@@ -722,11 +736,9 @@ def validate_samples(headers, records, header):
 
             # validate preparation_protocol
             protocol = data_row['preparation_protocol']
-            preparation_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            preparation_protocol_pattern2 = re.match('^[\d]+\.[\d]+/protocols\.io\.[\w]*$', protocol)
-            if preparation_protocol_pattern2 is None and preparation_protocol_pattern1 is None:
+            if is_invalid_doi(protocol):
                 file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `##.####/protocols.io.*`", rownum, "preparation_protocol"))
+                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "preparation_protocol"))
             if len(protocol) < 1:
                 file_is_valid = False
                 error_msg.append(_ln_err("is a required filed and cannot be blank", rownum, "preparation_protocol"))
@@ -749,19 +761,20 @@ def validate_samples(headers, records, header):
                 error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_categories)}", rownum, "sample_category"))
 
             # validate organ_type
+            data_row['organ_type'] = data_row['organ_type'].upper()
             organ_type = data_row['organ_type']
-            if sample_category.lower() != "organ":
+            if not equals(sample_category, SpecimenCategories.ORGAN):
                 if len(organ_type) > 0:
                     file_is_valid = False
                     error_msg.append(_ln_err("field must be blank if `sample_category` is not `organ`", rownum, "organ_type"))
-            if sample_category.lower() == "organ":
+            if equals(sample_category, SpecimenCategories.ORGAN):
                 if len(organ_type) < 1:
                     file_is_valid = False
                     error_msg.append(_ln_err("field is required if `sample_category` is `organ`", rownum, "organ_type"))
             if len(organ_type) > 0:
-                if organ_type.upper() not in organ_resource_file:
+                if organ_type not in organ_types_codes:
                     file_is_valid = False
-                    error_msg.append(_ln_err("value must be an organ code listed in `organ_type` files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/organ_types.yaml)", rownum, "organ_type"))
+                    error_msg.append(_ln_err(f"value must be an organ code listed at {get_organ_types_ep()}", rownum, "organ_type"))
 
             # validate ancestor_id
             ancestor_id = data_row['ancestor_id']
@@ -772,11 +785,11 @@ def validate_samples(headers, records, header):
 
             if ancestor_saved or resp_status_code:
                 data_row['ancestor_id'] = ancestor_dict['uuid']
-                if sample_category.lower() == 'organ' and ancestor_dict['type'].lower() != 'source':
+                if equals(sample_category, SpecimenCategories.ORGAN) and not equals(ancestor_dict['type'], Entities.SOURCE):
                     file_is_valid = False
                     error_msg.append(_ln_err("If `sample_category` is `organ`, `ancestor_id` must point to a source", rownum))
 
-                if sample_category.lower() != 'organ' and ancestor_dict['type'].lower() != 'sample':
+                if not equals(sample_category, SpecimenCategories.ORGAN) and not equals(ancestor_dict['type'], Entities.SAMPLE):
                     file_is_valid = False
                     error_msg.append(_ln_err("If `sample_category` is not `organ`, `ancestor_id` must point to a sample", rownum))
 
@@ -785,10 +798,10 @@ def validate_samples(headers, records, header):
                 sub_type_val = None
                 if valid_category:
                     sub_type = get_as_list(sample_category)
-                if sample_category.lower() == "organ":
+                if equals(sample_category, SpecimenCategories.ORGAN):
                     sub_type_val = get_as_list(organ_type)
 
-                entity_to_validate = build_constraint_unit('Sample', sub_type, sub_type_val)
+                entity_to_validate = build_constraint_unit(Entities.SAMPLE, sub_type, sub_type_val)
                 try:
                     entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
 
@@ -820,7 +833,6 @@ def validate_entity_constraints(file_is_valid, error_msg, header, entity_constra
 def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
-    assays = []
 
     required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
     for field in required_headers:
@@ -833,12 +845,8 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    # retrieve yaml file containing all accepted data types
-    with urllib.request.urlopen('https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml') as urlfile:
-        assay_resource_file = yaml.load(urlfile, Loader=yaml.FullLoader)
 
-    for each in assay_resource_file:
-        assays.append(each.upper())
+    assay_types = list(Ontology.assay_types(as_data_dict=True, prop_callback=None).keys())
 
     rownum = 0
     entity_constraint_list = []
@@ -885,15 +893,20 @@ def validate_datasets(headers, records, header):
             # validate data_type
             data_types = data_row['data_types']
             data_types_valid = True
-            for data_type in data_types:
-                if data_type.upper() not in assays:
+            for i, data_type in enumerate(data_types):
+                idx = includes(assay_types, data_type, single_index=True)
+
+                if idx == -1:
                     file_is_valid = False
                     data_types_valid = False
-                    error_msg.append(_ln_err("value must be an assay type listed in assay type files (https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml)", rownum, "data_types"))
+                    error_msg.append(_ln_err(f"value must be an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
+                else:
+                    # apply formatting
+                    data_types[i] = assay_types[idx]
 
             if len(data_types) < 1:
                 file_is_valid = False
-                error_msg.append(_ln_err("must not be empty. Must contain an assay type listed in https://raw.githubusercontent.com/sennetconsortium/search-api/main/src/search-schema/data/definitions/enums/assay_types.yaml", rownum, "data_types"))
+                error_msg.append(_ln_err(f"must not be empty. Must contain an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
 
             # validate ancestor_id
             ancestor_ids = data_row['ancestor_id']
@@ -911,7 +924,7 @@ def validate_datasets(headers, records, header):
                     if data_types_valid:
                         sub_type = get_as_list(data_types)
 
-                    entity_to_validate = build_constraint_unit('Dataset', sub_type)
+                    entity_to_validate = build_constraint_unit(Ontology.entities().DATASET, sub_type)
 
                     try:
                         entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
@@ -971,19 +984,19 @@ def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_
 
 
 def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id):
-
+    Entities = Ontology.entities()
     ancestor_entity_type = ancestor_dict['type'].lower()
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
 
     ancestor_result = requests.get(url, headers=header).json()
     sub_type = None
     sub_type_val = None
-    if ancestor_entity_type == "dataset":
+    if equals(ancestor_entity_type, Entities.DATASET):
         sub_type = get_as_list(ancestor_result['data_types'])
 
-    if ancestor_entity_type == "sample":
+    if equals(ancestor_entity_type, Entities.SAMPLE):
         sub_type = get_as_list(ancestor_result['sample_category'])
-        if ancestor_result['sample_category'] == 'organ':
+        if equals(ancestor_result['sample_category'], Ontology.specimen_categories().ORGAN):
             sub_type_val = get_as_list(ancestor_result['organ'])
 
     ancestor_to_validate = build_constraint_unit(ancestor_entity_type, sub_type, sub_type_val)
