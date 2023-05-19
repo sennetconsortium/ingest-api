@@ -1,0 +1,4 @@
+lab_id	source_type	selection_protocol	lab_notes
+Bulk register 1	human	https://dx.doi.org/10.1754/protocols.io.bjuxknxn	"Bulk register, human source"
+Bulk register 2	Mouse organoid	https://dx.doi.org/10.1704/protocols.io.dkasfkkaadf	"Bulk register, mouse organoid source"
+Bulk register 3	Human organoid	https://dx.doi.org/10.1704/protocols.io.dkasfkkaadf	"Bulk register, human organoid source"
