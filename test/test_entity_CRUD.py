@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 
 import app as app_module
+from routes.entity_CRUD import validate_entity_constraints
 import test.utils as test_utils
 
 test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -122,3 +123,20 @@ def test_validate_datasets(app, entity_type, status_code):
                           headers=test_data['header'])
 
         assert res.status_code == status_code
+
+@pytest.mark.parametrize('file_is_valid, error_msg, post_response, expected_result', [
+    (True, [], (200, None), True),
+    (False, ['error'], (200, None), ['error']),
+    (True, [], (400, {'description': ['error1', 'error2']}), ['error1', 'error2']),
+    (False, ['error1'], (400, {'description': ['error2']}), ['error1', 'error2']),
+])
+def test_validate_entity_constraints(app, file_is_valid, error_msg, post_response, expected_result):
+    """Test validate entity constraints returns the correct response"""
+
+    # post_response is structured as (status_code, json_data)
+    with (app.app_context(),
+          patch('requests.post', return_value=test_utils.create_response(*post_response))):
+        
+        result = validate_entity_constraints(file_is_valid, error_msg, {}, [])
+
+        assert result == expected_result
