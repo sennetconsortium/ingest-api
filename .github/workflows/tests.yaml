@@ -26,6 +26,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
           pip install -r src/routes/validation/ingest_validation_tools/requirements.in
+      - name: Setup test config file
+        run: |
+          mkdir ./test/temp
+          cp test/config/app.cfg src/instance/app.cfg
       - name: Test with pytest
         run: |
           pytest -W ignore::DeprecationWarning 
