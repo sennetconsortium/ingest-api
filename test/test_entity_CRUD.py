@@ -22,6 +22,8 @@ def app():
     yield app
     # clean up
 
+# Validate Sources
+
 @pytest.mark.parametrize('entity_type, status_code', [
     ('source', 200),
     ('sample', 400),
@@ -49,6 +51,8 @@ def test_validate_sources(app, entity_type, status_code):
                           headers=test_data['header'])
 
         assert res.status_code == status_code
+
+# Validate Samples
 
 @pytest.mark.parametrize('entity_type, status_code', [
     ('source', 400),
@@ -88,6 +92,8 @@ def test_validate_samples(app, entity_type, status_code):
 
         assert res.status_code == status_code
 
+# Validate Datasets
+
 @pytest.mark.parametrize('entity_type, status_code', [
     ('source', 400),
     ('sample', 400),
@@ -124,14 +130,21 @@ def test_validate_datasets(app, entity_type, status_code):
 
         assert res.status_code == status_code
 
-@pytest.mark.parametrize('file_is_valid, error_msg, post_response, expected_result', [
-    (True, [], (200, None), True),
-    (False, ['error'], (200, None), ['error']),
-    (True, [], (400, {'description': ['error1', 'error2']}), ['error1', 'error2']),
-    (False, ['error1'], (400, {'description': ['error2']}), ['error1', 'error2']),
+# Validate Entity Constraints
+
+@pytest.mark.parametrize('name', [
+    'file_valid_entity_returns_200',
+    'file_invalid_entity_returns_200',
+    'file_valid_entity_returns_400',
+    'file_invalid_entity_returns_400'
 ])
-def test_validate_entity_constraints(app, file_is_valid, error_msg, post_response, expected_result):
+def test_validate_entity_constraints(app, name):
     """Test validate entity constraints returns the correct response"""
+
+    with open(os.path.join(test_data_dir, 'validate_entity_constraints.json'), 'r') as f:
+        test_data = json.load(f)[name]
+
+    file_is_valid, error_msg, post_response, expected_result  = test_data.values()
 
     # post_response is structured as (status_code, json_data)
     with (app.app_context(),

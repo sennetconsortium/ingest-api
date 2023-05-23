@@ -1,0 +1,80 @@
+{
+  "file_valid_entity_returns_200": {
+    "file_is_valid": true,
+    "error_msg": [],
+    "entity_post_response": [200, null],
+    "expected_result": true
+  },
+
+  "file_invalid_entity_returns_200": {
+    "file_is_valid": false,
+    "error_msg": [
+      {
+        "column": null,
+        "error": "An error occurred while validating the file",
+        "row": 1
+      }
+    ],
+    "entity_post_response": [200, null],
+    "expected_result": [
+      {
+        "column": null,
+        "error": "An error occurred while validating the file",
+        "row": 1
+      }
+    ]
+  },
+
+  "file_valid_entity_returns_400": {
+    "file_is_valid": true,
+    "error_msg": [],
+    "entity_post_response": [400, {
+      "description": [
+        {
+          "column": null,
+          "error": "An error occurred while calling entity api",
+          "row": null
+        }        
+      ]
+    }],
+    "expected_result": [
+      {
+        "column": null,
+        "error": "An error occurred while calling entity api",
+        "row": null
+      }
+    ]
+  },
+
+  "file_invalid_entity_returns_400": {
+    "file_is_valid": false,
+    "error_msg": [
+      {
+        "column": null,
+        "error": "An error occurred while validating the file",
+        "row": 1
+      }
+    ],
+    "entity_post_response": [400, {
+      "description": [
+        {
+          "column": null,
+          "error": "An error occurred while calling entity api",
+          "row": null
+        }        
+      ]
+    }],
+    "expected_result": [
+      {
+        "column": null,
+        "error": "An error occurred while validating the file",
+        "row": 1
+      },
+      {
+        "column": null,
+        "error": "An error occurred while calling entity api",
+        "row": null
+      }     
+    ] 
+  }
+}
