@@ -2,9 +2,9 @@ name: Tests
 
 on:
   push:
-    branches: [ 88-create-pyunit-tests-for-ingest-api ]
+    branches: [ dev-integrate ]
   pull_request:
-    branches: [ 88-create-pyunit-tests-for-ingest-api ]
+    branches: [ dev-integrate ]
 
 jobs:
   test:
