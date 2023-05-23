@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 import app as app_module
-from routes.entity_CRUD import validate_entity_constraints
+from routes.entity_CRUD import validate_ancestor_id, validate_entity_constraints
 import test.utils as test_utils
 
 test_data_dir = os.path.join(os.path.dirname(__file__), 'data')
@@ -138,5 +138,27 @@ def test_validate_entity_constraints(app, file_is_valid, error_msg, post_respons
           patch('requests.post', return_value=test_utils.create_response(*post_response))):
         
         result = validate_entity_constraints(file_is_valid, error_msg, {}, [])
+
+        assert result == expected_result
+
+# Validate Ancestor Id
+
+@pytest.mark.parametrize('name', [
+    'valid_ancestor_id',
+    'failing_uuid_response',
+    'ancestor_saved'
+])
+def test_validate_ancestor_id(app, name):
+    """Test validate ancestor id returns the correct response"""
+
+    with open(os.path.join(test_data_dir, 'validate_ancestor_id.json'), 'r') as f:
+        test_data = json.load(f)[name]
+
+    ancestor_id, error_msg, valid_ancestor_ids, file_is_valid, get_response, expected_result  = test_data.values()
+
+    with (app.app_context(),
+          patch('requests.get', return_value=test_utils.create_response(*get_response))):
+        
+        result = validate_ancestor_id({}, ancestor_id, error_msg, 1, valid_ancestor_ids, file_is_valid)
 
         assert result == expected_result

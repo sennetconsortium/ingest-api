@@ -1,0 +1,82 @@
+{
+  "valid_ancestor_id": {
+    "ancestor_id": "SNT436.LCNK.663",
+    "error_msg": [],
+    "valid_ancestor_ids": [],
+    "file_is_valid": true,
+    "get_response": [
+      200,
+      {
+        "ancestor_id": "0a5ff4a9c6c1d23932f2f1fbfef8355c",
+        "ancestor_ids": ["0a5ff4a9c6c1d23932f2f1fbfef8355c"],
+        "type": "SOURCE",
+        "uuid": "eca617d83938e2549e4fc35ec665bcbd",
+        "sennet_id": "SNT436.LCNK.663"
+      }
+    ],
+    "expected_result": {
+      "file_is_valid": true,
+      "error_msg": [],
+      "ancestor_dict": {
+        "ancestor_id": "0a5ff4a9c6c1d23932f2f1fbfef8355c",
+        "ancestor_ids": ["0a5ff4a9c6c1d23932f2f1fbfef8355c"],
+        "type": "SOURCE",
+        "uuid": "eca617d83938e2549e4fc35ec665bcbd",
+        "sennet_id": "SNT436.LCNK.663"
+      },
+      "resp_status_code": true,
+      "ancestor_saved": false
+    }
+  },
+
+  "failing_uuid_response": {
+    "ancestor_id": "SNT436.LCNK.663",
+    "error_msg": [],
+    "valid_ancestor_ids": [],
+    "file_is_valid": true,
+    "get_response": [400, null],
+    "expected_result": {
+      "file_is_valid": false,
+      "error_msg": [
+        {
+          "column": null,
+          "error": "`SNT436.LCNK.663` is not a valid id format",
+          "row": 1
+        }
+      ],
+      "ancestor_dict": {},
+      "resp_status_code": false,
+      "ancestor_saved": false
+    }
+  },
+
+  "ancestor_saved":{
+    "ancestor_id": "SNT439.NHLL.499",
+    "error_msg": [],
+    "valid_ancestor_ids": [
+      {
+        "ancestor_id": "0a5ff4a9c6c1d23932f2f1fbfef8355c",
+        "ancestor_ids": ["0a5ff4a9c6c1d23932f2f1fbfef8355c"],
+        "type": "SOURCE",
+        "uuid": "eca617d83938e2549e4fc35ec665bcbd",
+        "sennet_id": "SNT439.NHLL.499"
+      }
+    ],
+    "file_is_valid": true,
+    "get_response": [200, null],
+    "expected_result": {
+      "file_is_valid": true,
+      "error_msg": [],
+      "ancestor_dict": {
+        "ancestor_id": "0a5ff4a9c6c1d23932f2f1fbfef8355c",
+        "ancestor_ids": ["0a5ff4a9c6c1d23932f2f1fbfef8355c"],
+        "type": "SOURCE",
+        "uuid": "eca617d83938e2549e4fc35ec665bcbd",
+        "sennet_id": "SNT439.NHLL.499"     
+      },
+      "resp_status_code": false,
+      "ancestor_saved": true
+    }
+  }
+
+}
