@@ -1,0 +1,4 @@
+ancestor_id	sample_category	lab_id	lab_notes	organ_type	preparation_protocol
+SNT436.LCNK.663	organ	Bulk register 1	The ancestor is a Source	BD	https://dx.doi.org/10.17504/protocols.io.8nzhvf6
+SNT439.NHLL.499	block	Bulk register 2	The ancestor is an Organ		https://dx.doi.org/10.17504/protocols.io.8nzhvf6
+SNT828.SJFF.373	suspension	Bulk register 3	The ancestor is a Suspension		https://dx.doi.org/10.17504/protocols.io.8nzhvf6

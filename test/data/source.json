@@ -1,0 +1,27 @@
+{
+  "headers": ["lab_id", "source_type", "selection_protocol", "lab_notes"],
+  "records": [
+    {
+      "lab_id": "Bulk register 1",
+      "source_type": "human",
+      "selection_protocol": "https://dx.doi.org/10.1754/protocols.io.bjuxknxn",
+      "lab_notes": "Bulk register, human source"
+    },
+    {
+      "lab_id": "Bulk register 2",
+      "source_type": "Mouse organoid",
+      "selection_protocol": "https://dx.doi.org/10.1704/protocols.io.dkasfkkaadf",
+      "lab_notes": "Bulk register, mouse organoid source"
+    },
+    {
+      "lab_id": "Bulk register 3",
+      "source_type": "Human organoid",
+      "selection_protocol": "https://dx.doi.org/10.1704/protocols.io.dkasfkkaadf",
+      "lab_notes": "Bulk register, human organoid source"
+    }
+  ],
+  "header": {
+    "Authorization": "Bearer TestBearerToken",
+    "X-SenNet-Application": "ingest-api"
+  }
+}

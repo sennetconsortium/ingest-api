@@ -34,3 +34,6 @@ venv
 *.DS_Store
 *venv*
 .vscode/
+
+# Testing
+.pytest_cache/
