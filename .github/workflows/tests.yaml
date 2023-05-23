@@ -25,6 +25,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
+          pip install -r src/routes/validation/ingest_validation_tools/requirements.txt
       - name: Test with pytest
         run: |
           pytest -W ignore::DeprecationWarning 
