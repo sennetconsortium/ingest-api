@@ -1,0 +1,3 @@
+lab_id	ancestor_id	doi_abstract	human_gene_sequences	data_types
+Bulk upload 1	SNT796.HPLZ.939	Test 1	TRUE	CODEX
+Bulk upload 2	SNT796.HPLZ.939	Test 2	FALSE	bulk-RNA
