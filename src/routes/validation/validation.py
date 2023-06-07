@@ -117,16 +117,14 @@ def get_col_uuid_name_by_entity_type(entity_type):
     if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_id'
     else:
-        # TODO: This is subject to change when support is raised for Source of Mouse
-        return 'uuid'
+        return 'source_id'
 
 
 def get_sub_type_name_by_entity_type(entity_type):
     if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_category'
     else:
-        # TODO: This is subject to change when support is raised for Source of Mouse
-        return 'sub_type'
+        return 'source_type'
 
 
 def validate_records_uuids(records, entity_type, sub_type, pathname):
