@@ -88,7 +88,7 @@ def create_tsv_from_path(path, row):
 
 def determine_schema(entity_type, sub_type):
     if equals(entity_type, Ontology.entities().SOURCE):
-        schema = 'donor'
+        schema = 'murine-source'
     elif equals(entity_type, Ontology.entities().SAMPLE):
         if not sub_type:
             return rest_bad_req("`sub_type` for schema name required.")
