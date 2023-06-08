@@ -1,4 +1,4 @@
 [submodule "src/routes/validation/ingest_validation_tools"]
 	path = src/routes/validation/ingest_validation_tools
 	url = https://github.com/sennetconsortium/ingest-validation-tools.git
-	branch = dev-integrate
+	branch = main
