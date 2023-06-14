@@ -88,7 +88,7 @@ def create_tsv_from_path(path, row):
 
 def determine_schema(entity_type, sub_type):
     if equals(entity_type, Ontology.entities().SOURCE):
-        schema = 'donor'
+        schema = 'murine-source'
     elif equals(entity_type, Ontology.entities().SAMPLE):
         if not sub_type:
             return rest_bad_req("`sub_type` for schema name required.")
@@ -113,21 +113,28 @@ def _get_response(metadata, entity_type, sub_type, validate_uuids, pathname=None
     return response
 
 
-def get_col_uuid_name_by_entity_type(entity_type):
+def get_col_id_name_by_entity_type(entity_type):
     if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_id'
     else:
-        # TODO: This is subject to change when support is raised for Source of Mouse
-        return 'uuid'
+        return 'source_id'
 
 
 def get_sub_type_name_by_entity_type(entity_type):
     if equals(entity_type, Ontology.entities().SAMPLE):
         return 'sample_category'
     else:
-        # TODO: This is subject to change when support is raised for Source of Mouse
-        return 'sub_type'
+        return 'source_type'
 
+
+def supported_metadata_sub_types(entity_type):
+    if equals(entity_type, Ontology.entities().SOURCE):
+        return [Ontology.source_types().MOUSE]
+    else:
+        return [
+            Ontology.specimen_categories().BLOCK,
+            Ontology.specimen_categories().SECTION,
+            Ontology.specimen_categories().SUSPENSION]
 
 def validate_records_uuids(records, entity_type, sub_type, pathname):
     errors = []
@@ -136,20 +143,28 @@ def validate_records_uuids(records, entity_type, sub_type, pathname):
     ok = True
     idx = 1
     for r in records:
-        uuid_col = get_col_uuid_name_by_entity_type(entity_type)
-        uuid = r.get(uuid_col)
-        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
+        id_col = get_col_id_name_by_entity_type(entity_type)
+        entity_id = r.get(id_col)
+        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + entity_id
         resp = requests.get(url, headers=header)
         if resp.status_code < 300:
             entity = resp.json()
             if sub_type is not None:
                 sub_type_col = get_sub_type_name_by_entity_type(entity_type)
                 _sub_type = entity.get(sub_type_col)
-                if not equals(sub_type, _sub_type):
+                if _sub_type not in supported_metadata_sub_types(entity_type):
                     ok = False
                     errors.append(rest_response(StatusCodes.UNACCEPTABLE, StatusMsgs.UNACCEPTABLE,
-                                                 ln_err(f"got `{to_title_case(_sub_type)}` on check of given `{uuid}`, expected `{sub_type}` for `{sub_type_col}`.",
-                                                        idx, uuid_col), dict_only=True))
+                                                ln_err(f"of `{to_title_case(_sub_type)}` unsupported "
+                                                       f"on check of given `{entity_id}`. "
+                                                       f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
+                                                       idx, sub_type_col), dict_only=True))
+                elif not equals(sub_type, _sub_type):
+                    ok = False
+                    errors.append(rest_response(StatusCodes.UNACCEPTABLE, StatusMsgs.UNACCEPTABLE,
+                                                 ln_err(f"got `{to_title_case(_sub_type)}` on check of given `{entity_id}`, "
+                                                        f"expected `{sub_type}` for `{sub_type_col}`.",
+                                                        idx, id_col), dict_only=True))
                 else:
                     entity['metadata'] = r
                     passing.append(rest_ok(entity, True))
@@ -159,7 +174,7 @@ def validate_records_uuids(records, entity_type, sub_type, pathname):
         else:
             ok = False
             errors.append(rest_response(resp.status_code, StatusMsgs.UNACCEPTABLE,
-                                         ln_err(f"invalid `{uuid_col}`: '{uuid}'", idx, uuid_col), dict_only=True))
+                                         ln_err(f"invalid `{id_col}`: '{entity_id}'", idx, id_col), dict_only=True))
 
         idx += 1
 
