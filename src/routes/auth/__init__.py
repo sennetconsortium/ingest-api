@@ -103,7 +103,11 @@ def get_user_info(token):
     return auth_client.oauth2_userinfo()
 
 
+def get_auth_header_dict(token) -> dict:
+    return {'Authorization': 'Bearer ' + token,  'X-SenNet-Application': 'ingest-api'}
+
+
 def get_auth_header() -> dict:
     auth_helper_instance = AuthHelper.instance()
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    return {'Authorization': 'Bearer ' + token,  'X-SenNet-Application': 'ingest-api'}
+    return get_auth_header_dict(token)
