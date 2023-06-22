@@ -421,12 +421,6 @@ def submit_dataset(uuid):
             logger.error(hte2)
             return Response(f"HTTPException while updating Dataset: {str(hte2)}. Check the logs.", 500)
 
-    response = change_status_and_call_entity_api(status='Processing')
-
-    if not response.status_code == 200:
-        error_msg = entity_error_msg(response)
-        return Response(error_msg, response.status_code)
-
     def call_airflow():
         try:
             request_ingest_payload = {
