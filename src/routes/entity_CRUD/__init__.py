@@ -447,7 +447,8 @@ def submit_dataset(uuid):
                 submission_data = data['response']
                 dataset_request['ingest_id'] = submission_data['ingest_id']
                 dataset_request['run_id'] = submission_data['run_id']
-                response = call_entity_api()
+                status = submission_data['status'] if submission_data['status'] else 'Processing'
+                response = change_status_and_call_entity_api(status=status)
             else:
                 error_message = 'Failed call to AirFlow HTTP Response: ' + str(r.status_code) + ' msg: ' + str(r.text)
                 logger.error(error_message)
