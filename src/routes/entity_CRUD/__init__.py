@@ -452,7 +452,7 @@ def submit_dataset(uuid):
                 error_message = 'Failed call to AirFlow HTTP Response: ' + str(r.status_code) + ' msg: ' + str(r.text)
                 logger.error(error_message)
                 response = change_status_and_call_entity_api(error_message)
-            if not response.status_code == 200:
+            if not r.status_code == 200:
                 entity_error_msg(response)
             else:
                 logger.info(response.json())
