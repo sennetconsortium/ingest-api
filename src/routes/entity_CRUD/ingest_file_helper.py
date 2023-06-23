@@ -56,26 +56,32 @@ class IngestFileHelper:
         return abs_path
 
     def create_dataset_directory(self, dataset_record, group_uuid, dataset_uuid):
-        if dataset_record['contains_human_genetic_sequences']:
-            access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
-            asset_link_dir = None
-        else:
-            access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
-            # if the dataset is consortium level provide the path in the assets directory
-            # to link it to, if protected don't link into assets directory (above set to None)
-            asset_link_dir = os.path.join(str(self.appconfig['SENNET_WEBSERVICE_FILEPATH']), dataset_record['uuid'])
-
-        new_directory_path = self.get_dataset_directory_absolute_path(dataset_record, group_uuid, dataset_uuid)
-
-        self.logger.info(f'To create dataset directory: {new_directory_path}')
-
-        IngestFileHelper.make_directory(new_directory_path, asset_link_dir)
-
         try:
+            if dataset_record['contains_human_genetic_sequences']:
+                access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
+                asset_link_dir = None
+            else:
+                access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
+                # if the dataset is consortium level provide the path in the assets directory
+                # to link it to, if protected don't link into assets directory (above set to None)
+                asset_link_dir = os.path.join(str(self.appconfig['SENNET_WEBSERVICE_FILEPATH']), dataset_record['uuid'])
+
+            self.logger.info(f'Getting dataset directory absolute path ... {access_level}, {asset_link_dir} ')
+
+            new_directory_path = self.get_dataset_directory_absolute_path(dataset_record, group_uuid, dataset_uuid)
+
+            self.logger.info(f'To create dataset directory: {new_directory_path}')
+
+            IngestFileHelper.make_directory(new_directory_path, asset_link_dir)
+
+            self.logger.info(f'Checking access levels ... ')
+
             if dataset_record['contains_human_genetic_sequences']:
                 access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
             else:
                 access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
+
+            self.logger.info(f'Access level {access_level}')
             '''
             Comment out pending SenNet revisions for AWS filesystem
             x = threading.Thread(target=self.set_dir_permissions, args=[access_level, new_directory_path])
