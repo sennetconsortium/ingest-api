@@ -55,6 +55,37 @@ class IngestFileHelper:
 
         return abs_path
 
+    def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid):
+        if dataset_record['contains_human_genetic_sequences']:
+            access_level = 'protected'
+        elif not 'data_access_level' in dataset_record:
+            access_level = 'consortium'
+        else:
+            access_level = dataset_record['data_access_level']
+
+        published = False
+        if 'status' in dataset_record and dataset_record['status'] == 'Published':
+            published = True
+
+        return self.__dataset_directory_relative_path(access_level, group_uuid, dataset_uuid, published)
+
+    def get_upload_directory_relative_path(self, group_uuid, upload_uuid):
+        return self.__dataset_directory_relative_path('protected', group_uuid, upload_uuid, False)
+
+    def __dataset_directory_relative_path(self, access_level, group_uuid, dataset_uuid, published):
+        grp_name = AuthHelper.getGroupDisplayName(group_uuid)
+        if access_level == 'protected':
+            endpoint_id = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_UUID']
+            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+        elif published:
+            endpoint_id = self.appconfig['GLOBUS_PUBLIC_ENDPOINT_UUID']
+            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH'], dataset_uuid))
+        else:
+            endpoint_id = self.appconfig['GLOBUS_CONSORTIUM_ENDPOINT_UUID']
+            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+
+        return {"rel_path":rel_path, "globus_endpoint_uuid":endpoint_id}
+
     def create_dataset_directory(self, dataset_record, group_uuid, dataset_uuid):
         try:
             if dataset_record['contains_human_genetic_sequences']:

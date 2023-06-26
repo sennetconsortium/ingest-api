@@ -286,6 +286,63 @@ def get_file_system_absolute_path(ds_uuid: str):
         return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
 
 
+@entity_CRUD_blueprint.route('/entities/file-system-rel-path', methods=['POST'])
+def get_file_system_relative_path():
+    ds_uuid_list = request.json
+    out_list = []
+    error_id_list = []
+    auth_helper_instance = AuthHelper.instance()
+    for ds_uuid in ds_uuid_list:
+        try:
+            ent_recd = {}
+            ent_recd['id'] = ds_uuid
+            dset = __get_entity(ds_uuid, auth_header="Bearer " + auth_helper_instance.getProcessSecret())
+            ent_type_m = __get_dict_prop(dset, 'entity_type')
+            ent_recd['entity_type'] = ent_type_m
+            group_uuid = __get_dict_prop(dset, 'group_uuid')
+            if ent_type_m is None or ent_type_m.strip() == '':
+                error_id = {'id': ds_uuid, 'message': 'id not for Dataset, Publication or Upload', 'status_code': 400}
+                error_id_list.append(error_id)
+            ent_type = ent_type_m.lower().strip()
+            ingest_helper = IngestFileHelper(current_app.config)
+            if ent_type == 'upload':
+                path = ingest_helper.get_upload_directory_relative_path(group_uuid=group_uuid, upload_uuid=dset['uuid'])
+            elif get_entity_type_instanceof(ent_type, 'Dataset', auth_header="Bearer " + auth_helper_instance.getProcessSecret()):
+                is_phi = __get_dict_prop(dset, 'contains_human_genetic_sequences')
+                if group_uuid is None:
+                    error_id = {'id': ds_uuid, 'message': 'Unable to find group uuid on dataset', 'status_code': 400}
+                    error_id_list.append(error_id)
+                if is_phi is None:
+                    error_id = {'id': ds_uuid,
+                                'message': f"contains_human_genetic_sequences is not set on {ent_type} dataset",
+                                'status_code': 400}
+                    error_id_list.append(error_id)
+                path = ingest_helper.get_dataset_directory_relative_path(dset, group_uuid, dset['uuid'])
+            else:
+                error_id = {'id': ds_uuid, 'message': f'Unhandled entity type, must be Upload, Publication or Dataset, '
+                                                      f'found {ent_type_m}', 'status_code': 400}
+                error_id_list.append(error_id)
+            ent_recd['rel_path'] = path['rel_path']
+            ent_recd['globus_endpoint_uuid'] = path['globus_endpoint_uuid']
+            ent_recd['uuid'] = (__get_dict_prop(dset, 'uuid'))
+            ent_recd['sennet_id'] = (__get_dict_prop(dset, 'sennet_id'))
+            out_list.append(ent_recd)
+        except HTTPException as hte:
+            error_id = {'id': ds_uuid, 'message': hte.get_description(), 'status_code': hte.get_status_code()}
+            error_id_list.append(error_id)
+        except Exception as e:
+            logger.error(e, exc_info=True)
+            error_id = {'id': ds_uuid, 'message': str(e), 'status_code': 500}
+            error_id_list.append(error_id)
+    if len(error_id_list) > 0:
+        status_code = 400
+        for each in error_id_list:
+            if each['status_code'] == 500:
+                status_code = 500
+        return jsonify(error_id_list), status_code
+    return jsonify(out_list), 200
+
+
 @entity_CRUD_blueprint.route('/entities/<entity_uuid>', methods = ['GET'])
 def get_entity(entity_uuid):
     try:
@@ -1014,3 +1071,23 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
     entity_constraint_list.append(dict_to_validate)
 
     return entity_constraint_list
+
+def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
+    if type_a is None:
+        return False
+    headers = None
+    if auth_header is not None:
+        headers = {'Authorization': auth_header, 'Accept': 'application/json', 'Content-Type': 'application/json'}
+
+    base_url: str = commons_file_helper.removeTrailingSlashURL(
+        current_app.config['ENTITY_WEBSERVICE_URL'])
+    get_url: str = f"{base_url}/entities/type/{type_a}/instanceof/{type_b}"
+
+    response = requests.get(get_url, headers=headers, verify=False)
+    if response.status_code != 200:
+        err_msg = f"Error while calling {get_url} status code:{response.status_code}  message:{response.text}"
+        logger.error(err_msg)
+        raise HTTPException(err_msg, response.status_code)
+
+    resp_json: dict = response.json()
+    return resp_json['instanceof']
