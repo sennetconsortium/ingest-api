@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
-from routes.auth import get_auth_header
+from routes.auth import get_auth_header, get_auth_header_dict
 from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err
 
@@ -367,12 +367,16 @@ def submit_dataset(uuid):
         ingest_helper = IngestFileHelper(current_app.config)
         auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
         dataset_helper = DatasetHelper(current_app.config)
+
+        entity_api_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
+
         if isinstance(auth_tokens, Response):
-            return (auth_tokens)
+            return auth_tokens
         elif isinstance(auth_tokens, str):
             token = auth_tokens
         else:
-            return (Response("Valid auth token required", 401))
+            return Response("Valid auth token required", 401)
 
         if 'group_uuid' in dataset_request:
             return Response(
@@ -395,20 +399,27 @@ def submit_dataset(uuid):
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
-    try:
-        put_url = commons_file_helper.ensureTrailingSlashURL(
-            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
-        dataset_request['status'] = 'Processing'
-        response = requests.put(put_url, json=dataset_request,
-                                headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
-                                verify=False)
-        if not response.status_code == 200:
-            error_msg = f"call to {put_url} failed with code:{response.status_code} message:" + response.text
-            logger.error(error_msg)
-            return Response(error_msg, response.status_code)
-    except HTTPException as hte:
-        logger.error(hte)
-        return Response("Unexpected error while updating dataset: " + str(e) + "  Check the logs", 500)
+
+    def call_entity_api():
+        return requests.put(entity_api_url, json=dataset_request, headers=get_auth_header_dict(token), verify=False)
+
+    def entity_error_msg(resp):
+        msg = f"call to {entity_api_url} failed with code:{resp.status_code} message:" + resp.text
+        logger.error(msg)
+        return msg
+
+    def change_status_and_call_entity_api(message=None, status='Error'):
+        try:
+            if message is not None:
+                dataset_request['pipeline_message'] = message
+            if status is not None:
+                dataset_request['status'] = status
+
+            return call_entity_api()
+
+        except HTTPException as hte2:
+            logger.error(hte2)
+            return Response(f"HTTPException while updating Dataset: {str(hte2)}. Check the logs.", 500)
 
     def call_airflow():
         try:
@@ -430,27 +441,25 @@ def submit_dataset(uuid):
                 submission_data = data['response']
                 dataset_request['ingest_id'] = submission_data['ingest_id']
                 dataset_request['run_id'] = submission_data['run_id']
+                response = change_status_and_call_entity_api(status='Processing')
             else:
                 error_message = 'Failed call to AirFlow HTTP Response: ' + str(r.status_code) + ' msg: ' + str(r.text)
                 logger.error(error_message)
-                dataset_request['status'] = 'Error'
-                dataset_request['pipeline_message'] = error_message
-            response = requests.put(put_url, json=dataset_request,
-                                    headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
-                                    verify=False)
-            if not response.status_code == 200:
-                error_msg = f"call to {put_url} failed with code:{response.status_code} message:" + response.text
-                logger.error(error_msg)
+                response = change_status_and_call_entity_api(error_message)
+            if not r.status_code == 200:
+                entity_error_msg(response)
             else:
                 logger.info(response.json())
         except HTTPException as hte:
             logger.error(hte)
-        except Exception as e:
-            logger.error(e, exc_info=True)
+            change_status_and_call_entity_api(f"HTTPException: {str(hte)}")
+        except Exception as e2:
+            logger.error(e2, exc_info=True)
+            change_status_and_call_entity_api(f"Exception: {str(e2)}")
 
     thread = Thread(target=call_airflow)
     thread.start()
-    return Response("Request of Dataset Submisssion Accepted", 202)
+    return Response("Request of Dataset Submission Accepted", 202)
 
 
 @entity_CRUD_blueprint.route('/datasets/status', methods=['PUT'])
