@@ -265,6 +265,8 @@ def create_datasets_from_bulk():
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
+                ingest_helper = IngestFileHelper(current_app.config)
+                ingest_helper.create_dataset_directory(entity_response[row_num], group_uuid, entity_response[row_num]['uuid'])
                 entity_created = True
             status_codes.append(r.status_code)
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
