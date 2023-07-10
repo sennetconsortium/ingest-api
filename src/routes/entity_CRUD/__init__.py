@@ -260,11 +260,14 @@ def create_datasets_from_bulk():
                 commons_file_helper.ensureTrailingSlashURL(
                     current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset',
                 headers=header, json=item)
-            entity_response[row_num] = r.json()
+            new_dataset = r.json()
+            entity_response[row_num] = new_dataset
             row_num = row_num + 1
             if r.status_code > 399:
                 entity_failed_to_create = True
             else:
+                ingest_helper = IngestFileHelper(current_app.config)
+                ingest_helper.create_dataset_directory(new_dataset, group_uuid, new_dataset['uuid'])
                 entity_created = True
             status_codes.append(r.status_code)
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
