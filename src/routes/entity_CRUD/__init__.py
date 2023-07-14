@@ -3,6 +3,7 @@ import logging
 import requests
 import os
 import re
+from typing import List
 import urllib.request
 import yaml
 from hubmap_sdk import EntitySdk
@@ -68,40 +69,6 @@ def create_dataset():
         ingest_helper.create_dataset_directory(new_dataset, requested_group_uuid, new_dataset['uuid'])
 
         return jsonify(new_dataset)
-    except HTTPException as hte:
-        return Response(hte.get_description(), hte.get_status_code())
-    except Exception as e:
-        logger.error(e, exc_info=True)
-        return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
-
-
-@entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods=['PUT'])
-def publish_datastage(identifier):
-    try:
-        auth_helper_instance = AuthHelper.instance()
-        dataset_helper = DatasetHelper(current_app.config)
-
-        user_info = auth_helper_instance.getUserInfoUsingRequest(request, getGroups=True)
-        if user_info is None:
-            return Response("Unable to obtain user information for auth token", 401)
-        if isinstance(user_info, Response):
-            return user_info
-
-        if 'hmgroupids' not in user_info:
-            return Response("User has no valid group information to authorize publication.", 403)
-        if not auth_helper_instance.has_data_admin_privs(auth_helper_instance.getUserTokenFromRequest(request, getGroups=True)):
-            return Response("User must be a member of the SenNet Data Admin group to publish data.", 403)
-
-        if identifier is None or len(identifier) == 0:
-            abort_bad_req('identifier parameter is required to publish a dataset')
-        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/uuid/" + identifier,
-                         headers={'Authorization': request.headers["AUTHORIZATION"]})
-        if r.ok is False:
-            raise ValueError("Cannot find specimen with identifier: " + identifier)
-        dataset_uuid = json.loads(r.text)['hm_uuid']
-
-        return dataset_helper.determine_sources_to_reindex(identifier, user_info, dataset_uuid)
-
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
@@ -555,7 +522,9 @@ def update_ingest_status():
 @entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods = ['PUT'])
 def publish_datastage(identifier):
     try:
-        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
+        auth_helper = AuthHelper.instance()
+        #dataset_helper = DatasetHelper(current_app.config)
+
         user_info = auth_helper.getUserInfoUsingRequest(request, getGroups = True)
         if user_info is None:
             return Response("Unable to obtain user information for auth token", 401)
@@ -568,13 +537,14 @@ def publish_datastage(identifier):
             return Response("User must be a member of the SenNet Data Admin group to publish data.", 403)
 
         if identifier is None or len(identifier) == 0:
-            abort(400, jsonify( { 'error': 'identifier parameter is required to publish a dataset' } ))
+            abort_bad_req('identifier parameter is required to publish a dataset')
 
         r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/uuid/" + identifier,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
             raise ValueError("Cannot find specimen with identifier: " + identifier)
         dataset_uuid = json.loads(r.text)['hm_uuid']
+        # return dataset_helper.determine_sources_to_reindex(identifier, user_info, dataset_uuid)
         is_primary = dataset_is_primary(dataset_uuid)
         suspend_indexing_and_acls = string_helper.isYes(request.args.get('suspend-indexing-and-acls'))
         no_indexing_and_acls = False
@@ -582,7 +552,7 @@ def publish_datastage(identifier):
             no_indexing_and_acls = True
 
         donors_to_reindex = []
-        with neo4j_driver_instance.session() as neo_session:
+        with current_app.app_context().g.neo4j_driver_instance.session() as neo_session:
             #recds = session.run("Match () Return 1 Limit 1")
             #for recd in recds:
             #    if recd[0] == 1:
@@ -606,7 +576,7 @@ def publish_datastage(identifier):
                 if entity_type == 'Sample':
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
-                elif entity_type == 'Donor':
+                elif entity_type == 'Source':
                     has_donor = True
                     if is_primary:
                         if metadata is None or metadata.strip() == '':
@@ -651,8 +621,9 @@ def publish_datastage(identifier):
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
             entity = entity_instance.get_entity_by_id(dataset_uuid)
             entity_dict: dict = vars(entity)
-            data_type_edp: List[str] = \
-                get_data_type_of_external_dataset_providers(current_app.config['UBKG_WEBSERVICE_URL'])
+            # data_type_edp: List[str] = \
+            #     get_data_type_of_external_dataset_providers(current_app.config['UBKG_WEBSERVICE_URL'])
+            data_type_edp = list(Ontology.assay_types_ext(as_data_dict=True).values())
             entity_lab_processed_data_types: List[str] = \
                 [i for i in entity_dict.get('data_types') if i in data_type_edp]
             has_entity_lab_processed_data_type: bool = len(entity_lab_processed_data_types) > 0
@@ -750,7 +721,7 @@ def publish_datastage(identifier):
 
 
 def dataset_is_primary(dataset_uuid):
-    with neo4j_driver.session() as neo_session:
+    with current_app.app_context().g.neo4j_driver_instance.session() as neo_session:
         q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})<-[:ACTIVITY_OUTPUT]-(:Activity)<-[:ACTIVITY_INPUT]-(s:Sample) RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
