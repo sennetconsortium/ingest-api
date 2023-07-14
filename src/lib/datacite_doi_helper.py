@@ -8,7 +8,7 @@ import logging
 from flask import Flask
 from api.datacite_api import DataCiteApi
 from hubmap_sdk import EntitySdk
-from dataset_helper import DatasetHelper
+from lib.dataset_helper import DatasetHelper
 from hubmap_commons.exceptions import HTTPException
 import ast
 
