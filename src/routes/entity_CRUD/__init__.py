@@ -539,7 +539,7 @@ def publish_datastage(identifier):
         if identifier is None or len(identifier) == 0:
             abort_bad_req('identifier parameter is required to publish a dataset')
 
-        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/uuid/" + identifier,
+        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "uuid/" + identifier,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
             raise ValueError("Cannot find specimen with identifier: " + identifier)
@@ -552,7 +552,7 @@ def publish_datastage(identifier):
             no_indexing_and_acls = True
 
         donors_to_reindex = []
-        with current_app.app_context().g.neo4j_driver_instance.session() as neo_session:
+        with current_app.neo4j_driver_instance.session() as neo_session:
             #recds = session.run("Match () Return 1 Limit 1")
             #for recd in recds:
             #    if recd[0] == 1:
@@ -721,7 +721,7 @@ def publish_datastage(identifier):
 
 
 def dataset_is_primary(dataset_uuid):
-    with current_app.app_context().g.neo4j_driver_instance.session() as neo_session:
+    with current_app.neo4j_driver_instance.session() as neo_session:
         q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})<-[:ACTIVITY_OUTPUT]-(:Activity)<-[:ACTIVITY_INPUT]-(s:Sample) RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:

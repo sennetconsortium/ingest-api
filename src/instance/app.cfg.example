@@ -27,6 +27,9 @@ ENTITY_WEBSERVICE_URL = 'http://entity-api:8080'
 #Uuid-api
 UUID_WEBSERVICE_URL = 'http://uuid-api:8080'
 
+#Search-api
+SEARCH_WEBSERVICE_URL = 'https://search-api.dev.sennetconsortium.org'
+
 # Directory where file uploads will be placed temporarily
 # until they are committed
 # Remember to set the proper file system user and group permission
