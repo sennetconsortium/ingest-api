@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 def load_flask_instance_config():
     # Specify the absolute path of the instance folder and use the config file relative to the instance path
-    app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'),
+    app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), '../instance'),
                 instance_relative_config=True)
     app.config.from_pyfile('app.cfg')
 
@@ -41,7 +41,7 @@ class DataCiteDoiHelper:
         self.datacite_repository_id = config['DATACITE_REPOSITORY_ID']
         self.datacite_repository_password = config['DATACITE_REPOSITORY_PASSWORD']
         # Prefix, e.g., 10.80478 for test...
-        self.datacite_hubmap_prefix = config['DATACITE_HUBMAP_PREFIX']
+        self.datacite_hubmap_prefix = config['DATACITE_SENNET_PREFIX']
         # DataCite TEST API: https://api.test.datacite.org/
         self.datacite_api_url = config['DATACITE_API_URL']
         self.entity_api_url = config['ENTITY_WEBSERVICE_URL']
@@ -162,7 +162,7 @@ class DataCiteDoiHelper:
                 # The timestamp stored with using neo4j's TIMESTAMP() function contains milliseconds
                 publication_year = int(datetime.fromtimestamp(dataset['published_timestamp']/1000).year)
 
-            response = datacite_api.create_new_draft_doi(dataset['hubmap_id'],
+            response = datacite_api.create_new_draft_doi(dataset['sennet_id'],
                                                          dataset['uuid'],
                                                          self.build_doi_contributors(dataset),
                                                          dataset['title'],
@@ -206,7 +206,7 @@ class DataCiteDoiHelper:
         if ('entity_type' in dataset) and (dataset['entity_type'] == 'Dataset'):
             datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
                                        self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
-            response = datacite_api.update_doi_event_publish(dataset['hubmap_id'])
+            response = datacite_api.update_doi_event_publish(dataset['sennet_id'])
 
             if response.status_code == 200:
                 logger.info(f"======Published DOI for dataset {dataset['uuid']} via DataCite======")
@@ -216,7 +216,7 @@ class DataCiteDoiHelper:
 
                 # Then update the dataset DOI properties via entity-api after the DOI gets published
                 try:
-                    doi_name = datacite_api.build_doi_name(dataset['hubmap_id'])
+                    doi_name = datacite_api.build_doi_name(dataset['sennet_id'])
                     entity_api = EntitySdk(user_token, self.entity_api_url)
                     updated_dataset = self.update_dataset_after_doi_published(dataset['uuid'], doi_name, entity_api)
 

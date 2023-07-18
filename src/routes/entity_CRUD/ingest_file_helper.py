@@ -122,53 +122,56 @@ class IngestFileHelper:
             self.logger.error(e, exc_info=True)
 
     def set_dir_permissions(self, access_level, file_path, published=False, trial_run=False):
-        acl_text = None
-        if not published:
-            if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
-                acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{seq_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{seq_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
-            if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
-                acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{consortium_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                    consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-            if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                acl_text = 'u::rwx,g::r-x,o::r-x,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group::r-x,d:mask::rwx,d:other:r-x'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                    consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-        else:
-            if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
-                acl_text = 'u::r-x,g::r-x,o::---,m::rwx,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{seq_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{seq_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
-            if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
-                acl_text = 'u::r-x,g::r-x,o::---,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{consortium_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                    consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-            if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                acl_text = 'u::r-x,g::r-x,o::r-x,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:rwx,d:group::r-x,d:mask::r-x,d:other:r-x'.format(
-                    hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                    admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                    seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                    consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
+        try:
+            acl_text = None
+            if not published:
+                if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
+                    acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{seq_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{seq_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
+                if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
+                    acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{consortium_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
+                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
+                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
+                    acl_text = 'u::rwx,g::r-x,o::r-x,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group::r-x,d:mask::rwx,d:other:r-x'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
+                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
+            else:
+                if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
+                    acl_text = 'u::r-x,g::r-x,o::---,m::rwx,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{seq_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{seq_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
+                if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
+                    acl_text = 'u::r-x,g::r-x,o::---,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{consortium_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
+                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
+                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
+                    acl_text = 'u::r-x,g::r-x,o::r-x,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:rwx,d:group::r-x,d:mask::r-x,d:other:r-x'.format(
+                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
+                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
+                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
+                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
 
-        # apply the permissions
-        # put quotes around the path since it often contains spaces
-        facl_command = "setfacl" + ' -R -b' + ' --set=' + acl_text + " '" + file_path + "'"
-        self.logger.info("Executing command: " + facl_command)
-        if not trial_run:
-            subprocess.Popen(['setfacl', '-R', '-b', '--set=' + acl_text, file_path])
-        else:
-            print(facl_command)
-        return facl_command
+            # apply the permissions
+            # put quotes around the path since it often contains spaces
+            facl_command = "setfacl" + ' -R -b' + ' --set=' + acl_text + " '" + file_path + "'"
+            self.logger.info("Executing command: " + facl_command)
+            if not trial_run:
+                subprocess.Popen(['setfacl', '-R', '-b', '--set=' + acl_text, file_path])
+            else:
+                print(facl_command)
+            return facl_command
+        except Exception as e:
+            self.logger.error(e, exc_info=True)
 
     def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run=False):
         from_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)

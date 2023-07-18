@@ -25,7 +25,7 @@ class DataCiteApi:
 
     # DOI retrieval
     # https://support.datacite.org/reference/dois-2#get_dois-id
-    def get_doi_by_id(self, dataset_hubmap_id: str) -> object:
+    def get_doi_by_id(self, doi_id: str) -> object:
         logger.debug(f"======Target DOI ID: {doi_id}======")
 
         response = requests.get(
@@ -45,7 +45,7 @@ class DataCiteApi:
                     dataset_title: str,
                     publication_year: int,
                     creators: list) -> object:
-        publisher = 'HuBMAP Consortium'
+        publisher = 'SenNet Consortium'
 
         # Draft DOI doesn't specify the 'event' attribute
         json = {
