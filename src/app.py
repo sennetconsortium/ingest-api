@@ -95,6 +95,8 @@ try:
                                                   app.config['NEO4J_USERNAME'],
                                                   app.config['NEO4J_PASSWORD'])
 
+    app.neo4j_driver_instance = neo4j_driver_instance
+
     logger.info("Initialized neo4j_driver module successfully :)")
 except Exception:
     msg = "Failed to initialize the neo4j_driver module"
