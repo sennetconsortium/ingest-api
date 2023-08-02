@@ -3,6 +3,7 @@ import logging
 from atlas_consortia_commons.object import build_enum_class
 from atlas_consortia_commons.ubkg import get_from_node
 from atlas_consortia_commons.string import to_snake_case_upper, equals
+import base64
 
 from flask import current_app
 
@@ -15,16 +16,22 @@ def _get_obj_type(in_enum, as_data_dict: bool = False):
         return 'enum' if in_enum else 'class'
 
 
-def _get_response(obj):
-    if type(obj) is not str and get_from_node(obj, 'endpoint'):
-        return current_app.ubkg.get_ubkg_by_endpoint(obj)
+def _get_response(obj, url_params=None):
+    endpoint = get_from_node(obj, 'endpoint')
+    if type(obj) is not str and endpoint:
+        if url_params is None:
+            return current_app.ubkg.get_ubkg_by_endpoint(obj)
+        else:
+            key = base64.b64encode(url_params.encode('utf-8')).decode('utf-8')
+            key = key.replace("=", '')
+            return current_app.ubkg.get_ubkg(obj, key, f"{endpoint}{url_params}")
     else:
         return current_app.ubkg.get_ubkg_valueset(obj)
 
 
 def _build_enum_class(name: str, obj, key: str = 'term', val_key: str = None, prop_callback=to_snake_case_upper,
-                      obj_type: str = 'class', data_as_val=False):
-    response = _get_response(obj)
+                      obj_type: str = 'class', data_as_val=False, url_params=None):
+    response = _get_response(obj, url_params=url_params)
     return build_enum_class(name, response, key, val_key=val_key, prop_callback=prop_callback,
                             obj_type=obj_type, data_as_val=data_as_val)
 
@@ -45,10 +52,10 @@ def organ_types(in_enum: bool = False, as_data_dict: bool = False,
 
 
 def assay_types(in_enum: bool = False, as_data_dict: bool = False,
-                prop_callback=to_snake_case_upper, data_as_val=False):
+                prop_callback=to_snake_case_upper, data_as_val=False, url_params=None):
     return _build_enum_class('AssayTypes', current_app.ubkg.assay_types, key='data_type',
                              obj_type=_get_obj_type(in_enum, as_data_dict),
-                             prop_callback=prop_callback, data_as_val=data_as_val)
+                             prop_callback=prop_callback, data_as_val=data_as_val, url_params=url_params)
 
 
 def source_types(in_enum: bool = False, as_data_dict: bool = False):
@@ -87,9 +94,16 @@ class Ontology:
         return Ontology._as_list_or_class(entities(as_arr, as_data_dict), as_arr, cb)
 
     @staticmethod
-    def assay_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper, data_as_val=False):
+    def assay_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
+                    data_as_val=False, url_params=None):
         return Ontology._as_list_or_class(assay_types(as_arr, as_data_dict, prop_callback,
-                                                      data_as_val=data_as_val), as_arr, cb)
+                                                      data_as_val=data_as_val, url_params=url_params), as_arr, cb)
+
+    @staticmethod
+    def assay_types_ext(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
+                        data_as_val=False):
+        return Ontology.assay_types(as_arr=as_arr, cb=cb, as_data_dict=as_data_dict, data_as_val=data_as_val,
+                                    prop_callback=prop_callback, url_params='&dataset_provider=external')
 
     @staticmethod
     def specimen_categories(as_arr: bool = False, cb=str, as_data_dict: bool = False):
