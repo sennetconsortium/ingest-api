@@ -10,17 +10,48 @@ logger = logging.getLogger(__name__)
 
 # Endpoints for UI Login and Logout
 
-
 # Redirect users from react app login page to Globus auth login widget then redirect back
 @auth_blueprint.route('/login')
 def login():
-    #redirect_uri = url_for('login', _external=True)
-    redirect_uri = current_app.config['FLASK_APP_BASE_URI'] + 'login'
+    return _login(current_app.config['GLOBUS_CLIENT_APP_URI'])
 
-    confidential_app_auth_client =\
+@auth_blueprint.route('/data-ingest-board-login')
+def data_ingest_login():
+    return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens')
+
+
+@auth_blueprint.route('/logout')
+def logout():
+    return _logout(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'])
+
+
+# @auth_blueprint.route('/data-ingest-board-logout')
+# def data_ingest_logout():
+#     return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens')
+
+
+def get_user_info(token):
+    auth_client = AuthClient(authorizer=AccessTokenAuthorizer(token))
+    return auth_client.oauth2_userinfo()
+
+
+def get_auth_header_dict(token) -> dict:
+    return {'Authorization': 'Bearer ' + token,  'X-SenNet-Application': 'ingest-api'}
+
+
+def get_auth_header() -> dict:
+    auth_helper_instance = AuthHelper.instance()
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    return get_auth_header_dict(token)
+
+def _login(redirect_uri, key = 'tokens'):
+    #redirect_uri = url_for('login', _external=True)
+    _redirect_uri = current_app.config['FLASK_APP_BASE_URI'] + request.path.replace('/', '')
+
+    confidential_app_auth_client = \
         ConfidentialAppAuthClient(current_app.config['APP_CLIENT_ID'],
                                   current_app.config['APP_CLIENT_SECRET'])
-    confidential_app_auth_client.oauth2_start_flow(redirect_uri, refresh_tokens=True)
+    confidential_app_auth_client.oauth2_start_flow(_redirect_uri, refresh_tokens=True)
 
     # If there's no "code" query string parameter, we're in this route
     # starting a Globus Auth login flow.
@@ -57,31 +88,31 @@ def login():
         json_str = json.dumps(info)
 
         # Store the resulting tokens in server session
-        session.update(
-            tokens=token_response.by_resource_server
-        )
+        # session.update(
+        #     tokens=token_response.by_resource_server
+        # )
+        session[key] = token_response.by_resource_server
 
         logger.info(f"Logged in User: {user_info['name']}")
         # Finally redirect back to the client
-        return redirect(current_app.config['GLOBUS_CLIENT_APP_URI'] + '?info=' + str(json_str))
+        return redirect(redirect_uri + '?info=' + str(json_str))
 
 
-@auth_blueprint.route('/logout')
-def logout():
+def _logout(redirect_uri, key='tokens'):
     """
     - Revoke the tokens with Globus Auth.
     - Destroy the session state.
     - Redirect the user to the Globus Auth logout page.
     """
-    confidential_app_auth_client =\
+    confidential_app_auth_client = \
         ConfidentialAppAuthClient(current_app.config['APP_CLIENT_ID'],
                                   current_app.config['APP_CLIENT_SECRET'])
 
     # Revoke the tokens with Globus Auth
-    if 'tokens' in session:
+    if key in session:
         for token in (token_info['access_token']
-            for token_info in session['tokens'].values()):
-                confidential_app_auth_client.oauth2_revoke_token(token)
+                      for token_info in session[key].values()):
+            confidential_app_auth_client.oauth2_revoke_token(token)
 
     # Destroy the session state
     session.clear()
@@ -89,25 +120,10 @@ def logout():
     # build the logout URI with query params
     # there is no tool to help build this (yet!)
     globus_logout_url = (
-        'https://auth.globus.org/v2/web/logout' +
-        '?client={}'.format(current_app.config['APP_CLIENT_ID']) +
-        '&redirect_uri={}'.format(current_app.config['GLOBUS_CLIENT_APP_URI']) +
-        '&redirect_name={}'.format(current_app.config['GLOBUS_CLIENT_APP_NAME']))
+            'https://auth.globus.org/v2/web/logout' +
+            '?client={}'.format(current_app.config['APP_CLIENT_ID']) +
+            '&redirect_uri={}'.format(redirect_uri) +
+            '&redirect_name={}'.format(current_app.config['GLOBUS_CLIENT_APP_NAME']))
 
     # Redirect the user to the Globus Auth logout page
     return redirect(globus_logout_url)
-
-
-def get_user_info(token):
-    auth_client = AuthClient(authorizer=AccessTokenAuthorizer(token))
-    return auth_client.oauth2_userinfo()
-
-
-def get_auth_header_dict(token) -> dict:
-    return {'Authorization': 'Bearer ' + token,  'X-SenNet-Application': 'ingest-api'}
-
-
-def get_auth_header() -> dict:
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    return get_auth_header_dict(token)

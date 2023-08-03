@@ -532,7 +532,7 @@ Description
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
     assay_types_dict = Ontology.assay_types(prop_callback=None, as_data_dict=True)
-    organ_types_dict = Ontology.organ_types(as_data_dict=True, prop_callback=None, data_as_val=True)
+    organ_types_dict = current_app.ubkg.get_ubkg_by_endpoint(current_app.ubkg.organ_types)
     all_datasets_query = (
         "MATCH (ds:Dataset)<-[:ACTIVITY_OUTPUT]-(:Activity)<-[:ACTIVITY_INPUT]-(ancestor) "
         "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
