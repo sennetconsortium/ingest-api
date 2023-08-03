@@ -21,6 +21,7 @@ GLOBUS_CLIENT_APP_NAME = 'SenNet Data Portal'
 # Point to remote URL for testing and production deployment
 GLOBUS_CLIENT_APP_URI = 'https://data.dev.sennetconsortium.org/'
 DATA_INGEST_BOARD_APP_URI = 'http://localhost:3001/'
+DATA_INGEST_BOARD_NAME = ‘Data Ingest Board - DEV’
 
 GLOBUS_BASE_FILE_USER_NAME = 'hive'
 GLOBUS_ADMIN_FILE_USER_NAME = 'shirey'

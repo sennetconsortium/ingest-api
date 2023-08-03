@@ -22,12 +22,12 @@ def data_ingest_login():
 
 @auth_blueprint.route('/logout')
 def logout():
-    return _logout(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'])
+    return _logout(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'], app_name=current_app.config['GLOBUS_CLIENT_APP_NAME'])
 
 
 # @auth_blueprint.route('/data-ingest-board-logout')
 # def data_ingest_logout():
-#     return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens')
+#     return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], app_name=current_app.config['DATA_INGEST_BOARD_NAME'],  key='ingest_board_tokens')
 
 
 def get_user_info(token):
@@ -98,7 +98,7 @@ def _login(redirect_uri, key = 'tokens'):
         return redirect(redirect_uri + '?info=' + str(json_str))
 
 
-def _logout(redirect_uri, key='tokens'):
+def _logout(redirect_uri, app_name, key='tokens'):
     """
     - Revoke the tokens with Globus Auth.
     - Destroy the session state.
@@ -123,7 +123,7 @@ def _logout(redirect_uri, key='tokens'):
             'https://auth.globus.org/v2/web/logout' +
             '?client={}'.format(current_app.config['APP_CLIENT_ID']) +
             '&redirect_uri={}'.format(redirect_uri) +
-            '&redirect_name={}'.format(current_app.config['GLOBUS_CLIENT_APP_NAME']))
+            '&redirect_name={}'.format(app_name))
 
     # Redirect the user to the Globus Auth logout page
     return redirect(globus_logout_url)
