@@ -28,50 +28,6 @@ def _get_response(obj, url_params=None):
     else:
         return current_app.ubkg.get_ubkg_valueset(obj)
 
-
-def _build_enum_class(name: str, obj, key: str = 'term', val_key: str = None, prop_callback=to_snake_case_upper,
-                      obj_type: str = 'class', data_as_val=False, url_params=None):
-    response = _get_response(obj, url_params=url_params)
-    return build_enum_class(name, response, key, val_key=val_key, prop_callback=prop_callback,
-                            obj_type=obj_type, data_as_val=data_as_val)
-
-
-def entities(in_enum: bool = False, as_data_dict: bool = False):
-    return _build_enum_class('Entities', current_app.ubkg.entities, obj_type=_get_obj_type(in_enum, as_data_dict))
-
-
-def specimen_categories(in_enum: bool = False, as_data_dict: bool = False):
-    return _build_enum_class('SpecimenCategories', current_app.ubkg.specimen_categories,
-                             obj_type=_get_obj_type(in_enum, as_data_dict))
-
-
-def organ_types(in_enum: bool = False, as_data_dict: bool = False,
-                prop_callback=to_snake_case_upper, data_as_val=False):
-    return _build_enum_class('OrganTypes', current_app.ubkg.organ_types, key='rui_code', val_key='term',
-                             obj_type=_get_obj_type(in_enum, as_data_dict),
-                             prop_callback=prop_callback, data_as_val=data_as_val)
-
-
-def assay_types(in_enum: bool = False, as_data_dict: bool = False,
-                prop_callback=to_snake_case_upper, data_as_val=False, url_params=None):
-    return _build_enum_class('AssayTypes', current_app.ubkg.assay_types, key='data_type',
-                             obj_type=_get_obj_type(in_enum, as_data_dict),
-                             prop_callback=prop_callback, data_as_val=data_as_val, url_params=url_params)
-
-
-def source_types(in_enum: bool = False, as_data_dict: bool = False):
-    return _build_enum_class('SourceTypes', current_app.ubkg.source_types,
-                             obj_type=_get_obj_type(in_enum, as_data_dict))
-
-
-
-def init_ontology():
-    specimen_categories()
-    organ_types()
-    entities()
-    assay_types()
-    source_types()
-
 def enum_val_lower(val):
     return val.value.lower()
 
@@ -90,37 +46,78 @@ def get_assay_types_ep():
 
 
 class Ontology:
-    @staticmethod
-    def entities(as_arr: bool = False, cb=str, as_data_dict: bool = False):
-        return Ontology._as_list_or_class(entities(as_arr, as_data_dict), as_arr, cb)
+    class Ops:
+        as_arr = False
+        cb = str
+        as_data_dict = False
+        prop_callback = to_snake_case_upper
+        data_as_val = False
+        url_params = None
+        key = 'term'
+        obj_type = 'class'
+        val_key = None
 
     @staticmethod
-    def assay_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
-                    data_as_val=False, url_params=None):
-        return Ontology._as_list_or_class(assay_types(as_arr, as_data_dict, prop_callback,
-                                                      data_as_val=data_as_val, url_params=url_params), as_arr, cb)
+    def ops(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
+            data_as_val=False, url_params=None, key='term', val_key=None):
+        Ontology.Ops.as_arr = as_arr
+        Ontology.Ops.cb = cb
+        Ontology.Ops.as_data_dict = as_data_dict
+        Ontology.Ops.prop_callback = prop_callback
+        Ontology.Ops.data_as_val = data_as_val
+        Ontology.Ops.url_params = url_params
+        Ontology.Ops.key = key
+        Ontology.Ops.val_key = val_key
+        return Ontology
 
     @staticmethod
-    def assay_types_ext(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
-                        data_as_val=False):
-        return Ontology.assay_types(as_arr=as_arr, cb=cb, as_data_dict=as_data_dict, data_as_val=data_as_val,
-                                    prop_callback=prop_callback, url_params='&dataset_provider=external')
+    def transform_ontology(obj, class_name):
+        response = _get_response(obj, url_params=Ontology.Ops.url_params)
+        obj = build_enum_class(class_name, response,
+                               prop_key=Ontology.Ops.key, val_key=Ontology.Ops.val_key,
+                               prop_callback=Ontology.Ops.prop_callback,
+                               obj_type=_get_obj_type(Ontology.Ops.as_arr, Ontology.Ops.as_data_dict),
+                               data_as_val=Ontology.Ops.data_as_val)
+        return Ontology._as_list_or_class(obj, Ontology.Ops.as_arr, Ontology.Ops.cb)
 
     @staticmethod
-    def specimen_categories(as_arr: bool = False, cb=str, as_data_dict: bool = False):
-        return Ontology._as_list_or_class(specimen_categories(as_arr, as_data_dict), as_arr, cb)
+    def entities():
+        return Ontology.transform_ontology(current_app.ubkg.entities, 'Entities')
 
     @staticmethod
-    def organ_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
-                    data_as_val=False):
-        return Ontology._as_list_or_class(organ_types(as_arr, as_data_dict, prop_callback,
-                                                      data_as_val=data_as_val), as_arr, cb)
+    def assay_types():
+        Ontology.Ops.key = 'data_type'
+        return Ontology.transform_ontology(current_app.ubkg.assay_types, 'AssayTypes')
 
     @staticmethod
-    def source_types(as_arr: bool = False, cb=str, as_data_dict: bool = False):
-        return Ontology._as_list_or_class(source_types(as_arr, as_data_dict), as_arr, cb)
+    def assay_types_ext():
+        Ontology.Ops.key = 'data_type'
+        Ontology.Ops.url_params = '&dataset_provider=external'
+        return Ontology.transform_ontology(current_app.ubkg.assay_types, 'AssayTypesExt')
+
+    @staticmethod
+    def specimen_categories():
+        return Ontology.transform_ontology(current_app.ubkg.specimen_categories, 'SpecimenCategories')
+
+    @staticmethod
+    def organ_types():
+        Ontology.Ops.key = 'rui_code'
+        Ontology.Ops.val_key = 'term'
+        return Ontology.transform_ontology(current_app.ubkg.organ_types, 'OrganTypes')
+
+    @staticmethod
+    def source_types():
+        return Ontology.transform_ontology(current_app.ubkg.source_types, 'SourceTypes')
 
     @staticmethod
     def _as_list_or_class(obj, as_arr: bool = False, cb=str):
         return obj if not as_arr else list(map(cb, obj))
+
+
+def init_ontology():
+    Ontology.specimen_categories()
+    Ontology.organ_types()
+    Ontology.entities()
+    Ontology.assay_types()
+    Ontology.source_types()
 

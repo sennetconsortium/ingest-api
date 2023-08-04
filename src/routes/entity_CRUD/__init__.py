@@ -109,7 +109,7 @@ def publish_datastage(identifier):
 
 @entity_CRUD_blueprint.route('/sources/bulk/validate', methods=['POST'])
 def bulk_sources_upload_and_validate():
-    return _bulk_upload_and_validate(Ontology.entities().SOURCE)
+    return _bulk_upload_and_validate(Ontology.ops().entities().SOURCE)
 
 
 @entity_CRUD_blueprint.route('/sources/bulk/register', methods=['POST'])
@@ -152,7 +152,7 @@ def create_sources_from_bulk():
 
 @entity_CRUD_blueprint.route('/samples/bulk/validate', methods=['POST'])
 def bulk_samples_upload_and_validate():
-    return _bulk_upload_and_validate(Ontology.entities().SAMPLE)
+    return _bulk_upload_and_validate(Ontology.ops().entities().SAMPLE)
 
 
 @entity_CRUD_blueprint.route('/samples/bulk/register', methods=['POST'])
@@ -202,7 +202,7 @@ def create_samples_from_bulk():
 
 @entity_CRUD_blueprint.route('/datasets/bulk/validate', methods=['POST'])
 def bulk_datasets_upload_and_validate():
-    return _bulk_upload_and_validate(Ontology.entities().DATASET)
+    return _bulk_upload_and_validate(Ontology.ops().entities().DATASET)
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk/register', methods=['POST'])
@@ -568,11 +568,11 @@ def _bulk_upload_and_validate(entity):
     csv_records = get_csv_records(file_location)
     headers, records = itemgetter('headers', 'records')(csv_records)
 
-    if entity == Ontology.entities().SOURCE:
+    if entity == Ontology.ops().entities().SOURCE:
         valid_file = validate_sources(headers, records)
-    elif entity == Ontology.entities().SAMPLE:
+    elif entity == Ontology.ops().entities().SAMPLE:
         valid_file = validate_samples(headers, records, header)
-    elif entity == Ontology.entities().DATASET:
+    elif entity == Ontology.ops().entities().DATASET:
         records = _format_dataset_records(records)
         valid_file = validate_datasets(headers, records, header)
     else:
@@ -770,7 +770,7 @@ def validate_samples(headers, records, header):
     allowed_categories = Ontology.specimen_categories(True, enum_val_lower)
     # Get the ontology classes
     SpecimenCategories = Ontology.specimen_categories()
-    Entities = Ontology.entities()
+    Entities = Ontology.ops().entities()
 
     organ_types_codes = list(Ontology.organ_types(as_data_dict=True).keys())
 
@@ -993,7 +993,7 @@ def validate_datasets(headers, records, header):
                     if data_types_valid:
                         sub_type = get_as_list(data_types)
 
-                    entity_to_validate = build_constraint_unit(Ontology.entities().DATASET, sub_type)
+                    entity_to_validate = build_constraint_unit(Ontology.ops().entities().DATASET, sub_type)
 
                     try:
                         entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
@@ -1053,7 +1053,7 @@ def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_
 
 
 def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id):
-    Entities = Ontology.entities()
+    Entities = Ontology.ops().entities()
     ancestor_entity_type = ancestor_dict['type'].lower()
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
 
