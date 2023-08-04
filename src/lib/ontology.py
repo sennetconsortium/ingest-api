@@ -48,7 +48,8 @@ def specimen_categories(in_enum: bool = False, as_data_dict: bool = False):
 def organ_types(in_enum: bool = False, as_data_dict: bool = False,
                 prop_callback=to_snake_case_upper, data_as_val=False):
     return _build_enum_class('OrganTypes', current_app.ubkg.organ_types, key='rui_code', val_key='term',
-                             obj_type=_get_obj_type(in_enum, as_data_dict))
+                             obj_type=_get_obj_type(in_enum, as_data_dict),
+                             prop_callback=prop_callback, data_as_val=data_as_val)
 
 
 def assay_types(in_enum: bool = False, as_data_dict: bool = False,
@@ -110,7 +111,8 @@ class Ontology:
         return Ontology._as_list_or_class(specimen_categories(as_arr, as_data_dict), as_arr, cb)
 
     @staticmethod
-    def organ_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper, data_as_val=False):
+    def organ_types(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,
+                    data_as_val=False):
         return Ontology._as_list_or_class(organ_types(as_arr, as_data_dict, prop_callback,
                                                       data_as_val=data_as_val), as_arr, cb)
 
