@@ -687,7 +687,7 @@ def is_invalid_doi(protocol):
 def validate_sources(headers, records):
     error_msg = []
     file_is_valid = True
-    allowed_source_types = Ontology.source_types(True, enum_val_lower)
+    allowed_source_types = Ontology.ops(as_arr=True, cb=enum_val_lower).source_types()
 
     required_headers = ['lab_id', 'source_type', 'selection_protocol', 'lab_notes']
     for field in required_headers:
@@ -767,12 +767,12 @@ def validate_samples(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    allowed_categories = Ontology.specimen_categories(True, enum_val_lower)
+    allowed_categories = Ontology.ops().specimen_categories(True, enum_val_lower)
     # Get the ontology classes
-    SpecimenCategories = Ontology.specimen_categories()
+    SpecimenCategories = Ontology.ops().specimen_categories()
     Entities = Ontology.ops().entities()
 
-    organ_types_codes = list(Ontology.organ_types(as_data_dict=True).keys())
+    organ_types_codes = list(Ontology.ops(as_data_dict=True).organ_types().keys())
 
     rownum = 0
     valid_ancestor_ids = []
@@ -914,8 +914,7 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-
-    assay_types = list(Ontology.assay_types(as_data_dict=True, prop_callback=None).keys())
+    assay_types = list(Ontology.ops(as_data_dict=True, prop_callback=None).assay_types().keys())
 
     rownum = 0
     entity_constraint_list = []
@@ -1065,7 +1064,7 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
 
     if equals(ancestor_entity_type, Entities.SAMPLE):
         sub_type = get_as_list(ancestor_result['sample_category'])
-        if equals(ancestor_result['sample_category'], Ontology.specimen_categories().ORGAN):
+        if equals(ancestor_result['sample_category'], Ontology.ops().specimen_categories().ORGAN):
             sub_type_val = get_as_list(ancestor_result['organ'])
 
     ancestor_to_validate = build_constraint_unit(ancestor_entity_type, sub_type, sub_type_val)

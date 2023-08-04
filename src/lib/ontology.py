@@ -47,15 +47,15 @@ def get_assay_types_ep():
 
 class Ontology:
     class Ops:
-        as_arr = False
-        cb = str
-        as_data_dict = False
-        prop_callback = to_snake_case_upper
-        data_as_val = False
-        url_params = None
-        key = 'term'
-        obj_type = 'class'
-        val_key = None
+        as_arr = False  # Return as an array
+        cb = str  # The callback function to run on value of the transform result
+        as_data_dict = False  # Return as a dict
+        prop_callback = to_snake_case_upper  # The callback to apply on the dict key
+        data_as_val = False  # Whether to return the full UBKG data as value of key
+        url_params = None  # Url parameters to apply to the request
+        key = 'term'  # Which property value from the item to return as the key of the transform result
+        val_key = None  # Which property value from the item to return as the value of the transform result
+        obj_type = 'class'  # How to represent the return
 
     @staticmethod
     def ops(as_arr: bool = False, cb=str, as_data_dict: bool = False, prop_callback=to_snake_case_upper,

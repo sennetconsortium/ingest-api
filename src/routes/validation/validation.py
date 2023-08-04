@@ -129,12 +129,12 @@ def get_sub_type_name_by_entity_type(entity_type):
 
 def supported_metadata_sub_types(entity_type):
     if equals(entity_type, Ontology.ops().entities().SOURCE):
-        return [Ontology.source_types().MOUSE]
+        return [Ontology.ops().source_types().MOUSE]
     else:
         return [
-            Ontology.specimen_categories().BLOCK,
-            Ontology.specimen_categories().SECTION,
-            Ontology.specimen_categories().SUSPENSION]
+            Ontology.ops().specimen_categories().BLOCK,
+            Ontology.ops().specimen_categories().SECTION,
+            Ontology.ops().specimen_categories().SUSPENSION]
 
 def validate_records_uuids(records, entity_type, sub_type, pathname):
     errors = []
