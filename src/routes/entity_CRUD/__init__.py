@@ -767,7 +767,7 @@ def validate_samples(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    allowed_categories = Ontology.ops().specimen_categories(True, enum_val_lower)
+    allowed_categories = Ontology.ops(as_arr=True, cb=enum_val_lower).specimen_categories()
     # Get the ontology classes
     SpecimenCategories = Ontology.ops().specimen_categories()
     Entities = Ontology.ops().entities()
