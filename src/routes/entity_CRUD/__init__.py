@@ -553,7 +553,7 @@ def dataset_data_status():
         "WHERE (ds)<-[:ACTIVITY_OUTPUT]-(:Activity) "
         "RETURN DISTINCT ds.uuid AS uuid, "
         "COLLECT(DISTINCT dn.sennet_id) AS donor_sennet_id, COLLECT(DISTINCT dn.submission_id) AS donor_submission_id, "
-        "COLLECT(DISTINCT dn.lab_donor_id) AS donor_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_metadata"
+        "COLLECT(DISTINCT dn.lab_source_id) AS donor_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_metadata"
     )
 
     descendant_datasets_query = (
