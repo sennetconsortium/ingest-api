@@ -25,9 +25,9 @@ def logout():
     return _logout(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'], app_name=current_app.config['GLOBUS_CLIENT_APP_NAME'])
 
 
-# @auth_blueprint.route('/data-ingest-board-logout')
-# def data_ingest_logout():
-#     return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], app_name=current_app.config['DATA_INGEST_BOARD_NAME'],  key='ingest_board_tokens')
+@auth_blueprint.route('/data-ingest-board-logout')
+def data_ingest_logout():
+    return _logout(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], app_name=current_app.config['DATA_INGEST_BOARD_NAME'],  key='ingest_board_tokens')
 
 
 def get_user_info(token):
