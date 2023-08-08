@@ -1,26 +1,15 @@
-from atlas_consortia_commons.ubkg import get_from_node
 from atlas_consortia_commons.ubkg.ubkg_sdk import UbkgSDK
 from flask import current_app
 
 def enum_val_lower(val):
     return val.value.lower()
 
-
-def ubkg_sever():
-    return current_app.config['UBKG_SERVER']
-
-
-def get_valueset_ep(code):
-    ep = f"{ubkg_sever()}{current_app.config['UBKG_ENDPOINT_VALUESET']}"
-    return ep.format(code=code)
-
-
 def get_organ_types_ep():
-    return f"{ubkg_sever()}{get_from_node(current_app.ubkg.organ_types, 'endpoint')}"
+    return UbkgSDK.get_endpoint(current_app.ubkg.organ_types)
 
 
 def get_assay_types_ep():
-    return f"{ubkg_sever()}{get_from_node(current_app.ubkg.assay_types, 'endpoint')}"
+    return UbkgSDK.get_endpoint(current_app.ubkg.assay_types)
 
 
 class Ontology(UbkgSDK):
