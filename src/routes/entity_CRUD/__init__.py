@@ -651,6 +651,8 @@ def publish_datastage(identifier):
                 if asset_dir_exists:
                     ingest_helper.relink_to_public(dataset_uuid)
 
+            acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
+                                                             True, no_indexing_and_acls)
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
