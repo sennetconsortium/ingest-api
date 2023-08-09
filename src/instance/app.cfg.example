@@ -21,11 +21,19 @@ GLOBUS_CLIENT_APP_NAME = 'SenNet Data Portal'
 # Point to remote URL for testing and production deployment
 GLOBUS_CLIENT_APP_URI = 'https://data.dev.sennetconsortium.org/'
 
+GLOBUS_BASE_FILE_USER_NAME = 'hive'
+GLOBUS_ADMIN_FILE_USER_NAME = 'shirey'
+GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME = 'hubseq'
+GLOBUS_CONSORTIUM_FILE_GROUP_NAME = 'hubmap'
+
 #Entity-api
 ENTITY_WEBSERVICE_URL = 'http://entity-api:8080'
 
 #Uuid-api
 UUID_WEBSERVICE_URL = 'http://uuid-api:8080'
+
+#Search-api
+SEARCH_WEBSERVICE_URL = 'https://search-api.dev.sennetconsortium.org'
 
 # Directory where file uploads will be placed temporarily
 # until they are committed
@@ -62,8 +70,20 @@ SENNET_DATA_ADMIN_GROUP_UUID='f654cd0d-1d9c-11ed-b7d5-972795fc9504'
 INGEST_PIPELINE_URL='https://ingest-af.dev.sennetconsortium.org:5555/api/sennet/'
 INGEST_PIPELINE_DEFAULT_PROCESS='SCAN.AND.BEGIN.PROCESSING'
 
+# DataCite REST API basic auth
+DATACITE_REPOSITORY_ID = ''
+DATACITE_REPOSITORY_PASSWORD = ''
+
+# DataCite REST API base URL
+# https://api.test.datacite.org/dois for DEV/TEST/STAGE
+# https://api.datacite.org/dois for PROD
+DATACITE_API_URL = ''
+
+# Use 10.80478 for DataCite Test site with DEV/TEST/STAGE deployment
+# Use 10.35079 for DataCite Production site with PROD deployment
+DATACITE_SENNET_PREFIX = ''
+
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
 UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020", "assay_types":{"code": "C004000", "key": "datasets", "endpoint": "datasets?application_context=SENNET"}}'
-
 
