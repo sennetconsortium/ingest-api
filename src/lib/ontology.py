@@ -1,8 +1,6 @@
 from atlas_consortia_commons.ubkg.ubkg_sdk import UbkgSDK
 from flask import current_app
 
-def enum_val_lower(val):
-    return val.value.lower()
 
 def get_organ_types_ep():
     return UbkgSDK.get_endpoint(current_app.ubkg.organ_types)

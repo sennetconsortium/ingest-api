@@ -17,7 +17,7 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.rest import *
 from atlas_consortia_commons.string import equals
-from atlas_consortia_commons.object import includes
+from atlas_consortia_commons.object import includes, enum_val_lower
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.datacite_doi_helper import DataCiteDoiHelper
@@ -31,7 +31,7 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header, get_auth_header_dict
-from lib.ontology import Ontology, enum_val_lower, get_organ_types_ep, get_assay_types_ep
+from lib.ontology import Ontology, get_organ_types_ep, get_assay_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err
 
 
