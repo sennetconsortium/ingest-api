@@ -11,6 +11,7 @@ from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import neo4j_driver
 from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
+from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
@@ -21,7 +22,6 @@ from routes.file import file_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
-from lib.ontology import init_ontology
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`

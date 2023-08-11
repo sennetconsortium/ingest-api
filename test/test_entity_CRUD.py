@@ -22,6 +22,12 @@ def app():
     yield app
     # clean up
 
+@pytest.fixture(scope="session", autouse=True)
+def ontology_mock():
+    """Automatically add ontology mock functions to all tests"""
+    with (patch('atlas_consortia_commons.ubkg.ubkg_sdk.UbkgSDK', new=test_utils.MockOntology)):
+        yield   
+
 # Validate Sources
 
 @pytest.mark.parametrize('entity_type, status_code', [
@@ -38,9 +44,7 @@ def test_validate_sources(app, entity_type, status_code):
     tsv_filename = os.path.join(test_data_dir, f'test_{entity_type}.tsv')
 
     with (open(tsv_filename, 'rb') as tsv_file,
-          app.test_client() as client,
-          patch('lib.ontology.Ontology.entities', return_value=test_utils.Entities),
-          patch('lib.ontology.Ontology.source_types', return_value=test_utils.source_types)):
+          app.test_client() as client):
         
         test_file = { 'file': (tsv_file, tsv_filename) }
 
@@ -72,13 +76,8 @@ def test_validate_samples(app, entity_type, status_code):
             return None
         return [test_utils.create_response(200, i) for i in test_data['ancestor_response']]
 
-    mock_specimen_categories = [test_utils.specimen_categories] + [test_utils.SpecimenCategories] * 3
-
     with (open(tsv_filename, 'rb') as tsv_file,
           app.test_client() as client,
-          patch('lib.ontology.Ontology.specimen_categories', side_effect=mock_specimen_categories),
-          patch('lib.ontology.Ontology.entities', return_value=test_utils.Entities),
-          patch('lib.ontology.Ontology.organ_types', return_value=test_utils.organ_types),
           patch('requests.get', side_effect=get_responses()),
           patch('requests.post', return_value=test_utils.create_response(200))):
 
@@ -114,9 +113,6 @@ def test_validate_datasets(app, entity_type, status_code):
 
     with (open(tsv_filename, 'rb') as tsv_file,
           app.test_client() as client,
-          patch('lib.ontology.Ontology.entities', return_value=test_utils.Entities),
-          patch('lib.ontology.Ontology.assay_types', return_value=test_utils.assay_types),
-          patch('lib.ontology.Ontology.specimen_categories', return_value=test_utils.SpecimenCategories),
           patch('requests.get', side_effect=get_responses()),
           patch('requests.post', return_value=test_utils.create_response(200))):
 

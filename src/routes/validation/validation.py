@@ -87,9 +87,9 @@ def create_tsv_from_path(path, row):
 
 
 def determine_schema(entity_type, sub_type):
-    if equals(entity_type, Ontology.entities().SOURCE):
+    if equals(entity_type, Ontology.ops().entities().SOURCE):
         schema = 'murine-source'
-    elif equals(entity_type, Ontology.entities().SAMPLE):
+    elif equals(entity_type, Ontology.ops().entities().SAMPLE):
         if not sub_type:
             return rest_bad_req("`sub_type` for schema name required.")
         schema = f"sample-{sub_type}"
@@ -114,27 +114,27 @@ def _get_response(metadata, entity_type, sub_type, validate_uuids, pathname=None
 
 
 def get_col_id_name_by_entity_type(entity_type):
-    if equals(entity_type, Ontology.entities().SAMPLE):
+    if equals(entity_type, Ontology.ops().entities().SAMPLE):
         return 'sample_id'
     else:
         return 'source_id'
 
 
 def get_sub_type_name_by_entity_type(entity_type):
-    if equals(entity_type, Ontology.entities().SAMPLE):
+    if equals(entity_type, Ontology.ops().entities().SAMPLE):
         return 'sample_category'
     else:
         return 'source_type'
 
 
 def supported_metadata_sub_types(entity_type):
-    if equals(entity_type, Ontology.entities().SOURCE):
-        return [Ontology.source_types().MOUSE]
+    if equals(entity_type, Ontology.ops().entities().SOURCE):
+        return [Ontology.ops().source_types().MOUSE]
     else:
         return [
-            Ontology.specimen_categories().BLOCK,
-            Ontology.specimen_categories().SECTION,
-            Ontology.specimen_categories().SUSPENSION]
+            Ontology.ops().specimen_categories().BLOCK,
+            Ontology.ops().specimen_categories().SECTION,
+            Ontology.ops().specimen_categories().SUSPENSION]
 
 def validate_records_uuids(records, entity_type, sub_type, pathname):
     errors = []
