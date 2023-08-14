@@ -614,8 +614,8 @@ def publish_datastage(identifier):
             dataset_contributors = rval[0]['contributors']
             if not get_entity_type_instanceof(dataset_entitytype, 'Dataset', auth_header="Bearer " + auth_helper.getProcessSecret()):
                 return Response(f"{dataset_uuid} is not a dataset will not Publish, entity type is {dataset_entitytype}", 400)
-            # if not dataset_status == 'QA':
-            #     return Response(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}", 400)
+            if not dataset_status == 'QA':
+                return Response(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}", 400)
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
@@ -664,7 +664,6 @@ def publish_datastage(identifier):
 
                 entity = entity_instance.get_entity_by_id(dataset_uuid)
                 entity_dict = vars(entity)
-                logger.info(entity_dict)
 
                 try:
                     datacite_doi_helper.create_dataset_draft_doi(entity_dict, check_publication_status=False)
