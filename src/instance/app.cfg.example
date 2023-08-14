@@ -30,7 +30,7 @@ GLOBUS_CONSORTIUM_FILE_GROUP_NAME = 'hubmap'
 ENTITY_WEBSERVICE_URL = 'http://entity-api:8080'
 
 #Uuid-api
-UUID_WEBSERVICE_URL = 'http://uuid-api:8080'
+UUID_WEBSERVICE_URL = 'http://uuid-api:8080/uuid'
 
 #Search-api
 SEARCH_WEBSERVICE_URL = 'https://search-api.dev.sennetconsortium.org'
