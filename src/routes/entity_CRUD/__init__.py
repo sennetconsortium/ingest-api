@@ -664,6 +664,7 @@ def publish_datastage(identifier):
 
                 entity = entity_instance.get_entity_by_id(dataset_uuid)
                 entity_dict = vars(entity)
+                logger.info(entity_dict)
 
                 try:
                     datacite_doi_helper.create_dataset_draft_doi(entity_dict, check_publication_status=False)
