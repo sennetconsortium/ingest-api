@@ -590,8 +590,7 @@ def dataset_data_status():
     organ_result = results[1]
     source_result = results[2]
     descendant_datasets_result = results[3]
-    upload_result = results[4]
-    has_rui_result = results[5]
+    has_rui_result = results[4]
 
     for dataset in all_datasets_result:
         output_dict[dataset['uuid']] = dataset
@@ -609,9 +608,6 @@ def dataset_data_status():
     for dataset in descendant_datasets_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['descendant_datasets'] = dataset['descendant_datasets']
-    for dataset in upload_result:
-        if output_dict.get(dataset['uuid']):
-            output_dict[dataset['uuid']]['upload'] = dataset['upload']
     for dataset in has_rui_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
