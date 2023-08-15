@@ -534,7 +534,7 @@ Description
 """
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
-    assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True).assay_types()
+    assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
     organ_types_dict = current_app.ubkg.get_ubkg_by_endpoint(current_app.ubkg.organ_types)
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
@@ -605,7 +605,7 @@ def dataset_data_status():
     for dataset in source_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['source_sennet_id'] = dataset['source_sennet_id']
-            output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
+            # output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
             output_dict[dataset['uuid']]['source_lab_id'] = dataset['source_lab_id']
             output_dict[dataset['uuid']]['has_metadata'] = dataset['has_metadata']
     for dataset in descendant_datasets_result:
