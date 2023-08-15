@@ -98,3 +98,5 @@ PORTAL_URL = 'https://data.dev.sennetconsortium.org/'
 
 # The base url for the HuBMAP ingest website
 INGEST_URL = 'https://data.dev.sennetconsortium.org/'
+
+GLOBUS_APP_BASE_URL = 'https://app.globus.org'
