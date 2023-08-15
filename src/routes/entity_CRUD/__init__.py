@@ -23,6 +23,7 @@ from atlas_consortia_commons.object import includes, enum_val_lower
 from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
+from lib.neo4j_helper import Neo4jHelper
 
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -525,7 +526,7 @@ def update_ingest_status():
 
 def run_query(query, results, i):
     logger.info(query)
-    with current_app.neo4j_driver_instance.session() as session:
+    with Neo4jHelper.get_instance().session() as session:
         results[i] = session.run(query).data()
 
 """
@@ -697,7 +698,7 @@ def publish_datastage(identifier):
             no_indexing_and_acls = True
 
         sources_to_reindex = []
-        with current_app.neo4j_driver_instance.session() as neo_session:
+        with Neo4jHelper.get_instance().session() as neo_session:
             #recds = session.run("Match () Return 1 Limit 1")
             #for recd in recds:
             #    if recd[0] == 1:
@@ -867,7 +868,7 @@ def publish_datastage(identifier):
 
 
 def dataset_is_primary(dataset_uuid):
-    with current_app.neo4j_driver_instance.session() as neo_session:
+    with Neo4jHelper.get_instance().session() as neo_session:
         q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(s:Sample) RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
