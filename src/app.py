@@ -22,6 +22,7 @@ from routes.file import file_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
+from lib.neo4j_helper import Neo4jHelper
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -95,7 +96,7 @@ try:
                                                   app.config['NEO4J_USERNAME'],
                                                   app.config['NEO4J_PASSWORD'])
 
-    app.neo4j_driver_instance = neo4j_driver_instance
+    Neo4jHelper.set_instance(neo4j_driver_instance)
 
     logger.info("Initialized neo4j_driver module successfully :)")
 except Exception:

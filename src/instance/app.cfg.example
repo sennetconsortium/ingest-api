@@ -20,6 +20,8 @@ GLOBUS_CLIENT_APP_NAME = 'SenNet Data Portal'
 
 # Point to remote URL for testing and production deployment
 GLOBUS_CLIENT_APP_URI = 'https://data.dev.sennetconsortium.org/'
+DATA_INGEST_BOARD_APP_URI = 'http://localhost:3001/'
+DATA_INGEST_BOARD_NAME = ‘Data Ingest Board - DEV’
 
 GLOBUS_BASE_FILE_USER_NAME = 'hive'
 GLOBUS_ADMIN_FILE_USER_NAME = 'shirey'
@@ -34,6 +36,14 @@ UUID_WEBSERVICE_URL = 'http://uuid-api:8080/uuid'
 
 #Search-api
 SEARCH_WEBSERVICE_URL = 'https://search-api.dev.sennetconsortium.org'
+
+# The base url for the HuBMAP portal website
+PORTAL_URL = 'https://data.dev.sennetconsortium.org/'
+
+# The base url for the HuBMAP ingest website
+INGEST_URL = 'https://ingest-api.dev.sennetconsortium.org/'
+
+GLOBUS_APP_BASE_URL = 'https://app.globus.org'
 
 # Directory where file uploads will be placed temporarily
 # until they are committed
@@ -86,4 +96,3 @@ DATACITE_SENNET_PREFIX = ''
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
 UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020", "assay_types":{"code": "C004000", "key": "datasets", "endpoint": "datasets?application_context=SENNET"}}'
-

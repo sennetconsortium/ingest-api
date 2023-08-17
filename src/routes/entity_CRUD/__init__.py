@@ -3,6 +3,7 @@ import logging
 import requests
 import os
 import re
+import datetime
 from typing import List
 import urllib.request
 import yaml
@@ -20,7 +21,9 @@ from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import includes, enum_val_lower
 
 from lib.file_upload_helper import UploadFileHelper
+from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
+from lib.neo4j_helper import Neo4jHelper
 
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -31,8 +34,9 @@ from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header, get_auth_header_dict
+
 from lib.ontology import Ontology, get_organ_types_ep, get_assay_types_ep
-from lib.file import get_csv_records, get_base_path, check_upload, ln_err
+from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
 
 
 
@@ -519,6 +523,148 @@ def update_ingest_status():
         logger.error(e, exc_info=True)
         return Response("Unexpected error while saving dataset: " + str(e), 500)
 
+
+def run_query(query, results, i):
+    logger.info(query)
+    with Neo4jHelper.get_instance().session() as session:
+        results[i] = session.run(query).data()
+
+"""
+Description
+"""
+@entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
+def dataset_data_status():
+    assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
+    organ_types_dict = current_app.ubkg.get_ubkg_by_endpoint(current_app.ubkg.organ_types)
+    all_datasets_query = (
+        "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
+        "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
+        "ds.last_modified_timestamp AS last_touch, ds.data_access_level AS data_access_level, "
+        "COALESCE(ds.contributors IS NOT NULL) AS has_contributors, COALESCE(ds.contacts IS NOT NULL) AS has_contacts, "
+        "ancestor.entity_type AS ancestor_entity_type"
+    )
+
+    organ_query = (
+        "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
+    )
+
+    source_query = (
+        "MATCH (ds:Dataset)-[*]->(dn:Source) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "RETURN DISTINCT ds.uuid AS uuid, "
+        "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
+        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_metadata"
+    )
+
+    descendant_datasets_query = (
+        "MATCH (dds:Dataset)-[*]->(ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(:Sample) "
+        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT dds.sennet_id) AS descendant_datasets"
+    )
+
+    has_rui_query = (
+        "MATCH (ds:Dataset) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
+        "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
+    )
+
+    displayed_fields = [
+        "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
+        "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
+        "has_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
+        "has_data", "organ_sennet_id"
+    ]
+
+    queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query]
+    results = [None] * len(queries)
+    threads = []
+    for i, query in enumerate(queries):
+        thread = Thread(target=run_query, args=(query, results, i))
+        thread.start()
+        threads.append(thread)
+    for thread in threads:
+        thread.join()
+    output_dict = {}
+    # Here we specifically indexed the values in 'results' in case certain threads completed out of order
+    all_datasets_result = results[0]
+    organ_result = results[1]
+    source_result = results[2]
+    descendant_datasets_result = results[3]
+    has_rui_result = results[4]
+
+    for dataset in all_datasets_result:
+        output_dict[dataset['uuid']] = dataset
+    for dataset in organ_result:
+        if output_dict.get(dataset['uuid']):
+            output_dict[dataset['uuid']]['organ'] = dataset['organ']
+            output_dict[dataset['uuid']]['organ_sennet_id'] = dataset['organ_sennet_id']
+            output_dict[dataset['uuid']]['organ_uuid'] = dataset['organ_uuid']
+    for dataset in source_result:
+        if output_dict.get(dataset['uuid']):
+            output_dict[dataset['uuid']]['source_sennet_id'] = dataset['source_sennet_id']
+            # output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
+            output_dict[dataset['uuid']]['source_lab_id'] = dataset['source_lab_id']
+            output_dict[dataset['uuid']]['has_metadata'] = dataset['has_metadata']
+    for dataset in descendant_datasets_result:
+        if output_dict.get(dataset['uuid']):
+            output_dict[dataset['uuid']]['descendant_datasets'] = dataset['descendant_datasets']
+    for dataset in has_rui_result:
+        if output_dict.get(dataset['uuid']):
+            output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
+
+    combined_results = []
+    for uuid in output_dict:
+        combined_results.append(output_dict[uuid])
+
+    for dataset in combined_results:
+        globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'), dataset.get('uuid'))
+        dataset['globus_url'] = globus_url
+        portal_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['PORTAL_URL']) + 'dataset' + '/' + dataset[
+            'uuid']
+        dataset['portal_url'] = portal_url
+        ingest_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_URL']) + 'dataset' + '/' + dataset[
+            'uuid']
+        dataset['ingest_url'] = ingest_url
+        if dataset.get('organ_uuid'):
+            organ_portal_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['PORTAL_URL']) + 'sample' + '/' + dataset['organ_uuid']
+            dataset['organ_portal_url'] = organ_portal_url
+        else:
+            dataset['organ_portal_url'] = ""
+        dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(dataset['last_touch']/1000))
+        if dataset.get('ancestor_entity_type').lower() != "dataset":
+            dataset['is_primary'] = "true"
+        else:
+            dataset['is_primary'] = "false"
+        has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'))
+        dataset['has_data'] = has_data
+
+        for prop in dataset:
+            if isinstance(dataset[prop], list):
+                dataset[prop] = ", ".join(dataset[prop])
+            if isinstance(dataset[prop], (bool, int)):
+                dataset[prop] = str(dataset[prop])
+            if dataset[prop] and dataset[prop][0] == "[" and dataset[prop][-1] == "]":
+                dataset[prop] = dataset[prop].replace("'",'"')
+                dataset[prop] = json.loads(dataset[prop])
+                dataset[prop] = dataset[prop][0]
+            if dataset[prop] is None:
+                dataset[prop] = " "
+        if dataset.get('data_types') and dataset.get('data_types') in assay_types_dict:
+            dataset['data_types'] = assay_types_dict[dataset['data_types']]['description'].strip()
+        for field in displayed_fields:
+            if dataset.get(field) is None:
+                dataset[field] = " "
+        if dataset.get('organ') and dataset['organ'].upper() not in ['HT', 'LV', 'LN', 'RK', 'LK']:
+            dataset['has_rui_info'] = "not-applicable"
+        if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
+            dataset['organ'] = organ_types_dict[dataset['organ']]
+
+    return jsonify(combined_results)
+
+
 @entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods = ['PUT'])
 def publish_datastage(identifier):
     try:
@@ -551,8 +697,8 @@ def publish_datastage(identifier):
         if suspend_indexing_and_acls:
             no_indexing_and_acls = True
 
-        donors_to_reindex = []
-        with current_app.neo4j_driver_instance.session() as neo_session:
+        sources_to_reindex = []
+        with Neo4jHelper.get_instance().session() as neo_session:
             #recds = session.run("Match () Return 1 Limit 1")
             #for recd in recds:
             #    if recd[0] == 1:
@@ -562,11 +708,11 @@ def publish_datastage(identifier):
 
             #look at all of the ancestors
             #gather uuids of ancestors that need to be switched to public access_level
-            #grab the id of the donor ancestor to use for reindexing
+            #grab the id of the source ancestor to use for reindexing
             q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.data_types as data_types, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
-            has_donor = False
+            has_source = False
             for node in rval:
                 uuid = node['uuid']
                 entity_type = node['entity_type']
@@ -577,10 +723,10 @@ def publish_datastage(identifier):
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Source':
-                    has_donor = True
+                    has_source = True
                     if is_primary:
                         if metadata is None or metadata.strip() == '':
-                            return jsonify({"error": f"donor.metadata is missing for {dataset_uuid}"}), 400
+                            return jsonify({"error": f"source.metadata is missing for {dataset_uuid}"}), 400
                         metadata = metadata.replace("'", '"')
                         metadata_dict = json.loads(metadata)
                         living_donor = True
@@ -590,18 +736,18 @@ def publish_datastage(identifier):
                         if metadata_dict.get('living_donor_data') is None:
                             organ_donor = False
                         if (organ_donor and living_donor) or (not organ_donor and not living_donor):
-                            return jsonify({"error": f"donor.metadata.organ_donor_data or "
-                                                     f"donor.metadata.living_donor_data required. "
+                            return jsonify({"error": f"source.metadata.organ_donor_data or "
+                                                     f"source.metadata.living_donor_data required. "
                                                      f"Both cannot be None. Both cannot be present. Only one."}), 400
-                    donors_to_reindex.append(uuid)
+                    sources_to_reindex.append(uuid)
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Dataset':
                     if status != 'Published':
                         return Response(f"{dataset_uuid} has an ancestor dataset that has not been Published. Will not Publish. Ancestor dataset is: {uuid}", 400)
 
-            if has_donor is False:
-                return Response(f"{dataset_uuid}: no donor found for dataset, will not Publish")
+            if has_source is False:
+                return Response(f"{dataset_uuid}: no source found for dataset, will not Publish")
 
             #get info for the dataset to be published
             q = f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN e.uuid as uuid, e.entity_type as entitytype, e.status as status, e.data_access_level as data_access_level, e.group_uuid as group_uuid, e.contacts as contacts, e.contributors as contributors"
@@ -700,17 +846,17 @@ def publish_datastage(identifier):
                 #     out = entity_instance.clear_cache(e_id)
 
         if no_indexing_and_acls:
-            r_val = {'acl_cmd': acls_cmd, 'donors_for_indexing': donors_to_reindex}
+            r_val = {'sources_for_indexing': sources_to_reindex}
         else:
-            r_val = {'acl_cmd': '', 'donors_for_indexing': []}
+            r_val = {'acl_cmd': '', 'sources_for_indexing': []}
 
         if not no_indexing_and_acls:
-            for donor_uuid in donors_to_reindex:
+            for source_uuid in sources_to_reindex:
                 try:
-                    rspn = requests.put(current_app.config['SEARCH_WEBSERVICE_URL'] + "/reindex/" + donor_uuid, headers={'Authorization': request.headers["AUTHORIZATION"]})
-                    logger.info(f"Publishing {identifier} indexed donor {donor_uuid} with status {rspn.status_code}")
+                    rspn = requests.put(current_app.config['SEARCH_WEBSERVICE_URL'] + "/reindex/" + source_uuid, headers={'Authorization': request.headers["AUTHORIZATION"]})
+                    logger.info(f"Publishing {identifier} indexed source {source_uuid} with status {rspn.status_code}")
                 except:
-                    logger.exception(f"While publishing {identifier} Error happened when calling reindex web service for donor {donor_uuid}")
+                    logger.exception(f"While publishing {identifier} Error happened when calling reindex web service for source {source_uuid}")
 
         return Response(json.dumps(r_val), 200, mimetype='application/json')
 
@@ -722,12 +868,13 @@ def publish_datastage(identifier):
 
 
 def dataset_is_primary(dataset_uuid):
-    with current_app.neo4j_driver_instance.session() as neo_session:
+    with Neo4jHelper.get_instance().session() as neo_session:
         q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(s:Sample) RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
             return False
         return True
+
 
 def _get_status_code__by_priority(codes):
     if StatusCodes.SERVER_ERR in codes:
