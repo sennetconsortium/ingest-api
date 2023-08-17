@@ -685,7 +685,7 @@ def publish_datastage(identifier):
         if identifier is None or len(identifier) == 0:
             abort_bad_req('identifier parameter is required to publish a dataset')
 
-        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "/" + identifier,
+        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "uuid/" + identifier,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
             raise ValueError("Cannot find specimen with identifier: " + identifier)
