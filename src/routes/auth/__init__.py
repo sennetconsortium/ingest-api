@@ -81,9 +81,6 @@ def _login(redirect_uri, key = 'tokens'):
         if isinstance(read_privs, Response):
             return read_privs
 
-        write_privs = auth_helper_instance.has_write_privs(groups_token)
-        if isinstance(write_privs, Response):
-            return write_privs
 
         info = {
             'name': user_info['name'],
@@ -92,7 +89,6 @@ def _login(redirect_uri, key = 'tokens'):
             'auth_token': auth_token,
             'transfer_token': transfer_token,
             'read_privs': read_privs,
-            'write_privs': write_privs,
             'groups_token': groups_token
         }
 

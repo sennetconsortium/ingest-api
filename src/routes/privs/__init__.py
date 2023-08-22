@@ -9,7 +9,6 @@ privs_blueprint = Blueprint('privs', __name__)
 logger = logging.getLogger(__name__)
 
 
-# TODO: We can remove this call as `_login` handles this
 @privs_blueprint.route('/privs')
 def privs_for_groups_token():
     groups_token: str = get_groups_token()
