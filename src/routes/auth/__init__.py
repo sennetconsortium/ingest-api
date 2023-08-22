@@ -75,12 +75,17 @@ def _login(redirect_uri, key = 'tokens'):
         # Also get the user info (sub, email, name, preferred_username) using the AuthClient with the auth token
         user_info = get_user_info(auth_token)
 
+        # Check if user has read permissions
+        auth_helper_instance: AuthHelper = AuthHelper.instance()
+        read_privs = auth_helper_instance.has_read_privs(groups_token)
+
         info = {
             'name': user_info['name'],
             'email': user_info['email'],
             'globus_id': user_info['sub'],
             'auth_token': auth_token,
             'transfer_token': transfer_token,
+            'read_privs': read_privs,
             'groups_token': groups_token
         }
 
