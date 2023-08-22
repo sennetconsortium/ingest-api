@@ -1,4 +1,4 @@
-from flask import Blueprint, redirect, request, session, current_app
+from flask import Blueprint, redirect, request, session, current_app, Response
 from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
 import json
 import logging
@@ -78,6 +78,12 @@ def _login(redirect_uri, key = 'tokens'):
         # Check if user has read permissions
         auth_helper_instance: AuthHelper = AuthHelper.instance()
         read_privs = auth_helper_instance.has_read_privs(groups_token)
+        if isinstance(read_privs, Response):
+            return read_privs
+
+        write_privs = auth_helper_instance.has_write_privs(groups_token)
+        if isinstance(write_privs, Response):
+            return write_privs
 
         info = {
             'name': user_info['name'],
@@ -86,6 +92,7 @@ def _login(redirect_uri, key = 'tokens'):
             'auth_token': auth_token,
             'transfer_token': transfer_token,
             'read_privs': read_privs,
+            'write_privs': write_privs,
             'groups_token': groups_token
         }
 
