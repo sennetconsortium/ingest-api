@@ -1,7 +1,8 @@
-from flask import Blueprint, redirect, request, session, current_app, Response
+from flask import Blueprint, redirect, request, session, current_app, Response, make_response
 from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
 import json
 import logging
+import base64
 
 from hubmap_commons.hm_auth import AuthHelper
 
@@ -102,8 +103,15 @@ def _login(redirect_uri, key = 'tokens'):
         session[key] = token_response.by_resource_server
 
         logger.info(f"Logged in User: {user_info['name']}")
-        # Finally redirect back to the client
-        return redirect(redirect_uri + '?info=' + str(json_str))
+
+        # encode this to avoid the \\" type strings when reading cookies from the client
+        b = base64.b64encode(bytes(json_str, 'utf-8'))  # bytes
+        base64_json_str = b.decode('utf-8')  # convert bytes to string
+
+        # create a response for the user
+        response = make_response(redirect(redirect_uri))
+        response.set_cookie('info', base64_json_str, expires=2**31 - 1)
+        return response
 
 
 def _logout(redirect_uri, app_name, key='tokens'):
