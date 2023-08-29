@@ -28,6 +28,9 @@ GLOBUS_ADMIN_FILE_USER_NAME = 'shirey'
 GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME = 'hubseq'
 GLOBUS_CONSORTIUM_FILE_GROUP_NAME = 'hubmap'
 
+#Sets the domain for the cookie set upon login to the portal. Use `localhost` for local development
+COOKIE_DOMAIN = '.sennetconsortium.org'
+
 #Entity-api
 ENTITY_WEBSERVICE_URL = 'http://entity-api:8080'
 
