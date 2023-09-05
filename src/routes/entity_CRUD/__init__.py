@@ -1029,7 +1029,7 @@ def validate_upload(upload_uuid):
 #method to reorganize an Upload
 #saves the upload then calls the reorganize workflow via
 #AirFlow interface
-@app.route('/uploads/<upload_uuid>/reorganize', methods=['PUT'])
+@entity_CRUD_blueprint.route('/uploads/<upload_uuid>/reorganize', methods=['PUT'])
 def reorganize_upload(upload_uuid):
 
     #get auth info to use in other calls
