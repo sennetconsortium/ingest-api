@@ -1064,6 +1064,43 @@ def reorganize_upload(upload_uuid):
     return(Response("Upload reorganize started successfully", 200))
 
 
+@entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
+def upload_data_status():
+    all_uploads_query = (
+        "MATCH (up:Upload) "
+        "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
+        "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
+        "up.title AS title, COLLECT(DISTINCT ds.uuid) AS datasets "
+    )
+
+    displayed_fields = [
+        "uuid", "group_name", "sennet_id", "status", "title", "datasets"
+    ]
+
+    with Neo4jHelper.get_instance().session() as session:
+        results = session.run(all_uploads_query).data()
+        for upload in results:
+            globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
+            upload['globus_url'] = globus_url
+            for prop in upload:
+                if isinstance(upload[prop], list):
+                    upload[prop] = ", ".join(upload[prop])
+                if isinstance(upload[prop], (bool, int)):
+                    upload[prop] = str(upload[prop])
+                if upload[prop] and upload[prop][0] == "[" and upload[prop][-1] == "]":
+                    upload[prop] = upload[prop].replace("'",'"')
+                    upload[prop] = json.loads(upload[prop])
+                    upload[prop] = upload[prop][0]
+                if upload[prop] is None:
+                    upload[prop] = " "
+            for field in displayed_fields:
+                if upload.get(field) is None:
+                    upload[field] = " "
+    # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
+    # TODO: link to the datasets page only displaying datasets belonging to a given upload.
+    return jsonify(results)
+
+
 def _get_status_code__by_priority(codes):
     if StatusCodes.SERVER_ERR in codes:
         return StatusCodes.SERVER_ERR
