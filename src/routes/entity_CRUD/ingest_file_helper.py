@@ -2,6 +2,7 @@ import os
 import logging
 import shutil
 import subprocess
+import threading
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import file_helper
@@ -186,6 +187,23 @@ class IngestFileHelper:
             print(f"mv {from_path} {to_path}")
 
         return None
+
+
+    def get_upload_directory_absolute_path(self, group_uuid, upload_uuid):
+        grp_name = AuthHelper.getGroupDisplayName(group_uuid)
+        base_dir = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_FILEPATH']
+        abs_path = str(os.path.join(base_dir, grp_name, upload_uuid))
+        return abs_path
+
+    def create_upload_directory(self, group_uuid, upload_uuid):
+        new_directory_path = self.get_upload_directory_absolute_path(group_uuid, upload_uuid)
+        IngestFileHelper.make_directory(new_directory_path, None)
+        try:
+            x = threading.Thread(target=self.set_dir_permissions, args=['protected', new_directory_path])
+            x.start()
+        except Exception as e:
+            self.logger.error(e, exc_info=True)
+
 
     def set_dataset_permissions(self, dataset_uuid, group_uuid, dataset_access_level, published, trial_run=False):
         file_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, dataset_uuid, published)
