@@ -339,11 +339,10 @@ def get_ds_path(ds_uuid: str,
     group_uuid = __get_dict_prop(dset, 'group_uuid')
     if ent_type is None or ent_type.strip() == '':
         raise ResponseException(f"Entity with uuid:{ds_uuid} needs to be a Dataset or Upload.", 400)
-    # if ent_type.lower().strip() == 'upload':
-    #     return ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=ds_uuid)
+    if ent_type.lower().strip() == 'upload':
+        return ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=ds_uuid)
     is_phi = __get_dict_prop(dset, 'contains_human_genetic_sequences')
-    if ent_type is None or not (
-            ent_type.lower().strip() == 'dataset' or ent_type.lower().strip() == 'publication' or ent_type.lower().strip() == 'upload'):
+    if ent_type is None or not (ent_type.lower().strip() == 'dataset' or ent_type.lower().strip() == 'publication'):
         raise ResponseException(f"Entity with uuid:{ds_uuid} is not a Dataset, Publication or Upload", 400)
     if group_uuid is None:
         raise ResponseException(f"Unable to find group uuid on dataset {ds_uuid}", 400)
