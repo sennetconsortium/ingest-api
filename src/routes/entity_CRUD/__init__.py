@@ -972,8 +972,6 @@ def submit_upload(upload_uuid):
     update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
     # Disable ssl certificate verification
     resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify = False)
-    if resp.status_code >= 300:
-        return Response(resp.text, resp.status_code)
 
     #disable validations stuff for now...
     ##call the AirFlow validation workflow
@@ -983,7 +981,7 @@ def submit_upload(upload_uuid):
     #if resp.status_code >= 300:
     #    return Response(resp.text, resp.status_code)
 
-    return(Response("Upload updated successfully", 200))
+    return Response(resp.text, resp.status_code)
 
 #method to validate an Upload
 #saves the upload then calls the validate workflow via
@@ -1020,11 +1018,11 @@ def validate_upload(upload_uuid):
     ##call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
     ## Disable ssl certificate verification
-    resp = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
-    if resp.status_code >= 300:
-        return Response(resp.text, resp.status_code)
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    if resp2.status_code >= 300:
+        return Response(resp2.text, resp2.status_code)
 
-    return(Response("Upload updated successfully", 200))
+    return Response(resp.text, resp.status_code)
 
 #method to reorganize an Upload
 #saves the upload then calls the reorganize workflow via
@@ -1057,11 +1055,11 @@ def reorganize_upload(upload_uuid):
     ##call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
     ## Disable ssl certificate verification
-    resp = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
-    if resp.status_code >= 300:
-        return Response(resp.text, resp.status_code)
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    if resp2.status_code >= 300:
+        return Response(resp2.text, resp2.status_code)
 
-    return(Response("Upload reorganize started successfully", 200))
+    return Response(resp.text, resp.status_code)
 
 
 @entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
