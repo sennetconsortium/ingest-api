@@ -1322,6 +1322,7 @@ def validate_samples(headers, records, header):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types().keys())
+    organ_types_codes.append('OT')
 
     rownum = 0
     valid_ancestor_ids = []
