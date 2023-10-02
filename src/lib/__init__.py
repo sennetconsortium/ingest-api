@@ -8,17 +8,17 @@ def get_globus_url(data_access_level, group_name, uuid):
     # public access
     if data_access_level == "public":
         globus_server_uuid = current_app.config['GLOBUS_PUBLIC_ENDPOINT_UUID']
-        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['ACCESS_LEVEL_PUBLIC'])
+        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH'])
         dir_path = dir_path + access_dir + "/"
     # consortium access
     elif data_access_level == 'consortium':
         globus_server_uuid = current_app.config['GLOBUS_CONSORTIUM_ENDPOINT_UUID']
-        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['ACCESS_LEVEL_CONSORTIUM'])
+        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'])
         dir_path = dir_path + access_dir + group_name + "/"
     # protected access
     elif data_access_level == 'protected':
         globus_server_uuid = current_app.config['GLOBUS_PROTECTED_ENDPOINT_UUID']
-        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['ACCESS_LEVEL_PROTECTED'])
+        access_dir = commons_file_helper.ensureTrailingSlashURL(current_app.config['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'])
         dir_path = dir_path + access_dir + group_name + "/"
 
     if globus_server_uuid is not None:
