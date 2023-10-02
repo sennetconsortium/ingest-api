@@ -639,7 +639,7 @@ def dataset_data_status():
             dataset['is_primary'] = "true"
         else:
             dataset['is_primary'] = "false"
-        has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'))
+        has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
         dataset['has_data'] = has_data
 
         for prop in dataset:
