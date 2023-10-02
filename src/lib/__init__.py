@@ -4,7 +4,7 @@ from hubmap_commons import file_helper as commons_file_helper
 
 def get_globus_url(data_access_level, group_name, uuid):
     globus_server_uuid = None
-    dir_path = " "
+    dir_path = ""
     # public access
     if data_access_level == "public":
         globus_server_uuid = current_app.config['GLOBUS_PUBLIC_ENDPOINT_UUID']
