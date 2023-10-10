@@ -536,7 +536,7 @@ Description
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
     assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
-    organ_types_dict = current_app.ubkg.get_ubkg_by_endpoint(current_app.ubkg.organ_types)
+    organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
         "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
