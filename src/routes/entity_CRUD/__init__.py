@@ -4,6 +4,7 @@ import requests
 import os
 import re
 import datetime
+import time
 from typing import List
 import urllib.request
 import yaml
@@ -580,7 +581,7 @@ Description
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
     assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
-    organ_types_dict = current_app.ubkg.get_ubkg_by_endpoint(current_app.ubkg.organ_types)
+    organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
         "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
@@ -683,7 +684,7 @@ def dataset_data_status():
             dataset['is_primary'] = "true"
         else:
             dataset['is_primary'] = "false"
-        has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'))
+        has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
         dataset['has_data'] = has_data
 
         for prop in dataset:
@@ -1033,39 +1034,43 @@ def submit_upload(upload_uuid):
 #AirFlow interface
 @entity_CRUD_blueprint.route('/uploads/<upload_uuid>/validate', methods=['PUT'])
 def validate_upload(upload_uuid):
+    start_time = time.time()
     if not request.is_json:
         return Response("json request required", 400)
 
     upload_changes = request.json
 
-    #get auth info to use in other calls
-    #add the app specific header info
+    # get auth info to use in other calls
+    # add the app specific header info
     http_headers = {
         'Authorization': request.headers["AUTHORIZATION"],
         'Content-Type': 'application/json',
-        'X-SenNet-Application':'ingest-api'
+        'X-SenNet-Application': 'ingest-api'
     }
 
-    #update the Upload with any changes from the request
-    #and change the status to "Processing", the validate
-    #pipeline will update the status when finished
+    # update the Upload with any changes from the request
+    # and change the status to "Processing", the validate
+    # pipeline will update the status when finished
 
-    #run the pipeline validation
+    # run the pipeline validation
     upload_changes['status'] = 'Processing'
     update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
 
     # Disable ssl certificate verification
-    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify = False)
+    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
     if resp.status_code >= 300:
         return Response(resp.text, resp.status_code)
+    logger.debug("--- %s seconds to update Entity API ---" % (time.time() - start_time))
 
-    #disable validations stuff for now...
+    # disable validations stuff for now...
     ##call the AirFlow validation workflow
-    validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
+    validate_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
+    logger.debug("--- %s seconds to send validate request to Airflow ---" % (time.time() - start_time))
 
     return Response(resp.text, resp.status_code)
 
@@ -1367,6 +1372,7 @@ def validate_samples(headers, records, header):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types().keys())
+    organ_types_codes.append('OT')
 
     rownum = 0
     valid_ancestor_ids = []
