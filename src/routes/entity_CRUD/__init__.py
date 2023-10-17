@@ -105,6 +105,8 @@ def multiple_components():
             if 'dataset_link_abs_dir' in dataset:
                 if not os.path.exists(dataset['dataset_link_abs_dir']):
                     return Response(f"The filepath specified with 'dataset_link_abs_dir' does not exist: {dataset['dataset_link_abs_dir']}", 500)
+                if not os.path.isdir(dataset['dataset_link_abs_dir']):
+                    return Response(f"The filepath specified with 'dataset_link_abs_dir is not a directory: {dataset['dataset_link_abs_dir']}", 500)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 500)
 
