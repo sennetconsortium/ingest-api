@@ -99,6 +99,15 @@ def multiple_components():
         else:
             return(Response("Valid nexus auth token required", 401))
 
+        # Check that `dataset_link_abs_dir` exists for both datasets and that it is a valid directory
+        json_data_dict = request.get_json()
+        for dataset in json_data_dict.get('datasets'):
+            if 'dataset_link_abs_dir' in dataset:
+                if not os.path.exists(dataset['dataset_link_abs_dir']):
+                    return Response(f"The filepath specified with 'dataset_link_abs_dir' does not exist: {dataset['dataset_link_abs_dir']}", 500)
+            else:
+                return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 500)
+
         requested_group_uuid = None
         if 'group_uuid' in component_request:
             requested_group_uuid = component_request['group_uuid']
@@ -113,7 +122,15 @@ def multiple_components():
         new_datasets_list = response.json()
 
         for dataset in new_datasets_list:
-            ingest_helper.create_dataset_directory(dataset, requested_group_uuid, dataset['uuid'])
+            # The property `dataset_link_abs_dir` will contain the filepath to the existing directory located inside the primary multi-assay
+            # directory. We need to create a new directory for each secondary dataset and then create a symlink to the aforementioned directory
+            if 'dataset_link_abs_dir' in dataset:
+                new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
+                logger.info(
+                    f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
+                ingest_helper.make_directory(new_directory_path, dataset['dataset_link_abs_dir'])
+            else:
+                return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 500)
 
         return jsonify(new_datasets_list)
     except HTTPException as hte:
