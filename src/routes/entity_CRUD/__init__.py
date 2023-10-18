@@ -85,7 +85,6 @@ def create_dataset():
 def multiple_components():
     if not request.is_json:
         return Response("json request required", 400)
-    entity_type = 'dataset'
     try:
         component_request = request.json
         auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
@@ -130,7 +129,8 @@ def multiple_components():
                 new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
                 logger.info(
                     f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
-                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
+                # os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
+                ingest_helper.make_directory(new_directory_path, dataset['dataset_link_abs_dir'])
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 500)
 
