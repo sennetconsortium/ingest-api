@@ -21,6 +21,14 @@ validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
 
 
+"""
+Checks the uploaded file
+
+Returns
+-------
+dict
+    A dictionary of containing upload details or an 'error' key if something went wrong
+"""
 def check_metadata_upload():
     result: dict = {
         'error': None
@@ -38,6 +46,14 @@ def check_metadata_upload():
     return result
 
 
+"""
+Creates a dictionary of file and path details
+
+Returns
+-------
+dict
+    A dictionary containing the filename and fullpath details
+"""
 def set_file_details(pathname):
     base_path = get_base_path()
     return {
@@ -46,11 +62,39 @@ def set_file_details(pathname):
     }
 
 
+"""
+Parses a tsv and returns the rows of that tsv
+
+Parameters
+----------
+path : str
+    The path where the tsv file is stored
+    
+Returns
+-------
+list
+    A list of dictionaries
+"""
 def get_metadata(path):
     result = get_csv_records(path)
     return result.get('records')
 
 
+"""
+Calls methods of the Ingest Validation Tools submodule
+
+Parameters
+----------
+schema : str
+    Name of the schema to validate against
+path : str
+    The path of the tsv for Ingest Validation Tools
+    
+Returns
+-------
+dict
+    A dictionary containing validation results
+"""
 def validate_tsv(schema='metadata', path=None):
     try:
         schema_name = (
@@ -67,6 +111,22 @@ def validate_tsv(schema='metadata', path=None):
     return json.dumps(result)
 
 
+"""
+Creates a tsv from path of a specific row.
+This is in order to validate only one if necessary.
+
+Parameters
+----------
+path : str
+    Path of original tsv
+row : int
+    Row number in tsv to extract for new tsv
+    
+Returns
+-------
+dict
+    A dictionary containing file details
+"""
 def create_tsv_from_path(path, row):
 
     result: dict = {
@@ -112,7 +172,19 @@ def _get_response(metadata, entity_type, sub_type, validate_uuids, pathname=None
 
     return response
 
+"""
+Returns the tsv id column name for the given entity type
 
+Parameters
+----------
+entity_type : str
+    The entity type
+    
+Returns
+-------
+str
+    The name of the column in the tsv
+"""
 def get_col_id_name_by_entity_type(entity_type):
     if equals(entity_type, Ontology.ops().entities().SAMPLE):
         return 'sample_id'
@@ -136,6 +208,28 @@ def supported_metadata_sub_types(entity_type):
             Ontology.ops().specimen_categories().SECTION,
             Ontology.ops().specimen_categories().SUSPENSION]
 
+"""
+Validates the uuids / SenNet ids of given records.
+This is used for bulk upload so that ancestor ids referenced by the user in TSVs
+are found to actually exist, are supported and confirm to entity constraints.
+
+Parameters
+----------
+records : list
+    The set of records to validate
+entity_type : str
+    The entity type
+sub_type : str
+    The sub type of the entity
+pathname : str
+    The pathname of the tsv. 
+    (This is always returned in the response for tracking and other re-validation purposes.)
+    
+Returns
+-------
+Response
+    Rest response containing results of validation
+"""
 def validate_records_uuids(records, entity_type, sub_type, pathname):
     errors = []
     passing = []
@@ -143,8 +237,10 @@ def validate_records_uuids(records, entity_type, sub_type, pathname):
     ok = True
     idx = 1
     for r in records:
+        # First get the id column name, in order to get SenNet id in the record
         id_col = get_col_id_name_by_entity_type(entity_type)
         entity_id = r.get(id_col)
+        # Use the SenNet id to find the stored entity
         url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + entity_id
         resp = requests.get(url, headers=header)
         if resp.status_code < 300:
@@ -152,6 +248,7 @@ def validate_records_uuids(records, entity_type, sub_type, pathname):
             if sub_type is not None:
                 sub_type_col = get_sub_type_name_by_entity_type(entity_type)
                 _sub_type = entity.get(sub_type_col)
+                # Check that the stored entity _sub_type is actually supported for validation
                 if _sub_type not in supported_metadata_sub_types(entity_type):
                     ok = False
                     errors.append(rest_response(StatusCodes.UNACCEPTABLE, StatusMsgs.UNACCEPTABLE,
@@ -159,6 +256,7 @@ def validate_records_uuids(records, entity_type, sub_type, pathname):
                                                        f"on check of given `{entity_id}`. "
                                                        f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
                                                        idx, sub_type_col), dict_only=True))
+                # Check that the stored entity _sub_type matches what is expected (the type being bulk uploaded)
                 elif not equals(sub_type, _sub_type):
                     ok = False
                     errors.append(rest_response(StatusCodes.UNACCEPTABLE, StatusMsgs.UNACCEPTABLE,
