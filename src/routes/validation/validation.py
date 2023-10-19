@@ -87,6 +87,8 @@ Parameters
 ----------
 schema : str
     Name of the schema to validate against
+path : str
+    The path of the tsv for Ingest Validation Tools
     
 Returns
 -------
