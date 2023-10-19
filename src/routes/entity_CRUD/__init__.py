@@ -131,8 +131,7 @@ def multiple_components():
                 new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
                 logger.info(
                     f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
-                Path(new_directory_path).mkdir(parents=True, exist_ok=True)
-                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
+                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 500)
 
