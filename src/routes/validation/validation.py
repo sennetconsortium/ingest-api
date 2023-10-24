@@ -17,6 +17,8 @@ from lib.ontology import Ontology
 import time
 import csv
 
+from ..privs import get_groups_token
+
 validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,12 @@ def validate_tsv(schema='metadata', path=None):
         result = {'Preflight': str(e)}
     else:
         try:
-            result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+            app_context = {
+                'request_header': {'X-SenNet-Application': 'ingest-api'},
+                'entities_url': f"{commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/"
+            }
+            result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON,
+                                             cedar_api_key=current_app.config['CEDAR_API_KEY'], globus_token=get_groups_token(), app_context=app_context)
         except Exception as e:
             result = rest_server_err(e, True)
     return json.dumps(result)
