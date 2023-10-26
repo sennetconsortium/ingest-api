@@ -21,4 +21,4 @@ services:
       # Mount the source code to container  
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
-      - "/codcc-dev-test/data-dev:/codcc-dev-test/data-dev"
+      - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
