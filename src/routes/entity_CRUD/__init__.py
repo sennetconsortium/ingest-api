@@ -515,6 +515,7 @@ def submit_dataset(uuid):
             logger.error(hte2)
             return Response(f"HTTPException while updating Dataset: {str(hte2)}. Check the logs.", 500)
 
+    # Datasets without directories or files fail an initial pipeline check so these never get set as 'processing' and just error out.
     def call_airflow():
         try:
             request_ingest_payload = {
