@@ -930,7 +930,7 @@ def publish_datastage(identifier):
 
 def dataset_is_primary(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(s:Sample) RETURN ds.uuid")
+        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE NOT toLower(a.creation_action) ENDS WITH 'process' RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
             return False
