@@ -17,6 +17,8 @@ from lib.ontology import Ontology
 import time
 import csv
 
+from ..privs import get_groups_token
+
 validation_blueprint = Blueprint('validation', __name__)
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,12 @@ def validate_tsv(schema='metadata', path=None):
         result = {'Preflight': str(e)}
     else:
         try:
-            result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON)
+            app_context = {
+                'request_header': {'X-SenNet-Application': 'ingest-api'},
+                'entities_url': f"{commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/"
+            }
+            result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON,
+                                             cedar_api_key=current_app.config['CEDAR_API_KEY'], globus_token=get_groups_token(), app_context=app_context)
         except Exception as e:
             result = rest_server_err(e, True)
     return json.dumps(result)
@@ -145,6 +152,21 @@ def create_tsv_from_path(path, row):
 
     return result
 
+def get_cedar_schema_ids():
+    return {
+        'Block': '3e98cee6-d3fb-467b-8d4e-9ba7ee49eeff',
+        'Section': '01e9bc58-bdf2-49f4-9cf9-dd34f3cc62d7',
+        'Suspension': 'ea4fb93c-508e-4ec4-8a4b-89492ba68088'
+    }
+
+
+def check_cedar(entity_type, sub_type, upload):
+    records = get_metadata(upload.get('fullpath'))
+    if len(records) > 0:
+        if equals(entity_type, Ontology.ops().entities().SAMPLE) and 'metadata_schema_id' in records[0]:
+            cedar_sample_sub_type_ids = get_cedar_schema_ids()
+            return equals(records[0]['metadata_schema_id'], cedar_sample_sub_type_ids[sub_type])
+    return True
 
 def determine_schema(entity_type, sub_type):
     if equals(entity_type, Ontology.ops().entities().SOURCE):
@@ -309,6 +331,12 @@ def validate_metadata_upload():
         response = error
 
         if error is None:
+            if check_cedar(entity_type, sub_type, upload) is False:
+                id = get_cedar_schema_ids().get(sub_type)
+                return rest_response(StatusCodes.UNACCEPTABLE, 'Unacceptable Metadata',
+                                     f"Mismatch of \"{entity_type} {sub_type}\" and \"metadata_schema_id\". Valid id for \"{sub_type}\": {id}. "
+                                     f"For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas")
+
             schema = determine_schema(entity_type, sub_type)
             validation_results = validate_tsv(path=upload.get('fullpath'), schema=schema)
             if len(validation_results) > 2:
