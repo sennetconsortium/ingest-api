@@ -2,6 +2,17 @@
 
 A restful web service exposing calls needed for the [Portal UI](https://github.com/sennetconsortium/portal-ui) Next.js application. The API is documented [here](https://smart-api.info/registry?q=@todo).
 
+## Working with submodule
+
+This repository relies on the [ingest-validation-tools](https://github.com/sennetconsortium/ingest-validation-tools) as a submodule for metadata validation. The
+file `.gitmodules` contains the configuration for the URL and specific branch of the submodule that is to be used. Once
+you already have cloned this repository and switched to the target branch, to load the latest `ingest-validation-tools` submodule:
+
+```
+git submodule update --init --remote
+```
+
+
 ## PyCharm configuration
 Right click the ***src*** folder and select *Mark directory as > sources root*
 You should see the ***src*** folder turn blue
