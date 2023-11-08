@@ -1,76 +1,375 @@
 openapi: 3.0.0
 info:
   description: |
-    A restful web service exposing calls needed for the Ingest UI React application.
-  version: 2.0.20
-  title: HuBMAP Ingest API
+    A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
+  version: 1.2.16
+  title: SenNet Ingest API
   contact:
-    name: HuBMAP Help Desk
-    email: help@hubmapconsortium.org
+    name: SenNet Help Desk
+    email: help@sennetconsortium.org
   license:
     name: MIT License
-    url: 'https://github.com/hubmapconsortium/ingest-api/blob/main/license.txt'
-tags:
-  - name: dataset
-    description: Operations pertaining to datasets
-    externalDocs:
-      description: Find out more about our dataset
-      url: "http://hubmapconsortium.org"
-  - name: collection
-    description: Operations for a collection
-    externalDocs:
-      description: Find out more about our entities
-      url: "http://hubmapconsortium.org"
-  - name: specimen
-    description: Operations for specimens
-    externalDocs:
-      description: Find out more about our entities
-      url: "http://hubmapconsortium.org"
+    url: 'https://github.com/sennetconsortium/ingest-api/blob/main/LICENSE'
+servers:
+  - url: 'https://ingest.api.sennetconsortium.org'
+security:
+  - BearerAuth: []
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Globus Bearer token to authorize requests
+
+  schemas:
+    file_info:
+      type: object
+      required:
+        - filename
+        - file_uuid
+      properties:
+        filename:
+          type: string
+        file_uuid:
+          type: string
+
+    file_uuid:
+      type: string
+
+    Sources:
+      type: object
+      properties:
+        "1":
+          $ref: '#/components/schemas/Source'
+        "2":
+          $ref: '#/components/schemas/Source'
+        "3":
+          $ref: '#/components/schemas/Source'
+
+    Source:
+      type: object
+      properties:
+        created_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the node was created. The format is an integer representing milliseconds since midnight Jan 1, 1970
+        created_by_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process authenticated when creating the object
+        created_by_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process authenticated when creating the object.
+        created_by_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id as provided by the authorization mechanism for the person or process authenticated when creating the object.
+        uuid:
+          type: string
+          readOnly: true
+          description: The SenNet unique identifier, intended for internal software use only. This is a 32 digit hexadecimal UUID e.g. 461bbfdc353a2673e381f632510b0f17
+        sennet_id:
+          type: string
+          readOnly: true
+          description: A SenNet Consortium wide unique identifier randomly generated in the format SNT###.ABCD.### for every Entity.
+        last_modified_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the object was last modified. The format is an integer representing milliseconds since midnight, Jan 1, 1970
+        last_modified_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id of the user who last modified the Entity as provided by the authorization mechanism for the person or process authenticated when the object was modified.
+        last_modified_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process which authenticated when the object was last modified.
+        last_modified_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process which authenticated when the object was last modified.
+        entity_type:
+          type: string
+          readOnly: true
+          description: 'Source'
+        description:
+          type: string
+          description: Free text description of the source
+        data_access_level:
+          type: string
+          readOnly: true
+          enum:
+            - consortium
+            - public
+          description: 'One of the values: public, consortium'
+        lab_source_id:
+          type: string
+          description: A lab specific identifier for the source.
+        group_uuid:
+          type: string
+          description: The UUID of globus group which the user who created this Entity is a member of. This is required on Create/POST if the user creating the Source is a member of more than one write group. This property cannot be set via PUT (only on Create/POST).
+        group_name:
+          readOnly: true
+          type: string
+          description: The displayname of globus group which the user who created this Entity is a member of
+        source_type:
+          type: string
+          enum:
+            - Human
+            - Human Organoid
+            - Mouse
+            - Mouse Organoid
+          description: "A high level description of where this source originates from. Valid values found in: [source types](https://ontology.api.hubmapconsortium.org/valueset?parent_sab=SENNET&parent_code=C050020&child_sabs=SENNET)"
+
+    Samples:
+      type: object
+      properties:
+        "1":
+          $ref: '#/components/schemas/Sample'
+        "2":
+          $ref: '#/components/schemas/Sample'
+        "3":
+          $ref: '#/components/schemas/Sample'
+
+    Sample:
+      type: object
+      properties:
+        created_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the node was created. The format is an integer representing milliseconds since midnight Jan 1, 1970
+        created_by_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process authenticated when creating the object
+        created_by_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process authenticated when creating the object.
+        created_by_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id as provided by the authorization mechanism for the person or process authenticated when creating the object.
+        uuid:
+          type: string
+          readOnly: true
+          description: The SenNet unique identifier, intended for internal software use only. This is a 32 digit hexadecimal UUID e.g. 461bbfdc353a2673e381f632510b0f17
+        sennet_id:
+          type: string
+          readOnly: true
+          description: A SenNet Consortium wide unique identifier randomly generated in the format SNT###.ABCD.### for every Entity.
+        last_modified_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the object was last modified. The format is an integer representing milliseconds since midnight, Jan 1, 1970
+        last_modified_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id of the user who last modified the Entity as provided by the authorization mechanism for the person or process authenticated when the object was modified.
+        last_modified_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process which authenticated when the object was last modified.
+        last_modified_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process which authenticated when the object was last modified.
+        entity_type:
+          type: string
+          readOnly: true
+          description: 'Sample'
+        description:
+          type: string
+          description: Free text description of the source
+        data_access_level:
+          type: string
+          readOnly: true
+          enum:
+            - consortium
+            - public
+          description: 'One of the values: public, consortium'
+        lab_source_id:
+          type: string
+          description: A lab specific identifier for the source.
+        group_uuid:
+          type: string
+          description: The uuid of globus group which the user who created this Entity is a member of. This is required on Create/POST if the user creating the Source is a member of more than one write group. This property cannot be set via PUT (only on Create/POST).
+        group_name:
+          readOnly: true
+          type: string
+          description: The displayname of globus group which the user who created this Entity is a member of
+        sample_category:
+          type: string
+          enum:
+            - Block
+            - Organ
+            - Section
+            - Suspension
+          description: "The category of the sample. Valid values found in: [sample categories](https://ontology.api.hubmapconsortium.org/valueset?parent_sab=SENNET&parent_code=C020076&child_sabs=SENNET)"
+        organ:
+          type: string
+          enum:
+            - AD
+            - BD
+            - BM
+            - BR
+            - BS
+            - LK
+            - RK
+            - LI
+            - LV
+            - LL
+            - RL
+            - LN
+            - MU
+            - LO
+            - RO
+            - PA
+            - PL
+            - SK
+          description: "Organ code specifier, only set if `sample_category` is organ. Valid values found in: [organ types](https://ontology.api.hubmapconsortium.org/organs?application_context=sennet)"
+
+    Datasets:
+      type: object
+      properties:
+        "1":
+          $ref: '#/components/schemas/Dataset'
+        "2":
+          $ref: '#/components/schemas/Dataset'
+        "3":
+          $ref: '#/components/schemas/Dataset'
+
+    Dataset:
+      type: object
+      properties:
+        created_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the node was created. The format is an integer representing milliseconds since midnight Jan 1, 1970
+        created_by_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process authenticated when creating the object
+        created_by_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process authenticated when creating the object.
+        created_by_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id as provided by the authorization mechanism for the person or process authenticated when creating the object.
+        uuid:
+          type: string
+          readOnly: true
+          description: The SenNet unique identifier, intended for internal software use only. This is a 32 digit hexadecimal UUID e.g. 461bbfdc353a2673e381f632510b0f17
+        sennet_id:
+          type: string
+          readOnly: true
+          description: A SenNet Consortium wide unique identifier randomly generated in the format SNT###.ABCD.### for every Entity.
+        last_modified_timestamp:
+          type: integer
+          readOnly: true
+          description: The timestamp of when the object was last modified. The format is an integer representing milliseconds since midnight, Jan 1, 1970
+        last_modified_user_sub:
+          type: string
+          readOnly: true
+          description: The subject id of the user who last modified the Entity as provided by the authorization mechanism for the person or process authenticated when the object was modified.
+        last_modified_user_email:
+          type: string
+          readOnly: true
+          description: The email address of the person or process which authenticated when the object was last modified.
+        last_modified_user_displayname:
+          type: string
+          readOnly: true
+          description: The name of the person or process which authenticated when the object was last modified.
+        entity_type:
+          type: string
+          readOnly: true
+          description: 'Dataset'
+        description:
+          type: string
+          description: Free text description of the dataset
+        data_access_level:
+          type: string
+          readOnly: true
+          enum:
+            - public
+            - consortium
+          description: 'One of the values: public, consortium.'
+        contains_human_genetic_sequences:
+          type: boolean
+          description: True if the data contains any human genetic sequence information. Can only be set at CREATE/POST time
+        status:
+          type: string
+          enum:
+            - New
+            - Processing
+            - QA
+            - Published
+            - Error
+            - Hold
+            - Invalid
+          description: 'One of: New|Processing|QA|Published|Error|Hold|Invalid'
+        data_types:
+          type: array
+          items:
+            type: string
+            enum:
+              - 10x-multiome
+              - bulk-RNA
+              - CITE-Seq
+              - CODEX
+              - codex_cytokit
+              - codex_cytokit_v1
+              - CosMX (RNA)
+              - DBiT-seq
+              - FACS - Fluorescence-activated Cell Sorting
+              - GeoMX (RNA)
+              - image_pyramid
+              - LC-MS
+              - Lightsheet
+              - MIBI
+              - mibi_deepcell
+              - Mint-ChIP
+              - publication
+              - publication_ancillary
+              - salmon_rnaseq_10x
+              - salmon_rnaseq_bulk
+              - salmon_sn_rnaseq_10x
+              - SASP
+              - scRNA-seq
+              - sn_atac_seq
+              - snATAC-seq
+              - snRNA-seq
+              - snRNAseq-10xGenomics-v3
+              - Stained Slides
+              - Visium
+          description: The data or assay types contained in this dataset as a json array of strings. Each is an assay code from [assay types](https://ontology.api.hubmapconsortium.org/datasets?application_context=Sennet).
+        local_directory_rel_path:
+          type: string
+          readOnly: true
+          description: The path on the local HIVE file system, relative to the base data directory, where the data is stored.
+        group_uuid:
+          type: string
+          description: The UUID of globus group which the user who created this Entity is a member of. This is required on Create/POST if the user creating the Source is a member of more than one write group.  This property cannot be set via PUT (only on Create/POST).
+        group_name:
+          type: string
+          readOnly: true
+          description: The displayname of globus group which the user who created this Entity is a member of
+
 paths:
   /datasets:
-    get:
-      tags:
-        - dataset
-      summary: Get a list of HuBMAP datasets filtered by optional parameters.  If no parameters are set, the call returns a list of datasets filtered by the user's token permissions
-      operationId: searchDataset
-      parameters:
-        - name: group
-          in: query
-          description: 'The name of a HuBMAP group (All Groups, IEC Testing Group, Stanford TMC, Vanderbilt TMC, University of Florida TMC, California Institute of Technology TMC, University of California San Diego TMC)'
-          required: false
-          schema:
-            type: string
-        - name: keywords
-          in: query
-          description: 'One or more keywords to use for searching the free text associated with the datasets.'
-          required: false
-          schema:
-            type: string
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  datasets:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Dataset'
-        "400":
-          description: The user sent a bad parameter (e.g. a nonexistent group name) or there was a system error
-        "401":
-          description: User's token is not valid
     post:
       tags:
-        - dataset
-      summary: Creates a new HuBMAP dataset.
+        - datasets
+      summary: Creates a new SenNet Dataset.
       operationId: addDataset
       responses:
         "201":
-          description: successful created
+          description: Successful created
         "400":
-          description: missing data that is required to create a new dataset or a system error occurred
+          description: Missing data that is required to create a new Dataset or a system error occurred
         "401":
           description: User is not authorized to create datasets or user's group information cannot be determined
       requestBody:
@@ -83,242 +382,12 @@ paths:
               $ref: "#/components/schemas/Dataset"
         description: Dataset object that needs to be created
         required: true
-  "/datasets/{identifier}":
-    get:
-      tags:
-        - dataset
-      summary: Get a single HuBMAP dataset by id
-      operationId: getDataset
-      parameters:
-        - name: identifier
-          in: path
-          description: The unique identifier of dataset.  this identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  dataset:
-                    $ref: "#/components/schemas/Dataset"
-        "400":
-          description: Missing dataset identifier or identifier cannot be found
-        "401":
-          description: User's token is not valid
-    put:
-      tags:
-        - dataset
-      summary: Modify a single HuBMAP dataset by id
-      operationId: putDataset
-      parameters:
-        - name: identifier
-          in: path
-          description: The unique identifier of dataset.  this identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: successful operation
-        "400":
-          description: Missing dataset Identifier or the data for the update
-        "401":
-          description: User is not authorized to modify datasets
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Dataset"
-        description: Updated dataset object
-        required: true
-  /collections:
-    get:
-      tags:
-        - collection
-      summary: Get a list of dataset collections
-      operationId: getCollections
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  collections:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Collection'
-        "400":
-          description: There was a system error
-        "401":
-          description: User's token is not valid
-    put:
-      tags:
-        - collection
-      summary: Create a dataset collection
-      operationId: addCollection
-      responses:
-        "201":
-          description: successful operation
-        "400":
-          description: There was a system error or an error in the data submitted
-        "401":
-          description: User's token is not valid
-  "/collections/{identifier}":
-    get:
-      tags:
-        - collection
-      summary: Get a single collection by uuid
-      operationId: getCollection
-      parameters:
-        - name: identifier
-          in: path
-          description: The unique identifier of collection.  This must be a uuid.
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  collection:
-                    $ref: "#/components/schemas/Collection"
-        "400":
-          description: Missing collection identifier or identifier cannot be found or a system error
-        "401":
-          description: User's token is not valid
-  /specimens:
-    put:
-      tags:
-        - specimen
-      summary: Modify a specimen
-      operationId: editSpecimen
-      responses:
-        "201":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  uuid:
-                    type: string
-                    example: 6dba271c5c0bbd09f8b73784c2c40f95
-        "400":
-          description: There was a system error or an error in the data submitted
-        "401":
-          description: User's token is not valid
-    post:
-      tags:
-        - specimen
-      summary: Creates a new HuBMAP specimen.
-      operationId: addSpecimen
-      responses:
-        "201":
-          description: successful created
-          content:
-            application/json:
-              schema:
-                properties:
-                  new_samples:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Specimen'
-        "400":
-          description: a system error occurred
-        "401":
-          description: User is not authorized to create specimens or user's group information cannot be determined
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/Specimen"
-          application/xml:
-            schema:
-              $ref: "#/components/schemas/Specimen"
-        description: Dataset object that needs to be created
-        required: true  
-  "/specimens/{identifier}":
-    get:
-      tags:
-        - specimen
-      summary: Get a single specimen by identifier
-      operationId: getSpecimen
-      parameters:
-        - name: identifier
-          in: path
-          description: The unique identifier of specimen.  this identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  specimen:
-                    $ref: "#/components/schemas/Specimen"
-        "400":
-          description: Missing specimen identifier or identifier cannot be found or a system error
-        "401":
-          description: User's token is not valid
-  "/specimens/search":
-    get:
-      tags:
-        - specimen
-      summary: Get a list of specimens
-      operationId: getSpecimens
-      parameters:
-        - name: specimen_type
-          in: query
-          description: The unique identifier of specimen.  This identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: false
-          schema:
-            type: string
-        - name: search_term
-          in: query
-          description: The unique identifier of specimen.  this identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: false
-          schema:
-            type: string
-        - name: include_datasets
-          in: query
-          description: The unique identifier of specimen.  this identifier can be a UUID, Display DOI (HBM365.KSBD.575) or DOI (365KSBD575).
-          required: false
-          schema:
-            type: string
-        - name: group
-          in: query
-          description: 'The name of a HuBMAP group (All Groups, IEC Testing Group, Stanford TMC, Vanderbilt TMC, University of Florida TMC, California Institute of Technology TMC, University of California San Diego TMC)'
-          required: false
-          schema:
-            type: string
-      responses:
-        "200":
-          description: successful operation
-          content:
-            application/json:
-              schema:
-                properties:
-                  specimens:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Specimen'
-        "400":
-          description: There was a system error
-        "401":
-          description: User's token is not valid
+
   /file-upload:
     post:
-      summary: "Upload a file to temporarily stage.  On success the file will be staged and a temporary id will be returned to reference the staged file by.  The temporary id can be used by the *_files_to_add properties during PUT/POST for Donors and Samples to commit the file permanantly and associate with an entity." 
+      tags:
+        - files
+      summary: "Upload a file to temporarily stage. On success the file will be staged and a temporary ID will be returned to reference the staged file. The temporary ID can be used in the `/file-commit` endpoint for Sources and Samples to commit the file permanantly and associate it with an Entity." 
       requestBody:
         content:
           multipart/form-data:
@@ -330,7 +399,7 @@ paths:
                   format: binary
       responses:
         '200':
-          description: The file was successfully uploaded and staged, the temporary file id is returned.
+          description: The file was successfully uploaded and staged, the temporary file ID is returned.
           content:
             application/json:
               schema:
@@ -338,17 +407,20 @@ paths:
                 properties:
                   temp_file_id:
                     type: string
-        '400':
+        "400":
           description: Missing file
-        '401':
+        "401":
           description: The user's token has expired or the user did not supply a valid token
-        '403':
+        "403":
           description: The user is not authorized to upload the file.
-        '500':
+        "500":
           description: Internal error
+
   /file-commit:
     post:
-      summary: "File commit triggered by entity-api trigger method for Donor/Sample/Dataset. Donor: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file. This call also creates the symbolic from the file uuid dir under uploads assets dir so the uploaded files can be exposed via gateway's file assets service" 
+      tags:
+        - files
+      summary: "File commit triggered by the Entity API trigger method for Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file. This call also creates the symbolic link from the file UUID directory under the uploads assets directory, so the uploaded files can be exposed via Globus's file assets service." 
       requestBody:
         content:
           application/json:
@@ -362,8 +434,8 @@ paths:
                 user_token:
                   type: string
       responses:
-        '200':
-          description: The file was successfully commited, the file uuid is returned.
+        "200":
+          description: The file was successfully commited, the file UUID is returned.
           content:
             application/json:
               schema:
@@ -373,15 +445,18 @@ paths:
                     type: string
                   file_uuid:
                     type: string
-        '400':
+        "400":
           description: Missing JSON input
-        '401':
+        "401":
           description: The user's token has expired or the user did not supply a valid token
-        '500':
+        "500":
           description: Internal error
+
   /file-remove:
     post:
-      summary: "File removal triggered by entity-api trigger method for Donor and Sample during entity update. Donor/Sample/Dataset. Donor: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file." 
+      tags:
+        - files
+      summary: "File removal triggered by Entity API trigger method for Source and Sample during Entity update. Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file." 
       requestBody:
         content:
           application/json:
@@ -398,102 +473,22 @@ paths:
                   type: array
                   items:
                     $ref: '#/components/schemas/file_info'
-                  
-      responses:
-        '200':
-          description: The file was successfully deleted.
-        '400':
-          description: Missing JSON input
-        '401':
-          description: The user's token has expired or the user did not supply a valid token
-        '500':
-          description: Internal error
-  /donors/bulk-upload:
-    post:
-      summary: "Upload a tsv file containing multiple donor records to temporary stage. On success the file will be staged and a temporary id will be returned to reference the staged file by. Each record in the tsv are validated to verify that they are acceptable values for a donor and all necessary fields are included. Temporary id is only provided if all donor records in the tsv are valid."
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-      responses:
-        '200':
-          description: File uploaded, temp directory and temp_id created.
-          content:
-            application/json:
-              schema:
-                properties:
-                  temp_id:
-                    type: string
-                    example: abcdefghij0123456789
-        '400':
-          description: File not upload failed or file contains invalid donors
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        '401':
-          description: The user's token has expired or the user did not have authorization
-        '500':
-          description: Internal error
-  /donors/bulk:
-    post:
-      summary: "Confirm that you want to create donors from the previously uploaded tsv file. Donors are validated once more and then if valid, new donors are created via the entity api"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                temp_id:
-                  type: string
-                  example: abcdefghij0123456789
-                group_uuid:
-                  type: string
-                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
-      responses:
-        '200':
-          description: The samples in the tsv file were successfully created.
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  data:
-                    type: object
-                    properties:
-                      entity_response:
-                        type: object
-                        properties:
-                          specimen:
-                            $ref: '#/components/schemas/Specimen'
 
-        '400':
-          description: File not found for given temp_id
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        '401':
-          description: The user's token has expired or the user did not have authorization
-        '500':
+      responses:
+        "200":
+          description: The file was successfully deleted.
+        "400":
+          description: Missing JSON input
+        "401":
+          description: The user's token has expired or the user did not supply a valid token
+        "500":
           description: Internal error
-  /samples/bulk-upload:
+
+  /sources/bulk/validate:
     post:
-      summary: "Upload a tsv file containing multiple donor records to temporary stage. On success the file will be staged and a temporary id will be returned to reference the staged file by. Each record in the tsv are validated to verify that they are acceptable values for a donor and all necessary fields are included. Temporary id is only provided if all donor records in the tsv are valid."
+      tags:
+        - sources
+      summary: "Upload a tsv file containing multiple Source records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Source and all necessary fields are included. The temporary ID is only provided if all Source records in the tsv are valid."
       requestBody:
         content:
           multipart/form-data:
@@ -504,8 +499,8 @@ paths:
                   type: string
                   format: binary
       responses:
-        '200':
-          description: File uploaded, temp directory and temp_id created.
+        "200":
+          description: File uploaded, temporary directory and temporary ID created
           content:
             application/json:
               schema:
@@ -513,8 +508,8 @@ paths:
                   temp_id:
                     type: string
                     example: abcdefghij0123456789
-        '400':
-          description: File not upload failed or file contains invalid donors
+        "400":
+          description: File not upload, failed, or file contains invalid Sources
           content:
             application/json:
               schema:
@@ -523,9 +518,16 @@ paths:
                     type: string
                   message:
                     type: string
-  /samples/bulk:
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
+          description: Internal error
+
+  /sources/bulk/register:
     post:
-      summary: "Confirm that you want to create donors from the previously uploaded tsv file. Donors are validated once more and then if valid, new donors are created via the entity api"
+      tags:
+        - sources
+      summary: "Confirm that you want to create Sources from the previously uploaded tsv file. Sources are validated once more and, if valid, new Sources are created via the Entity API"
       requestBody:
         content:
           application/json:
@@ -539,24 +541,24 @@ paths:
                   type: string
                   example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
       responses:
-        '200':
-          description: The samples in the tsv file were successfully created.
+        "200":
+          description: The Sources in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Sources where the property name is the order in the file ("1", "2", etc...) and the value is the Source object.
           content:
             application/json:
               schema:
                 properties:
-                  status:
-                    type: string
-                  data:
+                  description:
                     type: object
-                    properties:
-                      entity_response:
-                        type: object
-                        properties:
-                          specimen:
-                            $ref: '#/components/schemas/Specimen'
-        '400':
-          description: File not found for given temp_id
+                    description: An object of created Sources where the property name is the order in the file ("1", "2", etc...) and the value is a Source object
+                    $ref: '#/components/schemas/Sources'
+                  code:
+                    type: integer
+                    description: The status code of the response
+                  name:
+                    type: string
+                    description: Status message. OK for a successful response
+        "400":
+          description: File not found for given temporary ID
           content:
             application/json:
               schema:
@@ -565,27 +567,203 @@ paths:
                     type: string
                   message:
                     type: string
-        '401':
+        "401":
           description: The user's token has expired or the user did not have authorization
-        '500':
+        "500":
+          description: Internal error
+
+  /samples/bulk/validate:
+    post:
+      tags:
+        - samples
+      summary: "Upload a tsv file containing multiple Sample records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Sample and all necessary fields are included. The temporary ID is only provided if all Sample records in the tsv are valid."
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: File uploaded, temporary directory and temporary ID created
+          content:
+            application/json:
+              schema:
+                properties:
+                  temp_id:
+                    type: string
+                    example: abcdefghij0123456789
+        "400":
+          description: File not upload, failed, or file contains invalid Samples
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
+          description: Internal error
+
+  /samples/bulk/register:
+    post:
+      tags:
+        - samples
+      summary: "Confirm that you want to create Samples from the previously uploaded tsv file. Samples are validated once more and, if valid, new Samples are created via the Entity API"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                temp_id:
+                  type: string
+                  example: abcdefghij0123456789
+                group_uuid:
+                  type: string
+                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
+      responses:
+        "200":
+          description: The Samples in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Samples where the property name is the order in the file ("1", "2", etc...) and the value is the Sample object.
+          content:
+            application/json:
+              schema:
+                properties:
+                  description:
+                    type: object
+                    description: An object of created Samples where the property name is the order in the file ("1", "2", etc...) and the value is a Sample object
+                    $ref: '#/components/schemas/Samples'
+                  code:
+                    type: integer
+                    description: The status code of the response
+                  name:
+                    type: string
+                    description: Status message. OK for a successful response
+        "400":
+          description: File not found for given temporary ID
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
+          description: Internal error
+
+  /datasets/bulk/validate:
+    post:
+      tags:
+        - datasets
+      summary: "Upload a tsv file containing multiple Dataset records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Dataset and all necessary fields are included. The temporary ID is only provided if all Dataset records in the tsv are valid."
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: File uploaded, temporary directory and temporary ID created
+          content:
+            application/json:
+              schema:
+                properties:
+                  temp_id:
+                    type: string
+                    example: abcdefghij0123456789
+        "400":
+          description: File not upload, failed, or file contains invalid Datasets
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
+          description: Internal error
+
+  /datasets/bulk/register:
+    post:
+      tags:
+        - datasets
+      summary: "Confirm that you want to create Datasets from the previously uploaded tsv file. Datasets are validated once more and, if valid, new Datasets are created via the Entity API"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                temp_id:
+                  type: string
+                  example: abcdefghij0123456789
+                group_uuid:
+                  type: string
+                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
+      responses:
+        "200":
+          description: The Datasets in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is the Datasets object.
+          content:
+            application/json:
+              schema:
+                properties:
+                  description:
+                    type: object
+                    description: An object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is a Dataset object
+                    $ref: '#/components/schemas/Datasets'
+                  code:
+                    type: integer
+                    description: The status code of the response
+                  name:
+                    type: string
+                    description: Status message. OK for a successful response
+        "400":
+          description: File not found for given temporary ID
+          content:
+            application/json:
+              schema:
+                properties:
+                  status:
+                    type: string
+                  message:
+                    type: string
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
           description: Internal error
 
   /uploads/{identifier}/validate:
     put:
       tags:
-        - specimen
+        - uploads
       summary: Validate an upload.
       operationId: validateUpload
       parameters:
         - name: identifier
           in: path
-          description: The unique identifier of Upload.  this identifier needs to be a valid HuBMAP UUID.
+          description: The unique identifier of Upload. This identifier needs to be a valid SenNet ID.
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: successful operation
+          description: Successful operation
         "400":
           description: There was a system error or an error in the data submitted
         "401":
@@ -596,135 +774,22 @@ paths:
   /uploads/{identifier}/reorganize:
     put:
       tags:
-        - specimen
+        - uploads
       summary: Reorganize an upload. Creates Datasets from the Upload
       operationId: reorganizeUpload
       parameters:
         - name: identifier
           in: path
-          description: The unique identifier of Upload.  this identifier needs to be a valid HuBMAP UUID.
+          description: The unique identifier of Upload. This identifier needs to be a valid SenNet ID.
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: successful operation
+          description: Successful operation
         "400":
           description: There was a system error or an error in the data submitted
         "401":
           description: User's token is not valid
         "500":
           description: An unexpected error occured
-
-
-servers:
-  - url: "https://uuid.hubmapconsortium.org/dataingest"
-  - url: "http://uuid.hubmapconsortium.org/dataingest"
-components:
-  securitySchemes:
-    globus_auth:
-      type: oauth2
-      flows:
-        implicit:
-          authorizationUrl: "https://auth.globus.org/v2/oauth2/authorize"
-          scopes:
-            "write:dataset": modify datasets
-            "read:dataset": read datasets
-    api_key:
-      type: apiKey
-      name: api_key
-      in: header
-  schemas:
-    file_info:
-      type: object
-      required:
-        - filename
-        - file_uuid
-      properties:
-        filename:
-          type: string
-        file_uuid:
-          type: string
-    file_uuid:
-      type: string
-    Dataset:
-      type: object
-      required:
-        - uuid
-        - doi
-        - display_doi
-        - status
-        - entity_type
-      properties:
-        uuid:
-          type: string
-          example: 6dba271c5c0bbd09f8b73784c2c40f95
-        doi:
-          type: string
-          example: 569SKTF599
-        display_doi:
-          type: string
-          example: HBM569.SKTF.599
-        status:
-          type: string
-        entity_type:
-          type: string
-          example: Dataset
-        collection:
-          $ref: "#/components/schemas/Collection"
-        phi:
-          type: boolean
-          example: false
-      xml:
-        name: DataSet
-    Collection:
-      type: object
-      required:
-        - uuid
-        - doi
-        - display_doi
-        - label
-        - entity_type
-      properties:
-        uuid:
-          type: string
-          example: a23526eaa92beef971cd013b5c4a1ce5
-        doi:
-          type: string
-          example: 527RQJT662
-        display_doi:
-          type: string
-          example: HBM527.RQJT.662
-        label:
-          type: string
-          example: Test Collection 1
-        entity_type:
-          type: string
-          example: Collection
-        description:
-          type: string
-          example: THis is a description of Collection 1
-      xml:
-        name: Collection
-    Specimen:
-      type: object
-      required:
-        - uuid
-        - doi
-        - display_doi
-        - entity_type
-      properties:
-        uuid:
-          type: string
-          example: a23526eaa92beef971cd013b5c4a1ce5
-        doi:
-          type: string
-          example: 527RQJT662
-        display_doi:
-          type: string
-          example: HBM527.RQJT.662
-        entity_type:
-          type: string
-          example: Sample, Donor
-      xml:
-        name: Specimen
