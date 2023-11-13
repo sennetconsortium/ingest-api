@@ -150,6 +150,8 @@ def bulk_sources_upload_and_validate():
 def create_sources_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
+    if isinstance(check_results.get('csv_records'), Response):
+        return check_results.get('csv_records')
     group_uuid = check_results.get('group_uuid')
     headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
     valid_file = validate_sources(headers, records)
@@ -193,6 +195,8 @@ def bulk_samples_upload_and_validate():
 def create_samples_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
+    if isinstance(check_results.get('csv_records'), Response):
+        return check_results.get('csv_records')
     group_uuid = check_results.get('group_uuid')
     headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
 
@@ -243,6 +247,8 @@ def bulk_datasets_upload_and_validate():
 def create_datasets_from_bulk():
     header = get_auth_header()
     check_results = _check_request_for_bulk()
+    if isinstance(check_results.get('csv_records'), Response):
+        return check_results.get('csv_records')
     group_uuid = check_results.get('group_uuid')
     headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
 
@@ -1181,6 +1187,8 @@ def _bulk_upload_and_validate(entity):
     file.filename = utils.secure_filename(file.filename)
     file_location = get_base_path() + temp_id + os.sep + file.filename
     csv_records = get_csv_records(file_location)
+    if isinstance(csv_records, Response):
+        return csv_records
     headers, records = itemgetter('headers', 'records')(csv_records)
 
     if entity == Ontology.ops().entities().SOURCE:

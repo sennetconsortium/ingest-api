@@ -33,10 +33,14 @@ def get_csv_records(path: str, records_as_arr = False, is_ordered = False):
             if first:
                 first = False
 
-    return {
-        'records': records,
-        'headers': headers
-    }
+    if len(records) > 30:
+        message = f'This file exceeds 30 rows of data. Please break up your TSV into smaller files and proceed with multiple submissions.'
+        return rest_bad_req([ln_err(message)])
+    else:
+        return {
+            'records': records,
+            'headers': headers
+        }
 
 
 def get_base_path():
