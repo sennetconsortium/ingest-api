@@ -112,9 +112,18 @@ def _login(redirect_uri, key = 'tokens'):
         response = make_response(redirect(redirect_uri))
         #Use max_age (seconds) as opposed to expires (date). Set token to expire after 1 day
         if current_app.config['COOKIE_DOMAIN'] == 'localhost':
-            response.set_cookie('info', base64_json_str, max_age=86400)
+            response.set_cookie('info',
+                                base64_json_str,
+                                max_age=86400,
+                                samesite='Lax')
         else:
-            response.set_cookie('info', base64_json_str, max_age=86400, domain=current_app.config['COOKIE_DOMAIN'])
+            print('setting domain cookie')
+            response.set_cookie('info',
+                                base64_json_str,
+                                max_age=86400,
+                                domain=current_app.config['COOKIE_DOMAIN'],
+                                samesite='Lax',
+                                secure=True)
         return response
 
 
