@@ -290,8 +290,6 @@ def create_datasets_from_bulk():
             del item['ancestor_id']
             item['lab_dataset_id'] = item['lab_id']
             del item['lab_id']
-            item['description'] = item['doi_abstract']
-            del item['doi_abstract']
             item['contains_human_genetic_sequences'] = item['human_gene_sequences']
             del item['human_gene_sequences']
             if group_uuid is not None:
@@ -1500,7 +1498,7 @@ def validate_samples(headers, records, header):
 
                 except Exception as e:
                     file_is_valid = False
-                    error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
+                    error_msg.append(_ln_err(f"Validation error: {e}", rownum))
 
     # validate entity constraints
     return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
@@ -1527,7 +1525,7 @@ def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
+    required_headers = ['ancestor_id', 'lab_id', 'purpose', 'method', 'result', 'human_gene_sequences', 'data_types']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -1565,10 +1563,10 @@ def validate_datasets(headers, records, header):
                 continue
 
             # validate description
-            description = data_row['doi_abstract']
+            description = f"{data_row['purpose']} {data_row['method']} {data_row['result']}"
             if len(description) > 10000:
                 file_is_valid = False
-                error_msg.append(_ln_err("DOI Abstract must be fewer than 10,000 characters", rownum, "doi_abstract"))
+                error_msg.append(_ln_err("DOI Abstract \"purpose\", \"method\" and \"result\" together must be fewer than 10,000 characters", rownum))
 
             # validate lab_id
             lab_id = data_row['lab_id']
@@ -1622,7 +1620,7 @@ def validate_datasets(headers, records, header):
                         entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
                     except Exception as e:
                         file_is_valid = False
-                        error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
+                        error_msg.append(_ln_err(f"Validation error: {e}", rownum))
 
     # validate entity constraints
     return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
@@ -1680,7 +1678,13 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
     ancestor_entity_type = ancestor_dict['type'].lower()
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
 
-    ancestor_result = requests.get(url, headers=header).json()
+    resp = requests.get(url, headers=header)
+    if resp.status_code > 200:
+        err = resp.json()
+        err_msg = err.get('error') if 'error' in err else err
+        raise Exception(f"{err_msg}")
+
+    ancestor_result = resp.json()
     sub_type = None
     sub_type_val = None
     if equals(ancestor_entity_type, Entities.DATASET):
