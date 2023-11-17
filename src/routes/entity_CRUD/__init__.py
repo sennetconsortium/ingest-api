@@ -1679,7 +1679,7 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
     url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
 
     resp = requests.get(url, headers=header)
-    if resp.status_code > 200:
+    if not resp.ok:
         err = resp.json()
         err_msg = err.get('error') if 'error' in err else err
         raise Exception(f"{err_msg}")
