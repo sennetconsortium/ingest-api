@@ -625,7 +625,7 @@ def dataset_data_status():
         "RETURN DISTINCT ds.uuid AS uuid, "
         "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
         "COLLECT(DISTINCT dn.source_type) AS source_type, "
-        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_metadata"
+        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_donor_metadata"
     )
 
     descendant_datasets_query = (
@@ -643,7 +643,7 @@ def dataset_data_status():
     displayed_fields = [
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
         "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
-        "has_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
+        "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
         "has_data", "organ_sennet_id"
     ]
 
@@ -677,7 +677,7 @@ def dataset_data_status():
             output_dict[dataset['uuid']]['source_type'] = dataset['source_type']
             # output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
             output_dict[dataset['uuid']]['source_lab_id'] = dataset['source_lab_id']
-            output_dict[dataset['uuid']]['has_metadata'] = dataset['has_metadata']
+            output_dict[dataset['uuid']]['has_donor_metadata'] = dataset['has_donor_metadata']
     for dataset in descendant_datasets_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['descendant_datasets'] = dataset['descendant_datasets']
@@ -710,7 +710,9 @@ def dataset_data_status():
         else:
             dataset['is_primary'] = "false"
         has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
+        has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
         dataset['has_data'] = has_data
+        dataset['has_dataset_metadata'] = has_dataset_metadata
 
         for prop in dataset:
             if isinstance(dataset[prop], list):
