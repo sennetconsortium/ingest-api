@@ -1,5 +1,6 @@
 import csv
 import os
+import glob
 import logging
 from hubmap_commons import file_helper as commons_file_helper
 from flask import current_app, request
@@ -87,7 +88,7 @@ def ln_err(error: str, row: int = None, column: str = None):
     }
 
 
-def files_exist(uuid, data_access_level, group_name):
+def files_exist(uuid, data_access_level, group_name, metadata=False):
     if not uuid or not data_access_level:
         return False
     if data_access_level == "public":
@@ -100,6 +101,12 @@ def files_exist(uuid, data_access_level, group_name):
         absolute_path = commons_file_helper.ensureTrailingSlashURL(current_app.config['GLOBUS_PROTECTED_ENDPOINT_FILEPATH'] + '/' + group_name)
     file_path = absolute_path + uuid
     if os.path.exists(file_path) and os.path.isdir(file_path) and os.listdir(file_path):
-        return True
+        if not metadata:
+            return True
+        else:
+            if any(glob.glob(os.path.join(file_path, '**', '*metadata.tsv'), recursive=True)):
+                return True
+            else:
+                return False
     else:
         return False
