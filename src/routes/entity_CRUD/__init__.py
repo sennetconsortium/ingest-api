@@ -728,7 +728,7 @@ def dataset_data_status():
         for field in displayed_fields:
             if dataset.get(field) is None:
                 dataset[field] = " "
-        if dataset.get('organ') and dataset['organ'].upper() not in ['HT', 'LV', 'LN', 'RK', 'LK']:
+        if dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']:
             dataset['has_rui_info'] = "not-applicable"
         if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
             dataset['organ'] = organ_types_dict[dataset['organ']]
