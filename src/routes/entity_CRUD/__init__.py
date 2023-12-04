@@ -706,10 +706,8 @@ def dataset_data_status():
             dataset['organ_portal_url'] = ""
         last_touch = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
         dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(last_touch/1000))
-        if dataset.get('ancestor_entity_type').lower() != "dataset":
-            dataset['is_primary'] = "true"
-        else:
-            dataset['is_primary'] = "false"
+        dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
+
         has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
         has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
         dataset['has_data'] = has_data
