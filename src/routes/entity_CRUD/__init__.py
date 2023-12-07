@@ -25,7 +25,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
-
+from routes.validation import set_file_details
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -1174,6 +1174,32 @@ def upload_data_status():
     # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
     # TODO: link to the datasets page only displaying datasets belonging to a given upload.
     return jsonify(results)
+
+
+@entity_CRUD_blueprint.route('/collections/attributes', methods=['POST'])
+def collections_attributes():
+    result: dict = {
+        'error': None
+    }
+    if is_json_request():
+        data = request.json
+    else:
+        data = request.values
+
+    attribute = data.get('attribute')
+
+    file_upload = check_upload(attribute)
+    if file_upload.get('code') is StatusCodes.OK:
+        file = file_upload.get('description')
+        file_id = file.get('id')
+        file = file.get('file')
+        pathname = file_id + os.sep + file.filename
+        result = set_file_details(pathname)
+        records = get_csv_records(result.get('fullpath'))
+        return rest_response(StatusCodes.OK, 'Collection Attributes',
+                             records, False)
+    else:
+        return json.dumps(file_upload)
 
 
 def _get_status_code__by_priority(codes):
