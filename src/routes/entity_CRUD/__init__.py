@@ -609,6 +609,7 @@ def dataset_data_status():
         "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
         "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
         "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.data_access_level AS data_access_level, "
+        "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
         "COALESCE(ds.contributors IS NOT NULL) AS has_contributors, COALESCE(ds.contacts IS NOT NULL) AS has_contacts, "
         "ancestor.entity_type AS ancestor_entity_type"
     )
@@ -644,7 +645,7 @@ def dataset_data_status():
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
         "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
         "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
-        "has_data", "organ_sennet_id"
+        "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
 
     queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query]
@@ -705,10 +706,8 @@ def dataset_data_status():
             dataset['organ_portal_url'] = ""
         last_touch = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
         dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(last_touch/1000))
-        if dataset.get('ancestor_entity_type').lower() != "dataset":
-            dataset['is_primary'] = "true"
-        else:
-            dataset['is_primary'] = "false"
+        dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
+
         has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
         has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
         dataset['has_data'] = has_data
@@ -1145,11 +1144,13 @@ def upload_data_status():
         "MATCH (up:Upload) "
         "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
         "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
-        "up.title AS title, COLLECT(DISTINCT ds.uuid) AS datasets "
+        "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
+        "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
     )
 
     displayed_fields = [
-        "uuid", "group_name", "sennet_id", "status", "title", "datasets"
+        "uuid", "group_name", "sennet_id", "status", "title", "datasets",
+        "assigned_to_group_name", "ingest_task"
     ]
 
     with Neo4jHelper.get_instance().session() as session:
