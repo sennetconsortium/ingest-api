@@ -769,7 +769,7 @@ def publish_datastage(identifier):
             #look at all of the ancestors
             #gather uuids of ancestors that need to be switched to public access_level
             #grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.data_types as data_types, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
+            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
             has_source = False
@@ -827,16 +827,13 @@ def publish_datastage(identifier):
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
             entity = entity_instance.get_entity_by_id(dataset_uuid)
             entity_dict: dict = vars(entity)
-            # data_type_edp: List[str] = \
-            #     get_data_type_of_external_dataset_providers(current_app.config['UBKG_WEBSERVICE_URL'])
-            data_type_edp = list(Ontology.ops(as_data_dict=True).assay_types_ext().values())
-            entity_lab_processed_data_types: List[str] = \
-                [i for i in entity_dict.get('data_types') if i in data_type_edp]
-            has_entity_lab_processed_data_type: bool = len(entity_lab_processed_data_types) > 0
 
-            logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_data_type: {has_entity_lab_processed_data_type}')
+            dataset_types_edp = list(Ontology.ops(as_data_dict=True).dataset_types().values())
+            has_entity_lab_processed_dataset_type: bool = entity_dict.get('dataset_type') in dataset_types_edp
 
-            if is_primary or has_entity_lab_processed_data_type:
+            logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}')
+
+            if is_primary or has_entity_lab_processed_dataset_type:
                 if dataset_contacts is None or dataset_contributors is None:
                     return jsonify({"error": f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"}), 400
                 dataset_contacts = dataset_contacts.replace("'", '"')
