@@ -861,7 +861,7 @@ def publish_datastage(identifier):
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
 
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
-            if is_primary or has_entity_lab_processed_data_type:
+            if is_primary or has_entity_lab_processed_dataset_type:
                 # DOI gets generated here
                 # Note: moved dataset title auto generation to entity-api - Zhou 9/29/2021
                 datacite_doi_helper = DataCiteDoiHelper()
