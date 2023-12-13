@@ -4,7 +4,7 @@
     "ancestor_id",
     "doi_abstract",
     "human_gene_sequences",
-    "data_types"
+    "dataset_type"
   ],
   "records": [
     {
@@ -12,14 +12,14 @@
       "ancestor_id": ["SNT796.HPLZ.939"],
       "doi_abstract": "Test 1",
       "human_gene_sequences": false,
-      "data_types": ["MIBI"]
+      "dataset_type": "MIBI"
     },
     {
       "lab_id": "Bulk upload 2",
       "ancestor_id": ["SNT796.HPLZ.939"],
       "doi_abstract": "Test 2",
       "human_gene_sequences": false,
-      "data_types": ["SCRNA-seq"]
+      "dataset_type": "RNASeq"
     }
   ],
   "header": {
