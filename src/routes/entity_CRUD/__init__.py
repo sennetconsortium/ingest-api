@@ -597,16 +597,13 @@ def run_query(query, results, i):
     with Neo4jHelper.get_instance().session() as session:
         results[i] = session.run(query).data()
 
-"""
-Description
-"""
+
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
-    assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
     organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
-        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
+        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
         "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
         "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.data_access_level AS data_access_level, "
         "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
@@ -643,7 +640,7 @@ def dataset_data_status():
 
     displayed_fields = [
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
-        "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
+        "has_contributors", "dataset_type", "source_sennet_id", "source_lab_id",
         "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
         "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
@@ -724,8 +721,6 @@ def dataset_data_status():
                 dataset[prop] = dataset[prop][0]
             if dataset[prop] is None:
                 dataset[prop] = " "
-        if dataset.get('data_types') and dataset.get('data_types') in assay_types_dict:
-            dataset['data_types'] = assay_types_dict[dataset['data_types']]['description'].strip()
         for field in displayed_fields:
             if dataset.get(field) is None:
                 dataset[field] = " "
