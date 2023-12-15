@@ -25,7 +25,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
-
+from routes.validation import set_file_details
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -609,6 +609,7 @@ def dataset_data_status():
         "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
         "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
         "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.data_access_level AS data_access_level, "
+        "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
         "COALESCE(ds.contributors IS NOT NULL) AS has_contributors, COALESCE(ds.contacts IS NOT NULL) AS has_contacts, "
         "ancestor.entity_type AS ancestor_entity_type"
     )
@@ -644,7 +645,7 @@ def dataset_data_status():
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
         "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
         "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
-        "has_data", "organ_sennet_id"
+        "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
 
     queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query]
@@ -705,10 +706,8 @@ def dataset_data_status():
             dataset['organ_portal_url'] = ""
         last_touch = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
         dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(last_touch/1000))
-        if dataset.get('ancestor_entity_type').lower() != "dataset":
-            dataset['is_primary'] = "true"
-        else:
-            dataset['is_primary'] = "false"
+        dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
+
         has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
         has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
         dataset['has_data'] = has_data
@@ -1145,11 +1144,13 @@ def upload_data_status():
         "MATCH (up:Upload) "
         "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
         "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
-        "up.title AS title, COLLECT(DISTINCT ds.uuid) AS datasets "
+        "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
+        "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
     )
 
     displayed_fields = [
-        "uuid", "group_name", "sennet_id", "status", "title", "datasets"
+        "uuid", "group_name", "sennet_id", "status", "title", "datasets",
+        "assigned_to_group_name", "ingest_task"
     ]
 
     with Neo4jHelper.get_instance().session() as session:
@@ -1174,6 +1175,32 @@ def upload_data_status():
     # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
     # TODO: link to the datasets page only displaying datasets belonging to a given upload.
     return jsonify(results)
+
+
+@entity_CRUD_blueprint.route('/collections/attributes', methods=['POST'])
+def collections_attributes():
+    result: dict = {
+        'error': None
+    }
+    if is_json_request():
+        data = request.json
+    else:
+        data = request.values
+
+    attribute = data.get('attribute')
+
+    file_upload = check_upload(attribute)
+    if file_upload.get('code') is StatusCodes.OK:
+        file = file_upload.get('description')
+        file_id = file.get('id')
+        file = file.get('file')
+        pathname = file_id + os.sep + file.filename
+        result = set_file_details(pathname)
+        records = get_csv_records(result.get('fullpath'))
+        return rest_response(StatusCodes.OK, 'Collection Attributes',
+                             records, False)
+    else:
+        return json.dumps(file_upload)
 
 
 def _get_status_code__by_priority(codes):
