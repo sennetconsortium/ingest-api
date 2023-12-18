@@ -13,5 +13,8 @@ requests==2.25.1
 hubmap-commons==2.1.12
 atlas-consortia-commons==1.0.5
 
+# For assay type rules
+rule_engine==4.1.0
+
 # Testing
 pytest==7.3.1
