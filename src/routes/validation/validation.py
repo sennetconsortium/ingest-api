@@ -112,7 +112,12 @@ def validate_tsv(schema='metadata', path=None):
                 'entities_url': f"{commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/"
             }
             result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON,
-                                             cedar_api_key=current_app.config['CEDAR_API_KEY'], globus_token=get_groups_token(), app_context=app_context)
+                                             globus_token=get_groups_token(), app_context=app_context)
+            if 'CEDAR Validation Errors' in result:
+                if path in result['CEDAR Validation Errors']:
+                    result = result['CEDAR Validation Errors'][path]
+                else:
+                    result = result['CEDAR Validation Errors']
         except Exception as e:
             result = rest_server_err(e, True)
     return json.dumps(result)
@@ -164,6 +169,9 @@ def check_cedar(entity_type, sub_type, upload):
     records = get_metadata(upload.get('fullpath'))
     if len(records) > 0:
         if equals(entity_type, Ontology.ops().entities().SAMPLE) and 'metadata_schema_id' in records[0]:
+            # TODO: check type of value schema for subtype
+            # schema = iv_utils.get_schema_version(upload.get('fullpath'), encoding='ascii', globus_token=get_groups_token())
+            # return equals(schema, f"{entity_type}-{sub_type}")
             cedar_sample_sub_type_ids = get_cedar_schema_ids()
             return equals(records[0]['metadata_schema_id'], cedar_sample_sub_type_ids[sub_type])
     return True
