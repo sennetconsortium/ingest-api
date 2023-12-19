@@ -20,7 +20,4 @@ __all__ = ["ingest_validation_tools_validation_utils",
            "ingest_validation_tools_table_validator"
            ]
 
-sys.path.pop()
-sys.path.pop()
-
 from .validation import *

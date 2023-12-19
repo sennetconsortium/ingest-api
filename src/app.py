@@ -13,13 +13,13 @@ from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
-from routes.assayclassifier import assayclassifier_blueprint
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
 from routes.validation import validation_blueprint
 from routes.file import file_blueprint
+from routes.assayclassifier import assayclassifier_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
@@ -58,7 +58,6 @@ try:
     app.ubkg = initialize_ubkg(app.config)
     with app.app_context():
         init_ontology()
-
 
     logger.info("Initialized ubkg module successfully :)")
 
