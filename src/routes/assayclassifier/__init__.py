@@ -62,8 +62,8 @@ def get_ds_assaytype(ds_uuid: str):
         entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
         entity_api = EntitySdk(token=groups_token, service_url=entity_api_url)
         entity = entity_api.get_entity_by_id(ds_uuid)
-        if "metadata" in entity.ingest_metadata:
-            metadata = entity.ingest_metadata["metadata"]
+        if "metadata" in entity.metadata:
+            metadata = entity.metadata["metadata"]
         else:
             metadata = {
                 "entity_type": entity.entity_type,
