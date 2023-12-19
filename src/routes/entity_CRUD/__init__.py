@@ -21,6 +21,7 @@ from atlas_consortia_commons.rest import *
 from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import includes, enum_val_lower
 
+from lib.exceptions import ResponseException
 from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
@@ -442,18 +443,6 @@ def __get_dict_prop(dic, prop_name):
     if isinstance(val, str) and val.strip() == '':
         return None
     return val
-
-
-class ResponseException(Exception):
-    """Return a HTTP response from deep within the call stack"""
-    def __init__(self, message: str, stat: int):
-        self.message: str = message
-        self.status: int = stat
-
-    @property
-    def response(self) -> Response:
-        logger.error(f'message: {self.message}; status: {self.status}')
-        return Response(self.message, self.status)
 
 
 @entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])

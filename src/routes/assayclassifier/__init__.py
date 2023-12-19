@@ -10,9 +10,8 @@ from hubmap_sdk import EntitySdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
-from routes.entity_CRUD import ResponseException
-
 from lib.decorators import require_json
+from lib.exceptions import ResponseException
 from .rule_chain import (
     NoMatchException,
     RuleLoader,
