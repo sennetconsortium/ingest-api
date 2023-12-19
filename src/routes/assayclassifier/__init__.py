@@ -92,10 +92,9 @@ def get_ds_assaytype(ds_uuid: str):
 
 
 @assayclassifier_blueprint.route("/assaytype", methods=["POST"])
-@require_json
-def get_assaytype_from_metadata():
+@require_json(param="metadata")
+def get_assaytype_from_metadata(metadata: dict):
     try:
-        metadata = request.json
         return jsonify(calculate_assay_info(metadata))
     except ResponseException as re:
         logger.error(re, exc_info=True)
