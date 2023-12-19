@@ -109,6 +109,9 @@ def multiple_components():
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
+            if not 'contains_human_genetic_sequences' in dataset:
+                return Response("Missing required keys in request json: datasets.contains_human_genetic_sequences", 400)
+
         requested_group_uuid = None
         if 'group_uuid' in component_request:
             requested_group_uuid = component_request['group_uuid']
@@ -129,7 +132,7 @@ def multiple_components():
                 new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
                 logger.info(
                     f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
-                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path)
+                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
@@ -708,15 +711,19 @@ def dataset_data_status():
                 dataset[prop] = ", ".join(dataset[prop])
             if isinstance(dataset[prop], (bool, int)):
                 dataset[prop] = str(dataset[prop])
-            if dataset[prop] and dataset[prop][0] == "[" and dataset[prop][-1] == "]":
-                dataset[prop] = dataset[prop].replace("'",'"')
-                dataset[prop] = json.loads(dataset[prop])
-                dataset[prop] = dataset[prop][0]
+            if isinstance(dataset[prop], str) and \
+                    len(dataset[prop]) >= 2 and \
+                    dataset[prop][0] == "[" and dataset[prop][-1] == "]":
+                prop_as_list = string_helper.convert_str_literal(dataset[prop])
+                if len(prop_as_list) > 0:
+                    dataset[prop] = prop_as_list
+                else:
+                    dataset[prop] = ""
             if dataset[prop] is None:
-                dataset[prop] = " "
+                dataset[prop] = ""
         for field in displayed_fields:
             if dataset.get(field) is None:
-                dataset[field] = " "
+                dataset[field] = ""
         if (dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']) or (dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
             dataset['has_rui_info'] = "not-applicable"
         if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
@@ -1148,15 +1155,19 @@ def upload_data_status():
                     upload[prop] = ", ".join(upload[prop])
                 if isinstance(upload[prop], (bool, int)):
                     upload[prop] = str(upload[prop])
-                if upload[prop] and upload[prop][0] == "[" and upload[prop][-1] == "]":
-                    upload[prop] = upload[prop].replace("'",'"')
-                    upload[prop] = json.loads(upload[prop])
-                    upload[prop] = upload[prop][0]
+                if isinstance(upload[prop], str) and \
+                        len(upload[prop]) >= 2 and \
+                        upload[prop][0] == "[" and upload[prop][-1] == "]":
+                    prop_as_list = string_helper.convert_str_literal(upload[prop])
+                    if len(prop_as_list) > 0:
+                        upload[prop] = prop_as_list
+                    else:
+                        upload[prop] = ""
                 if upload[prop] is None:
-                    upload[prop] = " "
+                    upload[prop] = ""
             for field in displayed_fields:
                 if upload.get(field) is None:
-                    upload[field] = " "
+                    upload[field] = ""
     # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
     # TODO: link to the datasets page only displaying datasets belonging to a given upload.
     return jsonify(results)
