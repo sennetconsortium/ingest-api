@@ -19,7 +19,7 @@ from .rule_chain import (
     RuleSyntaxException,
 )
 
-bp = Blueprint("assayclassifier", __name__)
+assayclassifier_blueprint = Blueprint("assayclassifier", __name__)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def calculate_assay_info(metadata: dict) -> dict:
     return rslt
 
 
-@bp.route("/assaytype/<ds_uuid>", methods=["GET"])
+@assayclassifier_blueprint.route("/assaytype/<ds_uuid>", methods=["GET"])
 def get_ds_assaytype(ds_uuid: str):
     try:
         auth_helper_instance = AuthHelper.instance()
@@ -91,7 +91,7 @@ def get_ds_assaytype(ds_uuid: str):
         )
 
 
-@bp.route("/assaytype", methods=["POST"])
+@assayclassifier_blueprint.route("/assaytype", methods=["POST"])
 @require_json
 def get_assaytype_from_metadata():
     try:
@@ -118,7 +118,7 @@ def get_assaytype_from_metadata():
         )
 
 
-@bp.route("/reload-assaytypes", methods=["PUT"])
+@assayclassifier_blueprint.route("/reload-assaytypes", methods=["PUT"])
 def reload_chain():
     try:
         initialize_rule_chain()
