@@ -9,7 +9,8 @@ from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import EntitySdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug.exceptions import HTTPException as WerkzeugException
-from worker.utils import ResponseException
+
+from routes.entity_CRUD import ResponseException
 
 from lib.decorators import require_json
 from .rule_chain import (
