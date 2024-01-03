@@ -59,7 +59,6 @@ try:
     with app.app_context():
         init_ontology()
 
-
     logger.info("Initialized ubkg module successfully :)")
 
 # Use a broad catch-all here
