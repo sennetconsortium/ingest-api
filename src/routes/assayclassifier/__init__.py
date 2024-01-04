@@ -1,7 +1,4 @@
-import json
 import logging
-from sys import stdout
-import urllib.request
 
 from flask import Blueprint, request, Response, current_app, jsonify
 from hubmap_commons.exceptions import HTTPException
@@ -12,44 +9,17 @@ from werkzeug.exceptions import HTTPException as WerkzeugException
 
 from lib.decorators import require_json
 from lib.exceptions import ResponseException
-from .rule_chain import (
+from lib.rule_chain import (
     NoMatchException,
-    RuleLoader,
     RuleLogicException,
     RuleSyntaxException,
+    initialize_rule_chain,
+    calculate_assay_info,
 )
 
 assayclassifier_blueprint = Blueprint("assayclassifier", __name__)
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-rule_chain = None
-
-
-def initialize_rule_chain():
-    global rule_chain
-    rule_src_uri = current_app.config["RULE_CHAIN_URI"]
-    try:
-        json_rules = urllib.request.urlopen(rule_src_uri)
-    except json.decoder.JSONDecodeError as excp:
-        raise RuleSyntaxException(excp) from excp
-    rule_chain = RuleLoader(json_rules).load()
-    print("RULE CHAIN FOLLOWS")
-    rule_chain.dump(stdout)
-    print("RULE CHAIN ABOVE")
-
-
-def calculate_assay_info(metadata: dict) -> dict:
-    if not rule_chain:
-        initialize_rule_chain()
-    for key, value in metadata.items():
-        if type(value) is str:
-            if value.isdigit():
-                metadata[key] = int(value)
-    rslt = rule_chain.apply(metadata)
-    # TODO: check that rslt has the expected parts
-    return rslt
 
 
 @assayclassifier_blueprint.route("/assaytype/<ds_uuid>", methods=["GET"])
