@@ -18,10 +18,16 @@ def vitessce_config(entity: dict):
         if "metadata" in entity.get("metadata", {}):
             metadata = entity["metadata"]["metadata"]
         else:
-            metadata = {
-                "entity_type": entity.get("entity_type"),
-                "data_types": entity.get("data_types"),
-            }
+            if "data_types" in entity and entity.get("data_types"):
+                metadata = {
+                    "entity_type": entity.get("entity_type"),
+                    "data_types": entity.get("data_types"),
+                }
+            else:
+                metadata = {
+                    "entity_type": entity.get("entity_type"),
+                    "data_types": [entity.get("dataset_type")],
+                }
         return calculate_assay_info(metadata)
 
     try:
