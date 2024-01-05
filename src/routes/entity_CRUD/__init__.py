@@ -37,7 +37,7 @@ from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header, get_auth_header_dict
 
-from lib.ontology import Ontology, get_organ_types_ep, get_assay_types_ep
+from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
 
 
@@ -110,6 +110,9 @@ def multiple_components():
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
+            if not 'contains_human_genetic_sequences' in dataset:
+                return Response("Missing required keys in request json: datasets.contains_human_genetic_sequences", 400)
+
         requested_group_uuid = None
         if 'group_uuid' in component_request:
             requested_group_uuid = component_request['group_uuid']
@@ -130,7 +133,7 @@ def multiple_components():
                 new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
                 logger.info(
                     f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
-                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path)
+                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
@@ -253,7 +256,7 @@ def create_datasets_from_bulk():
     group_uuid = check_results.get('group_uuid')
     headers, records = itemgetter('headers', 'records')(check_results.get('csv_records'))
 
-    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    # Ancestor_id can contain multiple entries. This must be split by comma before validating
     for record in records:
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
@@ -262,13 +265,6 @@ def create_datasets_from_bulk():
             for ancestor in ancestor_id_list:
                 ancestor_stripped.append(ancestor.strip())
             record['ancestor_id'] = ancestor_stripped
-        if record.get('data_types'):
-            data_types_string = record['data_types']
-            data_types_list = data_types_string.split(',')
-            data_type_stripped = []
-            for data_type in data_types_list:
-                data_type_stripped.append(data_type.strip())
-            record['data_types'] = data_type_stripped
         if record.get('human_gene_sequences'):
             gene_sequences_string = record['human_gene_sequences']
             if gene_sequences_string.lower() == "true":
@@ -586,16 +582,13 @@ def run_query(query, results, i):
     with Neo4jHelper.get_instance().session() as session:
         results[i] = session.run(query).data()
 
-"""
-Description
-"""
+
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
-    assay_types_dict = Ontology.ops(prop_callback=None, as_data_dict=True, data_as_val=True).assay_types()
     organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
-        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.data_types AS data_types, "
+        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
         "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
         "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.data_access_level AS data_access_level, "
         "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
@@ -632,7 +625,7 @@ def dataset_data_status():
 
     displayed_fields = [
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
-        "has_contributors", "data_types", "source_sennet_id", "source_lab_id",
+        "has_contributors", "dataset_type", "source_sennet_id", "source_lab_id",
         "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
         "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
@@ -707,17 +700,19 @@ def dataset_data_status():
                 dataset[prop] = ", ".join(dataset[prop])
             if isinstance(dataset[prop], (bool, int)):
                 dataset[prop] = str(dataset[prop])
-            if dataset[prop] and dataset[prop][0] == "[" and dataset[prop][-1] == "]":
-                dataset[prop] = dataset[prop].replace("'",'"')
-                dataset[prop] = json.loads(dataset[prop])
-                dataset[prop] = dataset[prop][0]
+            if isinstance(dataset[prop], str) and \
+                    len(dataset[prop]) >= 2 and \
+                    dataset[prop][0] == "[" and dataset[prop][-1] == "]":
+                prop_as_list = string_helper.convert_str_literal(dataset[prop])
+                if len(prop_as_list) > 0:
+                    dataset[prop] = prop_as_list
+                else:
+                    dataset[prop] = ""
             if dataset[prop] is None:
-                dataset[prop] = " "
-        if dataset.get('data_types') and dataset.get('data_types') in assay_types_dict:
-            dataset['data_types'] = assay_types_dict[dataset['data_types']]['description'].strip()
+                dataset[prop] = ""
         for field in displayed_fields:
             if dataset.get(field) is None:
-                dataset[field] = " "
+                dataset[field] = ""
         if (dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']) or (dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
             dataset['has_rui_info'] = "not-applicable"
         if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
@@ -770,7 +765,7 @@ def publish_datastage(identifier):
             #look at all of the ancestors
             #gather uuids of ancestors that need to be switched to public access_level
             #grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.data_types as data_types, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
+            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
             has_source = False
@@ -828,16 +823,13 @@ def publish_datastage(identifier):
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
             entity = entity_instance.get_entity_by_id(dataset_uuid)
             entity_dict: dict = vars(entity)
-            # data_type_edp: List[str] = \
-            #     get_data_type_of_external_dataset_providers(current_app.config['UBKG_WEBSERVICE_URL'])
-            data_type_edp = list(Ontology.ops(as_data_dict=True).assay_types_ext().values())
-            entity_lab_processed_data_types: List[str] = \
-                [i for i in entity_dict.get('data_types') if i in data_type_edp]
-            has_entity_lab_processed_data_type: bool = len(entity_lab_processed_data_types) > 0
 
-            logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_data_type: {has_entity_lab_processed_data_type}')
+            dataset_types_edp = list(Ontology.ops(as_data_dict=True).dataset_types().values())
+            has_entity_lab_processed_dataset_type: bool = entity_dict.get('dataset_type') in dataset_types_edp
 
-            if is_primary or has_entity_lab_processed_data_type:
+            logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}')
+
+            if is_primary or has_entity_lab_processed_dataset_type:
                 if dataset_contacts is None or dataset_contributors is None:
                     return jsonify({"error": f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"}), 400
                 dataset_contacts = dataset_contacts.replace("'", '"')
@@ -865,7 +857,7 @@ def publish_datastage(identifier):
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
 
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
-            if is_primary or has_entity_lab_processed_data_type:
+            if is_primary or has_entity_lab_processed_dataset_type:
                 # DOI gets generated here
                 # Note: moved dataset title auto generation to entity-api - Zhou 9/29/2021
                 datacite_doi_helper = DataCiteDoiHelper()
@@ -1152,15 +1144,19 @@ def upload_data_status():
                     upload[prop] = ", ".join(upload[prop])
                 if isinstance(upload[prop], (bool, int)):
                     upload[prop] = str(upload[prop])
-                if upload[prop] and upload[prop][0] == "[" and upload[prop][-1] == "]":
-                    upload[prop] = upload[prop].replace("'",'"')
-                    upload[prop] = json.loads(upload[prop])
-                    upload[prop] = upload[prop][0]
+                if isinstance(upload[prop], str) and \
+                        len(upload[prop]) >= 2 and \
+                        upload[prop][0] == "[" and upload[prop][-1] == "]":
+                    prop_as_list = string_helper.convert_str_literal(upload[prop])
+                    if len(prop_as_list) > 0:
+                        upload[prop] = prop_as_list
+                    else:
+                        upload[prop] = ""
                 if upload[prop] is None:
-                    upload[prop] = " "
+                    upload[prop] = ""
             for field in displayed_fields:
                 if upload.get(field) is None:
-                    upload[field] = " "
+                    upload[field] = ""
     # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
     # TODO: link to the datasets page only displaying datasets belonging to a given upload.
     return jsonify(results)
@@ -1232,7 +1228,7 @@ def _bulk_upload_and_validate(entity):
 
 
 def _format_dataset_records(records):
-    # Ancestor_id and data_types can contain multiple entries each. These must be split by comma before validating
+    # Ancestor_id can contain multiple entries. This must be split by comma before validating
     for record in records:
         if record.get('ancestor_id'):
             ancestor_id_string = record['ancestor_id']
@@ -1243,13 +1239,6 @@ def _format_dataset_records(records):
             for ancestor in ancestor_id_list:
                 ancestor_stripped.append(ancestor.strip())
             record['ancestor_id'] = ancestor_stripped
-        if record.get('data_types'):
-            data_types_string = record['data_types']
-            data_types_list = data_types_string.split(',')
-            data_type_stripped = []
-            for data_type in data_types_list:
-                data_type_stripped.append(data_type.strip())
-            record['data_types'] = data_type_stripped
         if record.get('human_gene_sequences'):
             gene_sequences_string = record['human_gene_sequences']
             if gene_sequences_string.lower() == "true":
@@ -1548,7 +1537,7 @@ def validate_datasets(headers, records, header):
     error_msg = []
     file_is_valid = True
 
-    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'data_types']
+    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'dataset_type']
     for field in required_headers:
         if field not in headers:
             file_is_valid = False
@@ -1559,7 +1548,7 @@ def validate_datasets(headers, records, header):
             file_is_valid = False
             error_msg.append(_common_ln_errs(2, field))
 
-    assay_types = list(Ontology.ops(as_data_dict=True, prop_callback=None).assay_types().keys())
+    dataset_types = list(Ontology.ops(as_data_dict=True).dataset_types().values())
 
     rownum = 0
     entity_constraint_list = []
@@ -1603,23 +1592,13 @@ def validate_datasets(headers, records, header):
                 file_is_valid = False
                 error_msg.append(_ln_err("must be `true` or `false`", rownum, "has_gene_sequences"))
 
-            # validate data_type
-            data_types = data_row['data_types']
-            data_types_valid = True
-            for i, data_type in enumerate(data_types):
-                idx = includes(assay_types, data_type, single_index=True)
-
-                if idx == -1:
-                    file_is_valid = False
-                    data_types_valid = False
-                    error_msg.append(_ln_err(f"value must be an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
-                else:
-                    # apply formatting
-                    data_types[i] = assay_types[idx]
-
-            if len(data_types) < 1:
+            # validate dataset_type
+            dataset_type_valid = True
+            dataset_type = data_row['dataset_type']
+            if dataset_type not in dataset_types:
                 file_is_valid = False
-                error_msg.append(_ln_err(f"must not be empty. Must contain an assay type listed at {get_assay_types_ep()}", rownum, "data_types"))
+                dataset_type_valid = False
+                error_msg.append(_ln_err(f"value must be a dataset type listed at {get_dataset_types_ep()}", rownum, "dataset_type"))
 
             # validate ancestor_id
             ancestor_ids = data_row['ancestor_id']
@@ -1634,8 +1613,8 @@ def validate_datasets(headers, records, header):
                     # prepare entity constraints for validation
 
                     sub_type = None
-                    if data_types_valid:
-                        sub_type = get_as_list(data_types)
+                    if dataset_type_valid:
+                        sub_type = get_as_list(dataset_type)
 
                     entity_to_validate = build_constraint_unit(Ontology.ops().entities().DATASET, sub_type)
 
@@ -1705,7 +1684,7 @@ def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_co
     sub_type = None
     sub_type_val = None
     if equals(ancestor_entity_type, Entities.DATASET):
-        sub_type = get_as_list(ancestor_result['data_types'])
+        sub_type = get_as_list(ancestor_result['dataset_type'])
 
     if equals(ancestor_entity_type, Entities.SAMPLE):
         sub_type = get_as_list(ancestor_result['sample_category'])
