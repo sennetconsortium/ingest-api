@@ -20,6 +20,7 @@ from routes.entity_CRUD import entity_CRUD_blueprint
 from routes.validation import validation_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
+from routes.vitessce import vitessce_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
@@ -43,6 +44,7 @@ app.register_blueprint(entity_CRUD_blueprint)
 app.register_blueprint(validation_blueprint)
 app.register_blueprint(file_blueprint)
 app.register_blueprint(assayclassifier_blueprint)
+app.register_blueprint(vitessce_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)

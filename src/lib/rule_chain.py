@@ -1,7 +1,10 @@
 import json
 import logging
 from pathlib import Path
+from sys import stdout
+import urllib.request
 
+from flask import current_app
 from hubmap_commons.schema_tools import check_json_matches_schema
 from rule_engine import Rule, EngineError, Context
 import yaml
@@ -10,6 +13,34 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 SCHEMA_FILE = "rule_chain_schema.json"
 SCHEMA_BASE_URI = "http://schemata.hubmapconsortium.org/"
+
+
+rule_chain = None
+
+
+def initialize_rule_chain():
+    global rule_chain
+    rule_src_uri = current_app.config["RULE_CHAIN_URI"]
+    try:
+        json_rules = urllib.request.urlopen(rule_src_uri)
+    except json.decoder.JSONDecodeError as excp:
+        raise RuleSyntaxException(excp) from excp
+    rule_chain = RuleLoader(json_rules).load()
+    print("RULE CHAIN FOLLOWS")
+    rule_chain.dump(stdout)
+    print("RULE CHAIN ABOVE")
+
+
+def calculate_assay_info(metadata: dict) -> dict:
+    if not rule_chain:
+        initialize_rule_chain()
+    for key, value in metadata.items():
+        if type(value) is str:
+            if value.isdigit():
+                metadata[key] = int(value)
+    rslt = rule_chain.apply(metadata)
+    # TODO: check that rslt has the expected parts
+    return rslt
 
 
 class NoMatchException(Exception):
