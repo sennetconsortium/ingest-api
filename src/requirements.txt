@@ -4,7 +4,7 @@ hubmap-sdk==1.0.4
 Werkzeug==2.3.7
 
 # The commons package requires requests>=2.22.0
-requests==2.25.1
+requests==2.27.1
 
 # Use the published package from PyPI as default
 # Use the branch name of commons from github for testing new changes made in commons from different branch
@@ -15,6 +15,9 @@ atlas-consortia-commons==1.0.6
 
 # For assay type rules
 rule_engine==4.1.0
+
+# For vitessce config generation
+https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.1.0.zip
 
 # Testing
 pytest==7.3.1
