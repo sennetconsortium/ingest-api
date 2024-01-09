@@ -35,6 +35,44 @@ components:
 
     file_uuid:
       type: string
+    
+    File:
+      type: object
+      properties:
+        description:
+          type: string
+          description: Free text description of the file
+        edam_term:
+          type: string
+          description: The EDAM ontology term for the file type
+        is_qa_qc:
+          type: boolean
+          description: True if the file is a QA file
+        rel_path:
+          type: string
+          description: The path on the local file system, relative to the base data directory.
+        size:
+          type: integer
+          description: The size of the file in bytes
+        type:
+          type: string
+          description: The file type
+
+    DagProvenanceItem:
+      type: object
+      properties:
+        hash:
+          type: string
+          description: The 7 character hash of the commit
+          example: 1994f0f
+        name:
+          type: string
+          description: The name of the cwl file
+          example: anndata-to-ui.cwl
+        origin:
+          type: string
+          description: The git origin of the cwl file
+          example: https://github.com/hubmapconsortium/portal-containers
 
     Sources:
       type: object
@@ -793,3 +831,92 @@ paths:
           description: User's token is not valid
         "500":
           description: An unexpected error occured
+  /vitessce/config:
+    post:
+      tags:
+        - vitessce
+      summary: Return a Vitessce configuration for a given Dataset
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uuid:
+                  type: string
+                  description: The SenNet unique identifier, intended for internal software use only. This is a 32 digit hexadecimal UUID e.g. 461bbfdc353a2673e381f632510b0f17
+                  example: 461bbfdc353a2673e381f632510b0f17
+                status:
+                  type: string
+                  enum:
+                    - New
+                    - Processing
+                    - QA
+                    - Published
+                    - Error
+                    - Hold
+                    - Invalid
+                  description: 'One of: New|Processing|QA|Published|Error|Hold|Invalid'
+                entity_type:
+                  type: string
+                  enum:
+                    - Dataset
+                  description: 'Dataset entity type'
+                data_types:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - 10x-multiome
+                      - bulk-RNA
+                      - CITE-Seq
+                      - CODEX
+                      - codex_cytokit
+                      - codex_cytokit_v1
+                      - CosMX (RNA)
+                      - DBiT-seq
+                      - FACS - Fluorescence-activated Cell Sorting
+                      - GeoMX (RNA)
+                      - image_pyramid
+                      - LC-MS
+                      - Lightsheet
+                      - MIBI
+                      - mibi_deepcell
+                      - Mint-ChIP
+                      - publication
+                      - publication_ancillary
+                      - salmon_rnaseq_10x
+                      - salmon_rnaseq_bulk
+                      - salmon_sn_rnaseq_10x
+                      - SASP
+                      - scRNA-seq
+                      - sn_atac_seq
+                      - snATAC-seq
+                      - snRNA-seq
+                      - snRNAseq-10xGenomics-v3
+                      - Stained Slides
+                      - Visium
+                  description: The data or assay types contained in this dataset as a json array of strings. Each is an assay code from [assay types](https://ontology.api.hubmapconsortium.org/datasets?application_context=Sennet).
+                files:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/File'
+                  description: The files associated with this Dataset
+                metadata:
+                  type: object
+                  description: The metadata associated with this Dataset
+                  properties:
+                    dag_provenance_list:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DagProvenanceItem'
+                      description: The list of dag provenance items associated with this Dataset
+      responses:
+        "200":
+          description: The [Vitessce JSON configuration](http://vitessce.io/docs/view-config-json) for the given Dataset
+        "400":
+          description: Request body schema was invalid or was for an invalid Dataset
+        "401":
+          description: The user's token has expired or the user did not have authorization
+        "500":
+          description: Internal error
