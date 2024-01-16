@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   description: |
     A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
-  version: 1.2.24
+  version: 1.3.1
   title: SenNet Ingest API
   contact:
     name: SenNet Help Desk
@@ -349,41 +349,9 @@ components:
             - Hold
             - Invalid
           description: 'One of: New|Processing|QA|Published|Error|Hold|Invalid'
-        data_types:
-          type: array
-          items:
-            type: string
-            enum:
-              - 10x-multiome
-              - bulk-RNA
-              - CITE-Seq
-              - CODEX
-              - codex_cytokit
-              - codex_cytokit_v1
-              - CosMX (RNA)
-              - DBiT-seq
-              - FACS - Fluorescence-activated Cell Sorting
-              - GeoMX (RNA)
-              - image_pyramid
-              - LC-MS
-              - Lightsheet
-              - MIBI
-              - mibi_deepcell
-              - Mint-ChIP
-              - publication
-              - publication_ancillary
-              - salmon_rnaseq_10x
-              - salmon_rnaseq_bulk
-              - salmon_sn_rnaseq_10x
-              - SASP
-              - scRNA-seq
-              - sn_atac_seq
-              - snATAC-seq
-              - snRNA-seq
-              - snRNAseq-10xGenomics-v3
-              - Stained Slides
-              - Visium
-          description: The data or assay types contained in this dataset as a json array of strings. Each is an assay code from [assay types](https://ontology.api.hubmapconsortium.org/datasets?application_context=Sennet).
+        dataset_type:
+          type: string
+          description: "The data or assay type contained in this dataset. Must be one of the values found in: [dataset types](https://ontology-api.dev.hubmapconsortium.org/valueset?parent_sab=SENNET&parent_code=C003041&child_sabs=SENNET)."
         local_directory_rel_path:
           type: string
           readOnly: true
