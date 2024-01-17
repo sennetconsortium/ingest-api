@@ -886,5 +886,7 @@ paths:
           description: Request body schema was invalid or was for an invalid Dataset
         "401":
           description: The user's token has expired or the user did not have authorization
+        "404":
+          description: The Vitesce configuration for the given Dataset could not be found
         "500":
           description: Internal error
