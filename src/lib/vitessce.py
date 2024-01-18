@@ -3,6 +3,8 @@ from typing import Optional
 
 from pymemcache.client.base import PooledClient
 
+MEMCACHED_TTL = 7200
+
 
 class VitessceConfigCache:
     """Memcached wrapper for Vitessce configuration."""
@@ -16,9 +18,11 @@ class VitessceConfigCache:
 
     def set(self, uuid: str, config: dict, groups_token: str):
         if self._should_cache(config, groups_token):
-            self._memcached_client.set(f"{self._memcached_prefix}_{uuid}", config)
+            self._memcached_client.set(
+                f"{self._memcached_prefix}_{uuid}", config, expire=MEMCACHED_TTL
+            )
 
-    def delete(self, uuid: str):
+    def delete(self, uuid: str) -> bool:
         return self._memcached_client.delete(
             f"{self._memcached_prefix}_{uuid}", noreply=False
         )
