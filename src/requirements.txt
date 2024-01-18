@@ -3,6 +3,9 @@ globus_sdk==2.0.1
 hubmap-sdk==1.0.4
 Werkzeug==2.3.7
 
+# For interacting with memcached
+pymemcache==4.0.0
+
 # The commons package requires requests>=2.22.0
 requests==2.27.1
 

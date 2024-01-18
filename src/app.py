@@ -5,6 +5,8 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
 from flask import Flask, g
+from pymemcache import serde
+from pymemcache.client.base import PooledClient
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
@@ -25,6 +27,8 @@ from routes.vitessce import vitessce_blueprint
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
+from lib.rule_chain import initialize_rule_chain
+from lib.vitessce import VitessceConfigCache
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -36,6 +40,14 @@ logger = logging.getLogger(__name__)
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
+
+if 'MEMCACHED_MODE' in app.config:
+    MEMCACHED_MODE = app.config['MEMCACHED_MODE']
+    # Use prefix to distinguish the cached data of same source across different deployments
+    MEMCACHED_PREFIX = app.config['MEMCACHED_PREFIX']
+else:
+    MEMCACHED_MODE = False
+    MEMCACHED_PREFIX = 'NONE'
 
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
@@ -130,6 +142,40 @@ except Exception:
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 
+####################################################################################################
+## Memcached client initialization
+####################################################################################################
+
+memcached_client_instance = None
+
+if MEMCACHED_MODE:
+    try:
+        # Use client pool to maintain a pool of already-connected clients for improved performance
+        # The uwsgi config launches the app across multiple threads (8) inside each process (32), making essentially 256 processes
+        # Set the connect_timeout and timeout to avoid blocking the process when memcached is slow, defaults to "forever"
+        # connect_timeout: seconds to wait for a connection to the memcached server
+        # timeout: seconds to wait for send or reveive calls on the socket connected to memcached
+        # Use the ignore_exc flag to treat memcache/network errors as cache misses on calls to the get* methods
+        # Set the no_delay flag to sent TCP_NODELAY (disable Nagle's algorithm to improve TCP/IP networks and decrease the number of packets)
+        # If you intend to use anything but str as a value, it is a good idea to use a serializer
+        memcached_client_instance = PooledClient(app.config['MEMCACHED_SERVER'],
+                                                 max_pool_size=256,
+                                                 connect_timeout=1,
+                                                 timeout=30,
+                                                 ignore_exc=True,
+                                                 no_delay=True,
+                                                 serde=serde.pickle_serde)
+
+        # memcached_client_instance can be instantiated without connecting to the Memcached server
+        # A version() call will throw error (e.g., timeout) when failed to connect to server
+        # Need to convert the version in bytes to string
+        logger.info(f'Connected to Memcached server {memcached_client_instance.version().decode()} successfully :)')
+    except Exception:
+        msg = 'Failed to connect to the Memcached server :('
+        # Log the full stack trace, prepend a line with our message
+        logger.exception(msg)
+        # Turn off the caching
+        MEMCACHED_MODE = False
 
 """
 Close the current neo4j connection at the end of every request
