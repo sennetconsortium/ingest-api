@@ -27,7 +27,6 @@ from routes.vitessce import vitessce_blueprint
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
-from lib.rule_chain import initialize_rule_chain
 from lib.vitessce import VitessceConfigCache
 
 # Set logging format and level (default is warning)
