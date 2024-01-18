@@ -93,3 +93,27 @@ def validate_vitessce_entity(entity):
         errors.append("'metadata.dag_provenance_list' array is required")
 
     return errors
+
+
+@vitessce_blueprint.route("/vitessce/config/cache/<string:ds_uuid>", methods=["DELETE"])
+def flush_cache(ds_uuid: str):
+    try:
+        UUID(ds_uuid)
+    except Exception:
+        return jsonify({"error": "uuid must be a valid UUID"}), 400
+
+    cache = current_app.vitessce_cache
+    if cache:
+        if not cache.get(ds_uuid):
+            msg = f"The cached data does not exist for entity {ds_uuid}"
+            return jsonify({"error": msg}), 404
+
+        deleted = cache.delete(ds_uuid)
+        if deleted:
+            msg = f"The cached data was deleted for entity {ds_uuid}"
+        else:
+            msg = f"The cached data was not deleted for entity {ds_uuid}"
+    else:
+        msg = "The cached data was not deleted because caching is not enabled"
+
+    return jsonify({"message": msg}), 200

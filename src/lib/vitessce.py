@@ -18,6 +18,11 @@ class VitessceConfigCache:
         if self._should_cache(config, groups_token):
             self._memcached_client.set(f"{self._memcached_prefix}_{uuid}", config)
 
+    def delete(self, uuid: str):
+        return self._memcached_client.delete(
+            f"{self._memcached_prefix}_{uuid}", noreply=False
+        )
+
     def _should_cache(self, config: dict, groups_token: str) -> bool:
         # Don't cache if the config contains the groups token
         return groups_token not in json.dumps(config, separators=(",", ":"))
