@@ -41,6 +41,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
 
+app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
     MEMCACHED_MODE = app.config['MEMCACHED_MODE']
     # Use prefix to distinguish the cached data of same source across different deployments
@@ -165,6 +166,7 @@ if MEMCACHED_MODE:
                                                  ignore_exc=True,
                                                  no_delay=True,
                                                  serde=serde.pickle_serde)
+        app.vitessce_cache = VitessceConfigCache(memcached_client_instance, MEMCACHED_PREFIX)
 
         # memcached_client_instance can be instantiated without connecting to the Memcached server
         # A version() call will throw error (e.g., timeout) when failed to connect to server
