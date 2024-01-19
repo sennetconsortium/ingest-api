@@ -3,6 +3,9 @@ globus_sdk==2.0.1
 hubmap-sdk==1.0.4
 Werkzeug==2.3.7
 
+# For interacting with memcached
+pymemcache==4.0.0
+
 # The commons package requires requests>=2.22.0
 requests==2.27.1
 
@@ -11,7 +14,7 @@ requests==2.27.1
 # Default is main branch specified in docker-compose.development.yml if not set
 # git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons
 hubmap-commons==2.1.13
-atlas-consortia-commons==1.0.5
+atlas-consortia-commons==1.0.6
 
 # For assay type rules
 rule_engine==4.1.0

@@ -1,7 +1,6 @@
 import json
 import logging
 from pathlib import Path
-from sys import stdout
 import urllib.request
 
 from flask import current_app
@@ -26,9 +25,6 @@ def initialize_rule_chain():
     except json.decoder.JSONDecodeError as excp:
         raise RuleSyntaxException(excp) from excp
     rule_chain = RuleLoader(json_rules).load()
-    print("RULE CHAIN FOLLOWS")
-    rule_chain.dump(stdout)
-    print("RULE CHAIN ABOVE")
 
 
 def calculate_assay_info(metadata: dict) -> dict:
