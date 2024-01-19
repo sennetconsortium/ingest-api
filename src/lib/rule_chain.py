@@ -1,12 +1,12 @@
 import json
 import logging
-from pathlib import Path
 import urllib.request
+from pathlib import Path
 
+import yaml
 from flask import current_app
 from hubmap_commons.schema_tools import check_json_matches_schema
-from rule_engine import Rule, EngineError, Context
-import yaml
+from rule_engine import Context, EngineError, Rule
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -130,7 +130,6 @@ class RuleChain:
     def apply(self, rec):
         ctx = {}  # so rules can leave notes for later rules
         for elt in iter(self):
-            # logger.debug(f"applying {elt} to rec:{rec}  ctx:{ctx}")
             rec_dict = rec | ctx
             try:
                 if elt.match_rule.matches(rec_dict):

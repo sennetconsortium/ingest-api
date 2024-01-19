@@ -1,8 +1,8 @@
-from collections import defaultdict
 import json
+import re
+from collections import defaultdict
 from pathlib import Path
 from pprint import pprint
-import re
 
 import yaml
 
@@ -110,17 +110,6 @@ def main() -> None:
             schema_name_to_name_list_dict[
                 (schema_name.lower(), schema_version, is_hca)
             ].append(elt)
-            # if elt in name_to_schema_name_dict:
-            #     old_schema_name, old_schema_version = name_to_schema_name_dict[elt]
-            #     if old_schema_name == schema_name:
-            #         pass
-            #     else:
-            #         print(f"CHANGE due to {table_schema_path.name}"
-            #               f" for {elt}: ({old_schema_name} {old_schema_version})"
-            #               f" to ({schema_name} {schema_version})")
-            #         name_to_schema_name_dict[elt] = (schema_name, schema_version)
-            # else:
-            #     name_to_schema_name_dict[elt] = (schema_name, schema_version)
     dir_schema_dir_path = Path(INGEST_VALIDATION_DIR_SCHEMA_PATH)
     for dir_schema_path in dir_schema_dir_path.glob("*.yaml"):
         m = split_regex.match(dir_schema_path.stem)
@@ -165,11 +154,12 @@ def main() -> None:
         all_assay_types = [canonical_name] + [
             elt for elt in type_dict.get("alt-names", []) if isinstance(elt, str)
         ]
-        quoted_assay_types = ["'" + tp + "'" for tp in all_assay_types]
+        quoted_assay_types = [f"'{tp}'" for tp in all_assay_types]
         vitessce_hints = type_dict.get("vitessce-hints", [])
         description = type_dict.get("description", "")
         is_primary = type_dict["primary"]
         contains_pii = "true" if type_dict.get("contains-pii", "") else "false"
+        dataset_type = type_dict.get("dataset-type", "")
 
         # Provide a special hint for datasets to be vis-lifted
         if "pyramid" in vitessce_hints or "publication_ancillary" in all_assay_types:
@@ -256,7 +246,8 @@ def main() -> None:
                         f" 'vitessce-hints': {vitessce_hints},"
                         f" 'contains-pii': {contains_pii},"
                         f" 'primary': true,"
-                        f" 'description': '{description}'}}"
+                        f" 'description': '{description}',"
+                        f" 'dataset-type': '{dataset_type}' }}"
                     ),
                     "rule_description": f"non-DCWG primary {canonical_name}",
                 }
@@ -309,6 +300,7 @@ def main() -> None:
                     f" 'description': '{description}',"
                     f" 'contains-pii': true,"
                     f" 'primary': true,"
+                    f" 'dataset-type': '{data_type}',"
                     f" 'must-contain': [{must_contain_str}]"
                     "}"
                 ),
@@ -346,6 +338,7 @@ def main() -> None:
                     f" 'description': '{description}',"
                     f" 'contains-pii': true,"
                     f" 'primary': true,"
+                    f" 'dataset-type': '{data_type}',"
                     f" 'must-contain': [{must_contain_str}]"
                     "}"
                 ),
@@ -551,6 +544,7 @@ def main() -> None:
                     f" 'dir-schema': '{schema}',"
                     f" 'contains-pii': true,"
                     f" 'primary': true,"
+                    f" 'dataset-type': '{data_type}',"
                     f" 'description': '{description}'"
                     "}"
                 ),
@@ -577,6 +571,7 @@ def main() -> None:
                     f" 'dir-schema': '{schema}',"
                     f" 'contains-pii': true,"
                     f" 'primary': true,"
+                    f" 'dataset-type': '{data_type}',"
                     f" 'description': '{description}'"
                     "}"
                 ),
@@ -600,6 +595,7 @@ def main() -> None:
                 " 'dir-schema': 'atacseq-v2',"
                 f" 'contains-pii': true,"
                 f" 'primary': true,"
+                f" 'dataset-type': 'ATACseq',"
                 f" 'description': 'sciATAC-seq'"
                 "}"
             ),
@@ -626,6 +622,7 @@ def main() -> None:
                     f" 'dir-schema': '{schema}',"
                     f" 'contains-pii': false,"
                     f" 'primary': true,"
+                    f" 'dataset-type': 'Histology',"
                     f" 'description': '{description}'"
                     "}"
                 ),
@@ -686,6 +683,7 @@ def main() -> None:
                     f" 'dir-schema': '{schema}',"
                     f" 'contains-pii': false,"
                     f" 'primary': true,"
+                    f" 'dataset-type': '{data_type}',"
                     f" 'description': '{description}'"
                     "}"
                 ),
