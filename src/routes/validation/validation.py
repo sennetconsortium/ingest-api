@@ -101,7 +101,7 @@ def validate_tsv(schema='metadata', path=None):
     try:
         schema_name = (
             schema if schema != 'metadata'
-            else iv_utils.get_table_schema_version(path, 'ascii', globus_token=get_groups_token()).schema_name
+            else iv_utils.get_schema_version(path, 'ascii', globus_token=get_groups_token()).schema_name
         )
     except schema_loader.PreflightError as e:
         result = {'Preflight': str(e)}
