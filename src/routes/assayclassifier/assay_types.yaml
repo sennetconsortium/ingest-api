@@ -4,6 +4,7 @@ AF:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "Auto-fluorescence"
 
 AF_pyramid:
   description: Autofluorescence Microscopy [Image Pyramid]
@@ -19,11 +20,10 @@ ATACseq-bulk:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "ATACseq"
 
 bulk_atacseq:
-  #ATACseq-bulk_BWA_MACS2:
   description: Bulk ATAC-seq [BWA + MACS2]
-  #    alt-names: [bulk-atacseq]
   alt-names: []
   primary: false
   contains-pii: false
@@ -34,6 +34,7 @@ cell-dive:
   alt-names: ["cell DIVE", "Cell DIVE"]
   primary: true
   contains-pii: false
+  dataset-type: "Cell Dive"
 
 celldive_deepcell:
   description: CellDIVE [DeepCell + SPRM]
@@ -48,6 +49,7 @@ CODEX:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "CODEX"
 
 # interim solution to handle variant CODEX with new directory schema
 CODEX2:
@@ -56,6 +58,7 @@ CODEX2:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "CODEX"
 
 codex_cytokit_v1:
   description: CODEX [Cytokit + SPRM]
@@ -77,6 +80,7 @@ DART-FISH:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "DARTFish"
 
 DESI:
   description: DESI
@@ -84,6 +88,7 @@ DESI:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "DESI"
 
 DESI_pyramid:
   description: DESI [Image Pyramid]
@@ -103,7 +108,7 @@ DESI_pyramid:
 
 image_pyramid:
   description: Image Pyramid
-  alt-names: ["Image Pyramid"]
+  alt-names: ["Image Pyramid", "ometiff_pyramid_ims", "ometiff_pyramid"]
   primary: false
   vis-only: true
   contains-pii: false
@@ -115,6 +120,7 @@ IMC2D:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "2D Imaging Mass Cytometry"
 
 IMC3D:
   description: Imaging Mass Cytometry (3D)
@@ -122,6 +128,7 @@ IMC3D:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "3D Imaging Mass Cytometry"
 
 IMC2D_pyramid:
   description: Imaging Mass Cytometry (2D) [Image Pyramid]
@@ -157,6 +164,7 @@ lc-ms_label-free:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 lc-ms_labeled:
   description: Labeled LC-MS
@@ -164,6 +172,7 @@ lc-ms_labeled:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 lc-ms-ms_label-free:
   description: Label-free LC-MS/MS
@@ -171,12 +180,14 @@ lc-ms-ms_label-free:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 lc-ms-ms_labeled:
   description: Labeled LC-MS/MS
   alt-names: []
   primary: true
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 LC-MS-untargeted:
   description: Untargeted LC-MS
@@ -184,6 +195,7 @@ LC-MS-untargeted:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 Lightsheet:
   description: Lightsheet Microscopy
@@ -191,6 +203,7 @@ Lightsheet:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "Light Sheet"
 
 MALDI-IMS:
   description: MALDI IMS
@@ -198,6 +211,7 @@ MALDI-IMS:
   primary: true
   contains-pii: false
   vitessce-hints: ["maldi"]
+  dataset-type: "MALDI"
 
 MALDI-IMS_pyramid:
   description: MALDI IMS [Image Pyramid]
@@ -219,6 +233,7 @@ MIBI:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "MIBI"
 
 mibi_deepcell:
   description: Multiplex Ion Beam Imaging [DeepCell + SPRM]
@@ -233,6 +248,7 @@ NanoDESI:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "DESI"
 
 NanoDESI_pyramid:
   description: NanoDESI [Image Pyramid]
@@ -248,6 +264,7 @@ NanoPOTS:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "UNKNOWN"
 
 NanoPOTS_pyramid:
   description: NanoPOTS [Image Pyramid]
@@ -263,6 +280,7 @@ MxIF:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "UNKNOWN"
 
 MxIF_pyramid:
   description: Multiplexed IF Microscopy [Image Pyramid]
@@ -278,6 +296,7 @@ PAS:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "Histology"
 
 PAS_pyramid:
   description: PAS Stained Microscopy [Image Pyramid]
@@ -293,10 +312,11 @@ publication:
   primary: false
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "Publication"
 
 publication_ancillary:
   description: Publication Data [ancillary]
-  alt-names: []
+  alt-names: ["gen_pub_ancillary"]
   primary: false
   contains-pii: false
   vis-only: true
@@ -308,11 +328,10 @@ bulk-RNA:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 salmon_rnaseq_bulk:
-  #RNAseq-bulk_salmon:
   description: Bulk RNA-seq [Salmon]
-  #    alt-names: [salmon_rnaseq_bulk]
   alt-names: []
   primary: false
   contains-pii: false
@@ -324,6 +343,7 @@ SNARE-ATACseq2:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "ATACseq"
 
 SNARE-RNAseq2:
   description: snRNAseq (SNARE-seq2)
@@ -331,6 +351,7 @@ SNARE-RNAseq2:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 sc_atac_seq_snare_lab:
   description: snATAC-seq (SNARE-seq2) [Lab Processed]
@@ -366,6 +387,7 @@ scRNAseq-10xGenomics-v2:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 scRNAseq-10xGenomics-v3:
   description: scRNA-seq (10x Genomics v3)
@@ -376,12 +398,11 @@ scRNAseq-10xGenomics-v3:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 salmon_rnaseq_10x:
-  #scRNA-Seq-10x_salmon:
   description: scRNA-seq (10x Genomics) [Salmon]
-  #    alt-names: [salmon_rnaseq_10x]
-  alt-names: []
+  alt-names: [salmon_rnaseq_10x_v2]
   primary: false
   contains-pii: false
   vitessce-hints: ["is_sc", "rna"]
@@ -392,6 +413,7 @@ sciATACseq:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "ATACseq"
 
 sc_atac_seq_sci:
   description: sciATAC-seq [SnapATAC]
@@ -406,6 +428,7 @@ sciRNAseq:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 salmon_rnaseq_sciseq:
   description: sciRNA-seq [Salmon]
@@ -420,6 +443,7 @@ seqFish:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "seqFish"
 
 seqFish_pyramid:
   description: seqFISH [Image Pyramid]
@@ -442,6 +466,7 @@ SIMS-IMS:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "SIMS"
 
 snATACseq:
   description: snATAC-seq
@@ -449,12 +474,11 @@ snATACseq:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "ATACseq"
 
 sn_atac_seq:
-  #snATACseq_snapATAC:
   description: snATAC-seq [SnapATAC]
-  #    alt-names: [sn_atac_seq]
-  alt-names: [sn_atac_seq_multiome_10x]
+  alt-names: [sn_atac_seq_multiome_10x, sc_atac_seq_sn, sc_atac_seq_multiome_10x]
   primary: false
   contains-pii: false
   vitessce-hints: ["is_sc", "atac"]
@@ -465,6 +489,7 @@ snRNAseq-10xGenomics-v2:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 snRNAseq-10xGenomics-v3:
   description: "snRNA-seq (10x Genomics v3)"
@@ -472,10 +497,11 @@ snRNAseq-10xGenomics-v3:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "RNAseq"
 
 salmon_sn_rnaseq_10x:
   description: snRNA-seq [Salmon]
-  alt-names: ["salmon_rnaseq_10x_sn"]
+  alt-names: ["salmon_rnaseq_10x_sn", "salmon_rnaseq_10x_v2_sn"]
   primary: false
   contains-pii: false
   vitessce-hints: ["is_sc", "rna"]
@@ -486,6 +512,7 @@ Slide-seq:
   primary: true
   vitesse-hints: ["rna"]
   contains-pii: true
+  dataset-type: "Slide-seq"
 
 salmon_rnaseq_slideseq:
   description: Slide-seq [Salmon]
@@ -500,6 +527,7 @@ Targeted-Shotgun-LC-MS:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 TMT-LC-MS:
   description: TMT LC-MS
@@ -507,6 +535,7 @@ TMT-LC-MS:
   primary: true
   vitessce-hints: []
   contains-pii: false
+  dataset-type: "LC-MS"
 
 WGS:
   description: Whole Genome Sequencing
@@ -514,6 +543,7 @@ WGS:
   primary: true
   contains-pii: true
   vitessce-hints: []
+  dataset-type: "WGS"
 
 LC-MS:
   description: LC-MS
@@ -521,6 +551,7 @@ LC-MS:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 MS:
   description: MS
@@ -528,6 +559,7 @@ MS:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 LC-MS_bottom_up:
   description: "LC-MS Bottom Up"
@@ -535,6 +567,7 @@ LC-MS_bottom_up:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 MS_bottom_up:
   description: "MS Bottom Up"
@@ -542,6 +575,7 @@ MS_bottom_up:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 LC-MS_top_down:
   description: "LC-MS Top Down"
@@ -549,6 +583,7 @@ LC-MS_top_down:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
 
 MS_top_down:
   description: "MS Top Down"
@@ -556,3 +591,4 @@ MS_top_down:
   primary: true
   contains-pii: false
   vitessce-hints: []
+  dataset-type: "LC-MS"
