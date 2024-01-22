@@ -1,3 +1,5 @@
+import contextlib
+import os
 from functools import wraps
 from inspect import signature
 
@@ -35,3 +37,14 @@ def require_json(param="body"):
         return decorated_function
 
     return decorator
+
+
+@contextlib.contextmanager
+def suppress_print():
+    """Context manager to suppress print statements.
+
+    Good for suppressing the output of external libraries that use print statements for
+    logging.
+    """
+    with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+        yield

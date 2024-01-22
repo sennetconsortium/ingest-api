@@ -9,6 +9,7 @@ from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from portal_visualization.builder_factory import get_view_config_builder
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
+from lib.decorators import suppress_print
 from lib.exceptions import ResponseException
 from lib.rule_chain import (
     NoMatchException,
@@ -54,7 +55,10 @@ def get_vitessce_config(ds_uuid: str):
         builder = BuilderCls(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
         )
-        vitessce_conf = builder.get_conf_cells(marker=None)
+        with suppress_print():
+            # prevent the config from being logged
+            vitessce_conf = builder.get_conf_cells(marker=None)
+
         if len(vitessce_conf) < 1 or not vitessce_conf[0]:
             raise ValueError("empty vitessce config")
 
