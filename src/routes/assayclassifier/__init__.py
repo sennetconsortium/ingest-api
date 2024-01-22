@@ -14,6 +14,7 @@ from lib.rule_chain import (
     RuleLogicException,
     RuleSyntaxException,
     calculate_assay_info,
+    get_assay_info,
     initialize_rule_chain,
 )
 
@@ -32,36 +33,8 @@ def get_ds_assaytype(ds_uuid: str):
         entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
         entity_api = EntitySdk(token=groups_token, service_url=entity_api_url)
         entity = entity_api.get_entity_by_id(ds_uuid)
-
-        # This if block should catch primary datasets because primary datasets should
-        # their metadata ingested as part of the reorganization.
-        if hasattr(entity, "ingest_metadata") and "metadata" in entity.ingest_metadata:
-            metadata = entity.ingest_metadata["metadata"]
-            # If there is no metadata, then it must be a derived dataset
-        else:
-            metadata = {"entity_type": entity.entity_type}
-
-            # Historically, we have used the data_types field. So check to make sure that
-            # the data_types field is not empty and not a list of empty strings
-            # If it has a value it must be an old derived dataset so use that to match the rules
-            if (
-                hasattr(entity, "data_types")
-                and entity.data_types
-                and set(entity.data_types) != {""}
-            ):
-                metadata["data_types"] = entity.data_types
-            # Moving forward (2024) we are no longer using data_types for derived datasets.
-            # Rather, we are going to use the dataset_info attribute which stores similar information
-            # to match the rules. dataset_info is delimited by "__", so we can grab the first
-            # item when splitting by that delimiter and pass that through to the rules.
-            elif hasattr(entity, "dataset_info") and entity.dataset_info:
-                metadata["data_types"] = [entity.dataset_info.split("__")[0]]
-                # If neither of these are set, then we should force the rules engine to
-                # not match any rules.
-            else:
-                metadata["data_types"] = [""]
-
-        return jsonify(calculate_assay_info(metadata))
+        assay_info = get_assay_info(entity)
+        return jsonify(assay_info)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
