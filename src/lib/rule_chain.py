@@ -53,6 +53,8 @@ def get_assay_info(entity: Union[Entity, dict]) -> dict:
         else:
             metadata["data_types"] = [""]
 
+    metadata["entity_type"] = entity.entity_type
+
     return calculate_assay_info(metadata)
 
 
