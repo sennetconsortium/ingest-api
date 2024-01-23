@@ -17,6 +17,7 @@ from lib.rule_chain import (
     RuleSyntaxException,
     get_assay_info,
 )
+from lib.vitessce import VitessceConfigCache
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
 logger = logging.getLogger(__name__)
@@ -29,15 +30,15 @@ def get_vitessce_config(ds_uuid: str):
     except Exception:
         return jsonify({"error": "uuid must be a valid UUID"}), 400
 
-    cache = current_app.vitessce_cache
-    if cache and (config := cache.get(ds_uuid)):
-        return jsonify(config), 200
-
     try:
         auth_helper_instance = AuthHelper.instance()
         groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
         if not isinstance(groups_token, str):
             return jsonify({"error": "unauthorized"}), 401
+
+        cache: VitessceConfigCache = current_app.vitessce_cache
+        if cache and (config := cache.get(ds_uuid, groups_token, as_str=True)):
+            return Response(config, 200, mimetype="application/json")
 
         # Get entity from entity-api
         entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
@@ -95,9 +96,14 @@ def flush_cache(ds_uuid: str):
     except Exception:
         return jsonify({"error": "uuid must be a valid UUID"}), 400
 
-    cache = current_app.vitessce_cache
+    cache: VitessceConfigCache = current_app.vitessce_cache
     if cache:
-        if not cache.get(ds_uuid):
+        auth_helper_instance = AuthHelper.instance()
+        groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+        if not isinstance(groups_token, str):
+            return jsonify({"error": "unauthorized"}), 401
+
+        if not cache.get(ds_uuid, groups_token):
             msg = f"The cached data does not exist for entity {ds_uuid}"
             return jsonify({"error": msg}), 404
 
