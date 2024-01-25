@@ -1,6 +1,6 @@
 import logging
 
-from flask import Blueprint, request, Response, current_app, jsonify
+from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import EntitySdk
@@ -13,8 +13,9 @@ from lib.rule_chain import (
     NoMatchException,
     RuleLogicException,
     RuleSyntaxException,
-    initialize_rule_chain,
     calculate_assay_info,
+    get_assay_info,
+    initialize_rule_chain,
 )
 
 assayclassifier_blueprint = Blueprint("assayclassifier", __name__)
@@ -32,20 +33,8 @@ def get_ds_assaytype(ds_uuid: str):
         entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
         entity_api = EntitySdk(token=groups_token, service_url=entity_api_url)
         entity = entity_api.get_entity_by_id(ds_uuid)
-        if "metadata" in entity.metadata:
-            metadata = entity.metadata["metadata"]
-        else:
-            if hasattr(entity, "data_types") and entity.data_types:
-                metadata = {
-                    "entity_type": entity.entity_type,
-                    "data_types": entity.data_types,
-                }
-            else:
-                metadata = {
-                    "entity_type": entity.entity_type,
-                    "data_types": [entity.dataset_type],
-                }
-        return jsonify(calculate_assay_info(metadata))
+        assay_info = get_assay_info(entity)
+        return jsonify(assay_info)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
