@@ -8,7 +8,6 @@ import logging
 from flask import Flask
 from api.datacite_api import DataCiteApi
 from hubmap_sdk import EntitySdk
-from lib.dataset_helper import DatasetHelper
 from hubmap_commons.exceptions import HTTPException
 import ast
 
@@ -300,10 +299,6 @@ if __name__ == "__main__":
         try:
             entity = entity_api.get_entity_by_id(dataset_uuid)
             dataset = vars(entity)
-
-            #logger.debug(dataset)
-
-            dataset_helper = DatasetHelper()
 
             data_cite_doi_helper = DataCiteDoiHelper()
 
