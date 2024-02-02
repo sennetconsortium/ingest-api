@@ -746,7 +746,6 @@ def publish_datastage(identifier):
         if r.ok is False:
             raise ValueError("Cannot find specimen with identifier: " + identifier)
         dataset_uuid = json.loads(r.text)['hm_uuid']
-        # return dataset_helper.determine_sources_to_reindex(identifier, user_info, dataset_uuid)
         is_primary = dataset_is_primary(dataset_uuid)
         suspend_indexing_and_acls = string_helper.isYes(request.args.get('suspend-indexing-and-acls'))
         no_indexing_and_acls = False
