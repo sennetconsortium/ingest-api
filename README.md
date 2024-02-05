@@ -1,6 +1,6 @@
 # SenNet Data Ingest API
 
-A restful web service exposing calls needed for the [Portal UI](https://github.com/sennetconsortium/portal-ui) Next.js application. The API is documented [here](https://smart-api.info/registry?q=@todo).
+A restful web service exposing calls needed for the [Portal UI](https://github.com/sennetconsortium/portal-ui) Next.js application. The API is documented [here](https://smart-api.info/ui/6d853628150eb1883bacf98690c890d4).
 
 ## Working with submodule
 
