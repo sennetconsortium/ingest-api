@@ -50,6 +50,8 @@ def get_vitessce_config(ds_uuid: str):
         entity["metadata"] = entity.get("ingest_metadata", {})
         # config builder expects 'files' in the entity, not in the entity 'ingest_metadata'
         entity["files"] = entity.get("metadata").get("files", [])
+        # config builder expects 'immediate_ancestors' in the entity (Histology)
+        entity["immediate_ancestors"] = entity.get("direct_ancestors")
 
         # Get assaytype from soft-assay
         BuilderCls = get_view_config_builder(entity, get_assay_info)
