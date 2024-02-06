@@ -16,8 +16,8 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
-    get_entity,
 )
+from lib.services import get_entity
 from lib.vitessce import VitessceConfigCache
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
