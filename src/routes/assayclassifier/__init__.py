@@ -1,9 +1,9 @@
 import logging
+from typing import Optional
 
-from flask import Blueprint, Response, current_app, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
@@ -13,8 +13,9 @@ from lib.rule_chain import (
     NoMatchException,
     RuleLogicException,
     RuleSyntaxException,
+    build_entity_metadata,
     calculate_assay_info,
-    get_assay_info,
+    get_entity,
     initialize_rule_chain,
 )
 
@@ -26,15 +27,38 @@ logger: logging.Logger = logging.getLogger(__name__)
 @assayclassifier_blueprint.route("/assaytype/<ds_uuid>", methods=["GET"])
 def get_ds_assaytype(ds_uuid: str):
     try:
-        auth_helper_instance = AuthHelper.instance()
-        groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
-        if not isinstance(groups_token, str):
-            groups_token = None
-        entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-        entity_api = EntitySdk(token=groups_token, service_url=entity_api_url)
-        entity = entity_api.get_entity_by_id(ds_uuid)
-        assay_info = get_assay_info(entity)
-        return jsonify(assay_info)
+        token = get_token()
+        entity = get_entity(ds_uuid, token)
+        metadata = build_entity_metadata(entity)
+        return jsonify(calculate_assay_info(metadata))
+    except ResponseException as re:
+        logger.error(re, exc_info=True)
+        return re.response
+    except NoMatchException:
+        return {}
+    except (RuleSyntaxException, RuleLogicException) as excp:
+        return Response(f"Error applying classification rules: {excp}", 500)
+    except WerkzeugException as excp:
+        return excp
+    except (HTTPException, SDKException) as hte:
+        return Response(
+            f"Error while getting assay type for {ds_uuid}: " + hte.get_description(),
+            hte.get_status_code(),
+        )
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(
+            f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500
+        )
+
+
+@assayclassifier_blueprint.route("/assaytype/metadata/<ds_uuid>", methods=["GET"])
+def get_ds_rule_metadata(ds_uuid: str):
+    try:
+        token = get_token()
+        entity = get_entity(ds_uuid, token)
+        metadata = build_entity_metadata(entity)
+        return jsonify(metadata)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
@@ -100,3 +124,11 @@ def reload_chain():
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while reloading rule chain: " + str(e), 500)
+
+
+def get_token() -> Optional[str]:
+    auth_helper_instance = AuthHelper.instance()
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    if not isinstance(token, str):
+        token = None
+    return token

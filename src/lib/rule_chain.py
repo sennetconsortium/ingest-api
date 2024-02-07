@@ -2,12 +2,13 @@ import json
 import logging
 import urllib.request
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import yaml
 from flask import current_app
 from hubmap_commons.schema_tools import check_json_matches_schema
-from hubmap_sdk.entity import Entity
+from hubmap_sdk import Entity, EntitySdk
+from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from rule_engine import Context, EngineError, Rule
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -19,30 +20,60 @@ SCHEMA_BASE_URI = "http://schemata.hubmapconsortium.org/"
 rule_chain = None
 
 
-def get_assay_info(entity: Union[Entity, dict]) -> dict:
-    if isinstance(entity, dict):
-        entity = Entity(entity)
+def initialize_rule_chain():
+    """Initialize the rule chain from the source URI.
 
-    metadata = {}
-    # This if block should catch primary datasets because primary datasets should
-    # their metadata ingested as part of the reorganization.
-    if hasattr(entity, "ingest_metadata") and "metadata" in entity.ingest_metadata:
-        metadata = entity.ingest_metadata["metadata"]
-        # In the case of Publications, we must also set the data_types.
-        # The primary publication will always have metadata,
-        # so we have to do the association here.
-        if entity.entity_type == "Publication":
-            metadata["data_types"] = calculate_data_types(entity)
-    # If there is no metadata, then it must be a derived dataset
-    else:
-        metadata["data_types"] = calculate_data_types(entity)
+    Raises
+    ------
+    RuleSyntaxException
+        If the JSON rules are not well-formed.
+    """
+    global rule_chain
+    rule_src_uri = current_app.config["RULE_CHAIN_URI"]
+    try:
+        json_rules = urllib.request.urlopen(rule_src_uri)
+    except json.decoder.JSONDecodeError as excp:
+        raise RuleSyntaxException(excp) from excp
+    rule_chain = RuleLoader(json_rules).load()
 
-    metadata["entity_type"] = entity.entity_type
 
-    return calculate_assay_info(metadata)
+def calculate_assay_info(metadata: dict) -> dict:
+    """Calculate the assay information for the given metadata.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata for the entity.
+
+    Returns
+    -------
+    dict
+        The assay information for the entity.
+    """
+    if not rule_chain:
+        initialize_rule_chain()
+    for key, value in metadata.items():
+        if type(value) is str:
+            if value.isdigit():
+                metadata[key] = int(value)
+    rslt = rule_chain.apply(metadata)
+    # TODO: check that rslt has the expected parts
+    return rslt
 
 
 def calculate_data_types(entity: Entity) -> list[str]:
+    """Calculate the data types for the given entity.
+
+    Parameters
+    ----------
+    entity : hubmap_sdk.Entity
+        The entity
+
+    Returns
+    -------
+    list[str]
+        The data types for the entity.
+    """
     data_types = [""]
 
     # Historically, we have used the data_types field. So check to make sure that
@@ -66,26 +97,84 @@ def calculate_data_types(entity: Entity) -> list[str]:
     return data_types
 
 
-def initialize_rule_chain():
-    global rule_chain
-    rule_src_uri = current_app.config["RULE_CHAIN_URI"]
+def get_entity(ds_uuid: str, token: Optional[str]) -> Entity:
+    """Get the entity from entity-api for the given uuid.
+
+    Parameters
+    ----------
+    ds_uuid : str
+        The uuid of the entity.
+    token : Optional[str]
+        The token for the request if available
+
+    Returns
+    -------
+    hubmap_sdk.Entity
+        The entity from entity-api for the given uuid.
+    """
+    entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
+    entity_api = EntitySdk(token=token, service_url=entity_api_url)
     try:
-        json_rules = urllib.request.urlopen(rule_src_uri)
-    except json.decoder.JSONDecodeError as excp:
-        raise RuleSyntaxException(excp) from excp
-    rule_chain = RuleLoader(json_rules).load()
+        entity = entity_api.get_entity_by_id(ds_uuid)
+    except SDKException:
+        entity_api = EntitySdk(service_url=entity_api_url)
+        entity = entity_api.get_entity_by_id(ds_uuid)  # may again raise SDKException
+
+    return entity
 
 
-def calculate_assay_info(metadata: dict) -> dict:
-    if not rule_chain:
-        initialize_rule_chain()
-    for key, value in metadata.items():
-        if type(value) is str:
-            if value.isdigit():
-                metadata[key] = int(value)
-    rslt = rule_chain.apply(metadata)
-    # TODO: check that rslt has the expected parts
-    return rslt
+def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
+    """Build the metadata for the given entity.
+
+    Parameters
+    ----------
+    entity : Union[hubmap_sdk.Entity, dict]
+        The entity
+
+    Returns
+    -------
+    dict
+        The metadata for the entity.
+    """    
+    if isinstance(entity, dict):
+        entity = Entity(entity)
+
+    metadata = {}
+    if hasattr(entity, "ingest_metadata"):
+        # This if block should catch primary datasets because primary datasets should
+        # their metadata ingested as part of the reorganization.
+        if "metadata" in entity.ingest_metadata:
+            metadata = entity.ingest_metadata["metadata"]
+        else:
+            # If there is no ingest-metadata, then it must be a derived dataset
+            metadata["data_types"] = calculate_data_types(entity)
+
+        if "dag_provenance_list" in entity.ingest_metadata:
+            dag_prov_list = entity.ingest_metadata["dag_provenance_list"]
+        else:
+            dag_prov_list = []
+
+        dag_prov_list = [
+            elt["origin"] + ":" + elt["name"]
+            for elt in dag_prov_list
+            if "origin" in elt and "name" in elt
+        ]
+
+        metadata.update({"dag_provenance_list": dag_prov_list})
+
+        # In the case of Publications, we must also set the data_types.
+        # The primary publication will always have metadata,
+        # so we have to do the association here.
+        if entity.entity_type == "Publication":
+            metadata["data_types"] = calculate_data_types(entity)
+
+    # If there is no metadata, then it must be a derived dataset
+    else:
+        metadata["data_types"] = calculate_data_types(entity)
+
+    metadata["entity_type"] = entity.entity_type
+
+    return metadata
 
 
 class NoMatchException(Exception):
