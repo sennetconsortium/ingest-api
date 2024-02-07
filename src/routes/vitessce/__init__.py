@@ -17,7 +17,7 @@ from lib.rule_chain import (
     build_entity_metadata,
     calculate_assay_info,
 )
-from lib.services import get_entity
+from lib.services import get_entity_from_search_api
 from lib.vitessce import VitessceConfigCache
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
@@ -41,17 +41,8 @@ def get_vitessce_config(ds_uuid: str):
         if cache and (config := cache.get(ds_uuid, groups_token, as_str=True)):
             return Response(config, 200, mimetype="application/json")
 
-        # Get entity from entity-api
-        entity = get_entity(ds_uuid, groups_token)
-        entity = vars(entity)  # config builder expects dict
-
-        # RNASeqAnnDataZarrViewConfBuilder expects 'metadata' in the entity
-        entity["metadata"] = entity.get("ingest_metadata", {})
-        # config builder expects 'files' in the entity, not in the entity
-        # 'ingest_metadata'
-        entity["files"] = entity.get("metadata").get("files", [])
-        # config builder expects 'immediate_ancestors' in the entity (Histology)
-        entity["immediate_ancestors"] = entity.get("direct_ancestors")
+        # Get entity from search-api
+        entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
 
         # Get assaytype from soft-assay
         BuilderCls = get_view_config_builder(entity, get_assaytype)
