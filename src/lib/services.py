@@ -13,7 +13,7 @@ def get_entity(entity_id: str, token: Optional[str]) -> Entity:
     entity_id : str
         The uuid of the entity.
     token : Optional[str]
-        The token for the request if available
+        The groups token for the request if available
 
     Returns
     -------
@@ -22,7 +22,7 @@ def get_entity(entity_id: str, token: Optional[str]) -> Entity:
 
     Raises
     ------
-    SDKException
+    hubmap_sdk.sdk_helper.HTTPException
         If the entity-api request fails.
     """
     entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
