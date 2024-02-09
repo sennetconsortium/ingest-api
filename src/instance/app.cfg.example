@@ -46,6 +46,9 @@ UUID_WEBSERVICE_URL = 'http://uuid-api:8080/'
 #Search-api
 SEARCH_WEBSERVICE_URL = 'https://search-api.dev.sennetconsortium.org'
 
+#Assets-api
+ASSETS_WEBSERVICE_URL = 'https://assets.api.sennetconsortium.org'
+
 # The base url for the HuBMAP portal website
 PORTAL_URL = 'https://data.dev.sennetconsortium.org/'
 
@@ -107,7 +110,7 @@ UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sa
 UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020", "assay_types":{"code": "C004000", "key": "datasets", "endpoint": "datasets?application_context=SENNET"}}'
 
 # URI from which to load the assay classifier rules.
-RULE_CHAIN_URI = ''
+RULE_CHAIN_URI = 'https://raw.githubusercontent.com/sennetconsortium/ingest-api/main/src/routes/assayclassifier/testing_rule_chain.json'
 
 # CEDAR API KEY, get one at: https://cedar.metadatacenter.org/
 CEDAR_API_KEY = ''
