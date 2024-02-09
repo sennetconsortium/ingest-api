@@ -613,7 +613,7 @@ def dataset_data_status():
 
     descendant_datasets_query = (
         "MATCH (dds:Dataset)-[*]->(ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(:Sample) "
-        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT dds.sennet_id) AS descendant_datasets"
+        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT dds) AS descendant_datasets"
     )
 
     has_rui_query = (
@@ -697,7 +697,7 @@ def dataset_data_status():
         dataset['has_dataset_metadata'] = has_dataset_metadata
 
         for prop in dataset:
-            if isinstance(dataset[prop], list):
+            if isinstance(dataset[prop], list) and prop is not 'descendant_datasets':
                 dataset[prop] = ", ".join(dataset[prop])
             if isinstance(dataset[prop], (bool, int)):
                 dataset[prop] = str(dataset[prop])
