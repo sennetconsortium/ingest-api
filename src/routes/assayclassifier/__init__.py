@@ -15,9 +15,9 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
-    get_entity,
     initialize_rule_chain,
 )
+from lib.services import get_entity
 
 assayclassifier_blueprint = Blueprint("assayclassifier", __name__)
 

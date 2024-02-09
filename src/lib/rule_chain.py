@@ -2,13 +2,12 @@ import json
 import logging
 import urllib.request
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import yaml
 from flask import current_app
 from hubmap_commons.schema_tools import check_json_matches_schema
-from hubmap_sdk import Entity, EntitySdk
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
+from hubmap_sdk import Entity
 from rule_engine import Context, EngineError, Rule
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -97,32 +96,6 @@ def calculate_data_types(entity: Entity) -> list[str]:
     return data_types
 
 
-def get_entity(ds_uuid: str, token: Optional[str]) -> Entity:
-    """Get the entity from entity-api for the given uuid.
-
-    Parameters
-    ----------
-    ds_uuid : str
-        The uuid of the entity.
-    token : Optional[str]
-        The token for the request if available
-
-    Returns
-    -------
-    hubmap_sdk.Entity
-        The entity from entity-api for the given uuid.
-    """
-    entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-    entity_api = EntitySdk(token=token, service_url=entity_api_url)
-    try:
-        entity = entity_api.get_entity_by_id(ds_uuid)
-    except SDKException:
-        entity_api = EntitySdk(service_url=entity_api_url)
-        entity = entity_api.get_entity_by_id(ds_uuid)  # may again raise SDKException
-
-    return entity
-
-
 def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     """Build the metadata for the given entity.
 
@@ -135,7 +108,7 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     -------
     dict
         The metadata for the entity.
-    """    
+    """
     if isinstance(entity, dict):
         entity = Entity(entity)
 
