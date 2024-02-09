@@ -3,7 +3,6 @@ from uuid import UUID
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 from hubmap_sdk.sdk_helper import HTTPException
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from portal_visualization.builder_factory import get_view_config_builder
@@ -15,7 +14,9 @@ from lib.rule_chain import (
     NoMatchException,
     RuleLogicException,
     RuleSyntaxException,
-    get_assay_info,
+    build_entity_metadata,
+    calculate_assay_info,
+    get_entity,
 )
 from lib.vitessce import VitessceConfigCache
 
@@ -41,20 +42,19 @@ def get_vitessce_config(ds_uuid: str):
             return Response(config, 200, mimetype="application/json")
 
         # Get entity from entity-api
-        entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-        entity_api = EntitySdk(token=groups_token, service_url=entity_api_url)
-        entity = entity_api.get_entity_by_id(ds_uuid)
+        entity = get_entity(ds_uuid, groups_token)
         entity = vars(entity)  # config builder expects dict
 
         # RNASeqAnnDataZarrViewConfBuilder expects 'metadata' in the entity
         entity["metadata"] = entity.get("ingest_metadata", {})
-        # config builder expects 'files' in the entity, not in the entity 'ingest_metadata'
+        # config builder expects 'files' in the entity, not in the entity
+        # 'ingest_metadata'
         entity["files"] = entity.get("metadata").get("files", [])
         # config builder expects 'immediate_ancestors' in the entity (Histology)
         entity["immediate_ancestors"] = entity.get("direct_ancestors")
 
         # Get assaytype from soft-assay
-        BuilderCls = get_view_config_builder(entity, get_assay_info)
+        BuilderCls = get_view_config_builder(entity, get_assaytype)
         builder = BuilderCls(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
         )
@@ -118,3 +118,8 @@ def flush_cache(ds_uuid: str):
         msg = "The cached data was not deleted because caching is not enabled"
 
     return jsonify({"message": msg}), 200
+
+
+def get_assaytype(entity: dict) -> dict:
+    metadata = build_entity_metadata(entity)
+    return calculate_assay_info(metadata)
