@@ -687,8 +687,8 @@ def dataset_data_status():
         else:
             dataset['organ_portal_url'] = ""
         last_touch = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
-        dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(last_touch/1000))
-        dataset['created_timestamp'] = str(datetime.datetime.utcfromtimestamp(dataset['created_timestamp']/1000))
+        dataset['last_touch'] = str(datetime.datetime.utcfromtimestamp(last_touch/1000)) + ' UTC'
+        dataset['created_timestamp'] = str(datetime.datetime.utcfromtimestamp(dataset['created_timestamp']/1000)) + ' UTC'
         dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
 
         has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
