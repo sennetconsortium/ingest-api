@@ -5,7 +5,9 @@ from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 
 
-def get_entity(entity_id: str, token: Optional[str]) -> Entity:
+def get_entity(
+    entity_id: str, token: Optional[str], as_dict: bool = False
+) -> Union[Entity, dict]:
     """Get the entity from entity-api for the given uuid.
 
     Parameters
@@ -17,7 +19,7 @@ def get_entity(entity_id: str, token: Optional[str]) -> Entity:
 
     Returns
     -------
-    hubmap_sdk.Entity
+    Union[hubmap_sdk.Entity, dict]
         The entity from entity-api for the given uuid.
 
     Raises
@@ -33,6 +35,8 @@ def get_entity(entity_id: str, token: Optional[str]) -> Entity:
         entity_api = EntitySdk(service_url=entity_api_url)
         entity = entity_api.get_entity_by_id(entity_id)  # may again raise SDKException
 
+    if as_dict:
+        return vars(entity)
     return entity
 
 
@@ -52,7 +56,7 @@ def get_entity_from_search_api(
 
     Returns
     -------
-    Union[Entity, dict]
+    Union[hubmap_sdk.Entity, dict]
         The entity from search-api for the given uuid.
 
     Raises

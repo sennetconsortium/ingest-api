@@ -17,7 +17,7 @@ from lib.rule_chain import (
     build_entity_metadata,
     calculate_assay_info,
 )
-from lib.services import get_entity_from_search_api
+from lib.services import get_entity, get_entity_from_search_api
 from lib.vitessce import VitessceConfigCache
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
@@ -43,6 +43,12 @@ def get_vitessce_config(ds_uuid: str):
 
         # Get entity from search-api
         entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
+
+        def get_assaytype(entity: dict) -> dict:
+            # Get entity from entity-api
+            entity = get_entity(entity["uuid"], groups_token, as_dict=True)
+            metadata = build_entity_metadata(entity)
+            return calculate_assay_info(metadata)
 
         # Get assaytype from soft-assay
         BuilderCls = get_view_config_builder(entity, get_assaytype)
@@ -109,8 +115,3 @@ def flush_cache(ds_uuid: str):
         msg = "The cached data was not deleted because caching is not enabled"
 
     return jsonify({"message": msg}), 200
-
-
-def get_assaytype(entity: dict) -> dict:
-    metadata = build_entity_metadata(entity)
-    return calculate_assay_info(metadata)
