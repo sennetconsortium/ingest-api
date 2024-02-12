@@ -1,13 +1,10 @@
-from flask import Blueprint, jsonify, request, Response, current_app, abort, json
+from flask import Blueprint, jsonify, request, Response, current_app, json
 import logging
 import requests
 import os
 import re
 import datetime
 import time
-from typing import List
-import urllib.request
-import yaml
 from hubmap_sdk import EntitySdk
 from werkzeug import utils
 from operator import itemgetter
@@ -19,7 +16,7 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.rest import *
 from atlas_consortia_commons.string import equals
-from atlas_consortia_commons.object import includes, enum_val_lower
+from atlas_consortia_commons.object import enum_val_lower
 
 from lib.exceptions import ResponseException
 from lib.file_upload_helper import UploadFileHelper
@@ -39,7 +36,6 @@ from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
-
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
