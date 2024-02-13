@@ -28,7 +28,7 @@ class IngestFileHelper:
     def dataset_asset_directory_absolute_path(self, dataset_uuid):
         return file_helper.ensureTrailingSlashURL(self.appconfig['SENNET_WEBSERVICE_FILEPATH']) + dataset_uuid
 
-    def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
+    def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid, published=False):
         if dataset_record['contains_human_genetic_sequences']:
             access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
         elif not 'data_access_level' in dataset_record:
@@ -188,7 +188,6 @@ class IngestFileHelper:
 
         return None
 
-
     def get_upload_directory_absolute_path(self, group_uuid, upload_uuid):
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
         base_dir = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_FILEPATH']
@@ -203,7 +202,6 @@ class IngestFileHelper:
             x.start()
         except Exception as e:
             self.logger.error(e, exc_info=True)
-
 
     def set_dataset_permissions(self, dataset_uuid, group_uuid, dataset_access_level, published, trial_run=False):
         file_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, dataset_uuid, published)

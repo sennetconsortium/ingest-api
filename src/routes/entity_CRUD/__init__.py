@@ -843,7 +843,7 @@ def publish_datastage(identifier):
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
 
             ingest_helper = IngestFileHelper(current_app.config)
-            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
+            ds_path = ingest_helper.get_dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
 
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
