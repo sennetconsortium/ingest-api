@@ -608,7 +608,7 @@ def dataset_data_status():
         "RETURN DISTINCT ds.uuid AS uuid, "
         "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
         "COLLECT(DISTINCT dn.source_type) AS source_type, "
-        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL) AS has_donor_metadata"
+        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
     )
 
     descendant_datasets_query = (
