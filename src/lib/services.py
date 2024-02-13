@@ -1,5 +1,6 @@
-from typing import Optional, Union
+from typing import List, Optional, Union
 
+import requests
 from flask import current_app
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
@@ -90,3 +91,44 @@ def get_entity_from_search_api(
 
     except SDKException:
         raise
+
+
+def get_associated_sources_from_dataset(
+    dataset_id: str, token: str, as_dict: bool = False
+) -> Union[List[Entity], dict]:
+    """Get the associated sources for the given dataset.
+
+    Parameters
+    ----------
+    dataset_id : str
+        The uuid of the dataset.
+    token : str
+        The groups token for the request.
+    as_dict : bool, optional
+        Should entity be returned as a dictionary, by default False
+
+    Returns
+    -------
+    Union[List[Entity], dict]
+        The associated sources for the given dataset.
+
+    Raises
+    ------
+    hubmap_sdk.sdk_helper.HTTPException
+        If the entiti-api request fails or entity not found
+    """
+    entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
+    url = f"{entity_api_url}/datasets/{dataset_id}/sources"
+    headers = {"Authorization": f"Bearer {token}"}
+    res = requests.get(url, headers=headers)
+    if not res.ok:
+        raise SDKException(f"Failed to get associated source for dataset {dataset_id}")
+    body = res.json()
+
+    if as_dict:
+        return body
+
+    if isinstance(body, list):
+        return [Entity(entity) for entity in res.json()]
+
+    return [Entity(body)]
