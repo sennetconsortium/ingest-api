@@ -883,9 +883,36 @@ def publish_datastage(identifier):
 
                 # This will make the draft DOI created above 'findable'....
                 try:
-                    datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
+                    doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
                 except Exception as e:
                     return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for{dataset_uuid}. {e}"}), 500
+
+            doi_update_clause = ""
+            if doi_info is not None:
+                doi_update_clause = f", e.registered_doi = '{doi_info['registered_doi']}', e.doi_url = '{doi_info['doi_url']}'"
+
+            # set up a status_history list to add a "Published" entry to below
+            if 'status_history' in rval[0]:
+                status_history_str = rval[0]['status_history']
+                if status_history_str is None:
+                    status_history_list = []
+                else:
+                    status_history_list = string_helper.convert_str_literal(status_history_str)
+            else:
+                status_history_list = []
+
+            # add Published status change to status history
+            status_update = {
+               "status": "Published",
+               "changed_by_email": user_info['email'],
+               "change_timestamp": "@#TIMESTAMP#@"
+            }
+            status_history_list.append(status_update)
+            # convert from list to string that is used for storage in database
+            new_status_history_str = string_helper.convert_py_obj_to_string(status_history_list)
+            # substitute the TIMESTAMP function to let Neo4j set the change_timestamp value of this status change record
+            status_history_with_timestamp = new_status_history_str.replace("'@#TIMESTAMP#@'", '" + TIMESTAMP() + "')
+            status_history_update_clause = f', e.status_history = "{status_history_with_timestamp}"'
 
             # set dataset status to published and set the last modified user info and user who published
             update_q = "match (e:Entity {uuid:'" + dataset_uuid + "'}) set e.status = 'Published', e.last_modified_user_sub = '" + \
@@ -893,12 +920,13 @@ def publish_datastage(identifier):
                            'email'] + "', e.last_modified_user_displayname = '" + user_info[
                            'name'] + "', e.last_modified_timestamp = TIMESTAMP(), e.published_timestamp = TIMESTAMP(), e.published_user_email = '" + \
                        user_info['email'] + "', e.published_user_sub = '" + user_info[
-                           'sub'] + "', e.published_user_displayname = '" + user_info['name'] + "'"
+                           'sub'] + "', e.published_user_displayname = '" + user_info['name'] + "'" + doi_update_clause + status_history_update_clause
+
             logger.info(dataset_uuid + "\t" + dataset_uuid + "\tNEO4J-update-base-dataset\t" + update_q)
             neo_session.run(update_q)
 
             # triggers a call to entity-api/flush-cache
-            # out = entity_instance.clear_cache(dataset_uuid)
+            entity_instance.clear_cache(dataset_uuid)
 
             # if all else worked set the list of ids to public that need to be public
             if len(uuids_for_public) > 0:
@@ -906,8 +934,8 @@ def publish_datastage(identifier):
                 update_q = "match (e:Entity) where e.uuid in [" + id_list + "] set e.data_access_level = 'public'"
                 logger.info(identifier + "\t" + dataset_uuid + "\tNEO4J-update-ancestors\t" + update_q)
                 neo_session.run(update_q)
-                # for e_id in uuids_for_public:
-                #     out = entity_instance.clear_cache(e_id)
+                for e_id in uuids_for_public:
+                    entity_instance.clear_cache(e_id)
 
         if no_indexing_and_acls:
             r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
