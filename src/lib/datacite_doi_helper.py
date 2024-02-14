@@ -213,7 +213,7 @@ class DataCiteDoiHelper:
                 logger.debug("======resulting json from DataCite======")
                 logger.debug(doi_data)
 
-                doi_name = datacite_api.build_doi_name(dataset['hubmap_id'])
+                doi_name = datacite_api.build_doi_name(dataset['sennet_id'])
                 doi_info = {
                     'registered_doi': doi_name,
                     'doi_url': f'https://doi.org/{doi_name}'
