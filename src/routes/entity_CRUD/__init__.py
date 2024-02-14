@@ -879,27 +879,25 @@ def publish_datastage(identifier):
                 try:
                     datacite_doi_helper.create_dataset_draft_doi(entity_dict, check_publication_status=False)
                 except Exception as e:
-                    return jsonify({"error": f"Error occurred while trying to create a draft doi for{dataset_uuid}. {e}"}), 500
+                    logger.exception(f"Exception while creating a draft doi for {dataset_uuid}: {e}")
+                    return jsonify({"error": f"Error occurred while trying to create a draft doi for {dataset_uuid}. {e}"}), 500
 
                 # This will make the draft DOI created above 'findable'....
                 try:
                     doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
                 except Exception as e:
-                    return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for{dataset_uuid}. {e}"}), 500
+                    logger.exception(f"Exception while creating making doi findable and saving to entity for {dataset_uuid}: {e}")
+                    return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for {dataset_uuid}. {e}"}), 500
 
             doi_update_clause = ""
             if doi_info is not None:
                 doi_update_clause = f", e.registered_doi = '{doi_info['registered_doi']}', e.doi_url = '{doi_info['doi_url']}'"
 
             # set up a status_history list to add a "Published" entry to below
-            if 'status_history' in rval[0]:
-                status_history_str = rval[0]['status_history']
-                if status_history_str is None:
-                    status_history_list = []
-                else:
-                    status_history_list = string_helper.convert_str_literal(status_history_str)
-            else:
-                status_history_list = []
+            status_history_list = []
+            status_history_str = rval[0].get('status_history')
+            if status_history_str is not None:
+                status_history_list = string_helper.convert_str_literal(status_history_str)
 
             # add Published status change to status history
             status_update = {
