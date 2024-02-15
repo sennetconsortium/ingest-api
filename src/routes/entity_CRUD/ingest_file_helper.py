@@ -29,7 +29,10 @@ class IngestFileHelper:
         return file_helper.ensureTrailingSlashURL(self.appconfig['SENNET_WEBSERVICE_FILEPATH']) + dataset_uuid
 
     def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
-        if dataset_record['contains_human_genetic_sequences']:
+        if 'contains_human_genetic_sequences' not in dataset_record:
+            self.logger.info(f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}")
+
+        if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
         elif not 'data_access_level' in dataset_record:
             access_level = self.appconfig['ACCESS_LEVEL_CONSORTIUM']
@@ -57,7 +60,10 @@ class IngestFileHelper:
         return abs_path
 
     def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid):
-        if dataset_record['contains_human_genetic_sequences']:
+        if 'contains_human_genetic_sequences' not in dataset_record:
+            self.logger.info(f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}")
+
+        if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = 'protected'
         elif not 'data_access_level' in dataset_record:
             access_level = 'consortium'
