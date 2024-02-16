@@ -40,9 +40,9 @@ class IngestFileHelper:
         if 'status' in dataset_record and dataset_record['status'] == 'Published':
             published = True
 
-        return self.__dataset_directory_absolute_path(access_level, group_uuid, dataset_uuid, published)
+        return self.dataset_directory_absolute_path(access_level, group_uuid, dataset_uuid, published)
 
-    def __dataset_directory_absolute_path(self, access_level, group_uuid, dataset_uuid, published):
+    def dataset_directory_absolute_path(self, access_level, group_uuid, dataset_uuid, published):
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
         if access_level == 'protected':
             base_dir = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_FILEPATH']
@@ -175,19 +175,18 @@ class IngestFileHelper:
             self.logger.error(e, exc_info=True)
 
     def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run=False):
-        from_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)
+        from_path = self.dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)
         if not os.path.isdir(from_path):
             raise HTTPException(f"{uuid}: path not found to dataset will not publish, path is {from_path}", 500)
         data_access_level = 'protected'
         if not dataset_access_level == 'protected': data_access_level = 'public'
-        to_path = self.__dataset_directory_absolute_path(data_access_level, group_uuid, uuid, True)
+        to_path = self.dataset_directory_absolute_path(data_access_level, group_uuid, uuid, True)
         if not trial_run:
             shutil.move(from_path, to_path)
         else:
             print(f"mv {from_path} {to_path}")
 
         return None
-
 
     def get_upload_directory_absolute_path(self, group_uuid, upload_uuid):
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
@@ -204,9 +203,8 @@ class IngestFileHelper:
         except Exception as e:
             self.logger.error(e, exc_info=True)
 
-
     def set_dataset_permissions(self, dataset_uuid, group_uuid, dataset_access_level, published, trial_run=False):
-        file_path = self.__dataset_directory_absolute_path(dataset_access_level, group_uuid, dataset_uuid, published)
+        file_path = self.dataset_directory_absolute_path(dataset_access_level, group_uuid, dataset_uuid, published)
         return self.set_dir_permissions(dataset_access_level, file_path, published, trial_run=trial_run)
 
     def relink_to_public(self, dataset_uuid):

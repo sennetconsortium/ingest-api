@@ -1,14 +1,11 @@
-from flask import Blueprint, jsonify, request, Response, current_app, abort, json
+from flask import Blueprint, jsonify, request, Response, current_app, json
 import logging
 import requests
 import os
 import re
 import datetime
 import time
-from typing import List
-import urllib.request
-import yaml
-from hubmap_sdk import EntitySdk
+from hubmap_sdk import Entity, EntitySdk
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
@@ -18,8 +15,9 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.rest import *
+from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found
 from atlas_consortia_commons.string import equals
-from atlas_consortia_commons.object import includes, enum_val_lower
+from atlas_consortia_commons.object import enum_val_lower
 
 from lib.exceptions import ResponseException
 from lib.file_upload_helper import UploadFileHelper
@@ -39,7 +37,7 @@ from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
-
+from lib.services import get_associated_sources_from_dataset
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -727,26 +725,26 @@ def dataset_data_status():
 def publish_datastage(identifier):
     try:
         auth_helper = AuthHelper.instance()
-        #dataset_helper = DatasetHelper(current_app.config)
 
-        user_info = auth_helper.getUserInfoUsingRequest(request, getGroups = True)
+        user_info = auth_helper.getUserInfoUsingRequest(request, getGroups=True)
         if user_info is None:
             return Response("Unable to obtain user information for auth token", 401)
         if isinstance(user_info, Response):
             return user_info
 
         if 'hmgroupids' not in user_info:
-            return Response("User has no valid group information to authorize publication.", 403)
+            abort_forbidden('User has no valid group information to authorize publication.')
         if not auth_helper.has_data_admin_privs(auth_helper.getUserTokenFromRequest(request, getGroups=True)):
-            return Response("User must be a member of the SenNet Data Admin group to publish data.", 403)
+            abort_forbidden('User must be a member of the SenNet Data Admin group to publish data.')
 
         if identifier is None or len(identifier) == 0:
             abort_bad_req('identifier parameter is required to publish a dataset')
 
-        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "uuid/" + identifier,
-                         headers={'Authorization': request.headers["AUTHORIZATION"]})
+        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + "uuid/" + identifier
+        r = requests.get(url, headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
-            raise ValueError("Cannot find specimen with identifier: " + identifier)
+            abort_not_found("Cannot find specimen with identifier: " + identifier)
+
         dataset_uuid = json.loads(r.text)['hm_uuid']
         is_primary = dataset_is_primary(dataset_uuid)
         suspend_indexing_and_acls = string_helper.isYes(request.args.get('suspend-indexing-and-acls'))
@@ -756,16 +754,9 @@ def publish_datastage(identifier):
 
         sources_to_reindex = []
         with Neo4jHelper.get_instance().session() as neo_session:
-            #recds = session.run("Match () Return 1 Limit 1")
-            #for recd in recds:
-            #    if recd[0] == 1:
-            #        is_connected = True
-            #    else:
-            #        is_connected = False
-
-            #look at all of the ancestors
-            #gather uuids of ancestors that need to be switched to public access_level
-            #grab the id of the source ancestor to use for reindexing
+            # look at all of the ancestors
+            # gather uuids of ancestors that need to be switched to public access_level
+            # grab the id of the source ancestor to use for reindexing
             q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
@@ -801,13 +792,21 @@ def publish_datastage(identifier):
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Dataset':
                     if status != 'Published':
-                        return Response(f"{dataset_uuid} has an ancestor dataset that has not been Published. Will not Publish. Ancestor dataset is: {uuid}", 400)
+                        abort_bad_req(f"{dataset_uuid} has an ancestor dataset that has not been Published. Will not Publish. Ancestor dataset is: {uuid}")
 
             if has_source is False:
-                return Response(f"{dataset_uuid}: no source found for dataset, will not Publish")
+                abort_bad_req(f"{dataset_uuid}: no source found for dataset, will not Publish")
 
-            #get info for the dataset to be published
-            q = f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN e.uuid as uuid, e.entity_type as entitytype, e.status as status, e.data_access_level as data_access_level, e.group_uuid as group_uuid, e.contacts as contacts, e.contributors as contributors"
+            # get info for the dataset to be published
+            q = (
+                f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN "
+                "e.uuid as uuid, e.entity_type as entitytype, e.status as status, "
+                "e.data_access_level as data_access_level, e.group_uuid as group_uuid, "
+                "e.contacts as contacts, e.contributors as contributors"
+            )
+            if is_primary:
+                q += ", e.ingest_metadata as ingest_metadata"
+
             rval = neo_session.run(q).data()
             dataset_status = rval[0]['status']
             dataset_entitytype = rval[0]['entitytype']
@@ -815,15 +814,22 @@ def publish_datastage(identifier):
             dataset_group_uuid = rval[0]['group_uuid']
             dataset_contacts = rval[0]['contacts']
             dataset_contributors = rval[0]['contributors']
+            dataset_ingest_metadata_dict = None
+            if is_primary:
+                dataset_ingest_metadata = rval[0].get('ingest_metadata')
+                if dataset_ingest_metadata is not None:
+                    dataset_ingest_metadata_dict: dict = string_helper.convert_str_literal(dataset_ingest_metadata)
+                logger.info(f"publish_datastage; ingest_metadata: {dataset_ingest_metadata_dict}")
+
             if not get_entity_type_instanceof(dataset_entitytype, 'Dataset', auth_header="Bearer " + auth_helper.getProcessSecret()):
-                return Response(f"{dataset_uuid} is not a dataset will not Publish, entity type is {dataset_entitytype}", 400)
+                abort_bad_req(f"{dataset_uuid} is not a dataset will not Publish, entity type is {dataset_entitytype}")
             if not dataset_status == 'QA':
-                return Response(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}", 400)
+                abort_bad_req(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}")
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
             entity = entity_instance.get_entity_by_id(dataset_uuid)
-            entity_dict: dict = vars(entity)
+            entity_dict = obj_to_dict(entity)
 
             dataset_types_edp = list(Ontology.ops(as_data_dict=True).dataset_types().values())
             has_entity_lab_processed_dataset_type: bool = entity_dict.get('dataset_type') in dataset_types_edp
@@ -832,17 +838,29 @@ def publish_datastage(identifier):
 
             if is_primary or has_entity_lab_processed_dataset_type:
                 if dataset_contacts is None or dataset_contributors is None:
-                    return jsonify({"error": f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"}), 400
+                    abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
                 dataset_contacts = dataset_contacts.replace("'", '"')
                 dataset_contributors = dataset_contributors.replace("'", '"')
                 if len(json.loads(dataset_contacts)) < 1 or len(json.loads(dataset_contributors)) < 1:
-                    return jsonify({"error": f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"}), 400
+                    abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
+
             ingest_helper = IngestFileHelper(current_app.config)
+            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
+
+            md_file = os.path.join(ds_path, "metadata.json")
+            json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
+            logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
+            try:
+                with open(md_file, "w") as outfile:
+                    outfile.write(json_object)
+            except Exception as e:
+                logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
+                return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
 
             data_access_level = dataset_data_access_level
-            #if consortium access level convert to public dataset, if protected access leave it protected
+            # if consortium access level convert to public dataset, if protected access leave it protected
             if dataset_data_access_level == 'consortium':
-                #before moving check to see if there is currently a link for the dataset in the assets directory
+                # before moving check to see if there is currently a link for the dataset in the assets directory
                 asset_dir = ingest_helper.dataset_asset_directory_absolute_path(dataset_uuid)
                 asset_dir_exists = os.path.exists(asset_dir)
                 ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium')
@@ -854,28 +872,47 @@ def publish_datastage(identifier):
             acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
                                                              True, no_indexing_and_acls)
 
-            auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
             if is_primary or has_entity_lab_processed_dataset_type:
                 # DOI gets generated here
                 # Note: moved dataset title auto generation to entity-api - Zhou 9/29/2021
                 datacite_doi_helper = DataCiteDoiHelper()
 
-
-                entity = entity_instance.get_entity_by_id(dataset_uuid)
-                entity_dict = vars(entity)
-
                 try:
                     datacite_doi_helper.create_dataset_draft_doi(entity_dict, check_publication_status=False)
                 except Exception as e:
-                    return jsonify({"error": f"Error occurred while trying to create a draft doi for{dataset_uuid}. {e}"}), 500
+                    logger.exception(f"Exception while creating a draft doi for {dataset_uuid}: {e}")
+                    return jsonify({"error": f"Error occurred while trying to create a draft doi for {dataset_uuid}. {e}"}), 500
+
                 # This will make the draft DOI created above 'findable'....
                 try:
-                    datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
+                    doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
                 except Exception as e:
-                    return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for{dataset_uuid}. {e}"}), 500
+                    logger.exception(f"Exception while creating making doi findable and saving to entity for {dataset_uuid}: {e}")
+                    return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for {dataset_uuid}. {e}"}), 500
+
+            doi_update_clause = ""
+            if doi_info is not None:
+                doi_update_clause = f", e.registered_doi = '{doi_info['registered_doi']}', e.doi_url = '{doi_info['doi_url']}'"
+
+            # set up a status_history list to add a "Published" entry to below
+            status_history_list = []
+            status_history_str = rval[0].get('status_history')
+            if status_history_str is not None:
+                status_history_list = string_helper.convert_str_literal(status_history_str)
+
+            # add Published status change to status history
+            status_update = {
+               "status": "Published",
+               "changed_by_email": user_info['email'],
+               "change_timestamp": "@#TIMESTAMP#@"
+            }
+            status_history_list.append(status_update)
+            # convert from list to string that is used for storage in database
+            new_status_history_str = string_helper.convert_py_obj_to_string(status_history_list)
+            # substitute the TIMESTAMP function to let Neo4j set the change_timestamp value of this status change record
+            status_history_with_timestamp = new_status_history_str.replace("'@#TIMESTAMP#@'", '" + TIMESTAMP() + "')
+            status_history_update_clause = f', e.status_history = "{status_history_with_timestamp}"'
 
             # set dataset status to published and set the last modified user info and user who published
             update_q = "match (e:Entity {uuid:'" + dataset_uuid + "'}) set e.status = 'Published', e.last_modified_user_sub = '" + \
@@ -883,12 +920,13 @@ def publish_datastage(identifier):
                            'email'] + "', e.last_modified_user_displayname = '" + user_info[
                            'name'] + "', e.last_modified_timestamp = TIMESTAMP(), e.published_timestamp = TIMESTAMP(), e.published_user_email = '" + \
                        user_info['email'] + "', e.published_user_sub = '" + user_info[
-                           'sub'] + "', e.published_user_displayname = '" + user_info['name'] + "'"
+                           'sub'] + "', e.published_user_displayname = '" + user_info['name'] + "'" + doi_update_clause + status_history_update_clause
+
             logger.info(dataset_uuid + "\t" + dataset_uuid + "\tNEO4J-update-base-dataset\t" + update_q)
             neo_session.run(update_q)
 
             # triggers a call to entity-api/flush-cache
-            # out = entity_instance.clear_cache(dataset_uuid)
+            entity_instance.clear_cache(dataset_uuid)
 
             # if all else worked set the list of ids to public that need to be public
             if len(uuids_for_public) > 0:
@@ -896,11 +934,11 @@ def publish_datastage(identifier):
                 update_q = "match (e:Entity) where e.uuid in [" + id_list + "] set e.data_access_level = 'public'"
                 logger.info(identifier + "\t" + dataset_uuid + "\tNEO4J-update-ancestors\t" + update_q)
                 neo_session.run(update_q)
-                # for e_id in uuids_for_public:
-                #     out = entity_instance.clear_cache(e_id)
+                for e_id in uuids_for_public:
+                    entity_instance.clear_cache(e_id)
 
         if no_indexing_and_acls:
-            r_val = {'sources_for_indexing': sources_to_reindex}
+            r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
         else:
             r_val = {'acl_cmd': '', 'sources_for_indexing': []}
 
@@ -909,7 +947,7 @@ def publish_datastage(identifier):
                 try:
                     rspn = requests.put(current_app.config['SEARCH_WEBSERVICE_URL'] + "/reindex/" + source_uuid, headers={'Authorization': request.headers["AUTHORIZATION"]})
                     logger.info(f"Publishing {identifier} indexed source {source_uuid} with status {rspn.status_code}")
-                except:
+                except Exception:
                     logger.exception(f"While publishing {identifier} Error happened when calling reindex web service for source {source_uuid}")
 
         return Response(json.dumps(r_val), 200, mimetype='application/json')
@@ -1718,3 +1756,32 @@ def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
 
     resp_json: dict = response.json()
     return resp_json['instanceof']
+
+
+def obj_to_dict(obj) -> dict:
+    """
+    Convert the obj[ect] into a dict, but deeply.
+    Note: The Python builtin 'vars()' does not work here because of the way that some of the classes
+    are defined.
+    """
+    return json.loads(
+        json.dumps(obj, default=lambda o: getattr(o, '__dict__', str(o)))
+    )
+
+
+def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk) -> str:
+    """
+    Because entity and the content of the arrays returned from entity_instance.get_associated_*
+    contain user defined objects we need to turn them into simple python objects (e.g., dicts, lists, str)
+    before we can convert them wth json.dumps.
+    Here we create an expanded version of the entity associated with the dataset_uuid and return it as a json string.
+    """
+    dataset_uuid = entity.get_uuid()
+    entity = obj_to_dict(entity)
+    entity['organs'] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
+    entity['samples'] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
+    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
+
+    json_object = json.dumps(entity, indent=4)
+    json_object += '\n'
+    return json_object
