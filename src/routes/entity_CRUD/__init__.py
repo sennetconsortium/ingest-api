@@ -507,6 +507,7 @@ def submit_dataset(uuid):
     # Datasets without directories or files fail an initial pipeline check so these never get set as 'processing' and just error out.
     def call_airflow():
         try:
+            logger.info('dataset_request: ' + json.dumps(dataset_request, indent=4, default=str))
             request_ingest_payload = {
                 "submission_id": "{uuid}".format(uuid=uuid),
                 "process": "SCAN.AND.BEGIN.PROCESSING",
@@ -695,7 +696,7 @@ def dataset_data_status():
         dataset['has_dataset_metadata'] = has_dataset_metadata
 
         for prop in dataset:
-            if isinstance(dataset[prop], list) and prop is not 'descendant_datasets':
+            if isinstance(dataset[prop], list) and prop != 'descendant_datasets':
                 dataset[prop] = ", ".join(dataset[prop])
             if isinstance(dataset[prop], (bool, int)):
                 dataset[prop] = str(dataset[prop])
