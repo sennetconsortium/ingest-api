@@ -610,8 +610,13 @@ def dataset_data_status():
         "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
     )
 
+    descendant_datasets_query = (
+        "MATCH (dds:Dataset)-[*]->(ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(:Sample) "
+        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT dds.sennet_id) AS descendant_datasets"
+    )
+
     derived_datasets_query = (
-        "MATCH (s:Entity)<-[:ACTIVITY_OUTPUT]-(a:Activity)<-[:ACTIVITY_INPUT]-(ds:Dataset) WHERE "
+        "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
         "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT s) AS derived_datasets"
     )
 
@@ -629,7 +634,7 @@ def dataset_data_status():
         "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
 
-    queries = [all_datasets_query, organ_query, source_query, derived_datasets_query, has_rui_query]
+    queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query, derived_datasets_query]
     results = [None] * len(queries)
     threads = []
     for i, query in enumerate(queries):
@@ -643,8 +648,9 @@ def dataset_data_status():
     all_datasets_result = results[0]
     organ_result = results[1]
     source_result = results[2]
-    derived_datasets_result = results[3]
+    descendant_datasets_result = results[3]
     has_rui_result = results[4]
+    derived_datasets_result = results[5]
 
     for dataset in all_datasets_result:
         output_dict[dataset['uuid']] = dataset
@@ -660,6 +666,9 @@ def dataset_data_status():
             # output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
             output_dict[dataset['uuid']]['source_lab_id'] = dataset['source_lab_id']
             output_dict[dataset['uuid']]['has_donor_metadata'] = dataset['has_donor_metadata']
+    for dataset in descendant_datasets_result:
+        if output_dict.get(dataset['uuid']):
+            output_dict[dataset['uuid']]['descendant_datasets'] = dataset['descendant_datasets']
     for dataset in derived_datasets_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['derived_datasets'] = dataset['derived_datasets']
