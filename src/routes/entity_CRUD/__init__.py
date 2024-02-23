@@ -683,17 +683,7 @@ def dataset_data_status():
     for dataset in combined_results:
         globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'), dataset.get('uuid'))
         dataset['globus_url'] = globus_url
-        portal_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['PORTAL_URL']) + 'dataset' + '/' + dataset[
-            'uuid']
-        dataset['portal_url'] = portal_url
-        ingest_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_URL']) + 'dataset' + '/' + dataset[
-            'uuid']
-        dataset['ingest_url'] = ingest_url
-        if dataset.get('organ_uuid'):
-            organ_portal_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['PORTAL_URL']) + 'sample' + '/' + dataset['organ_uuid']
-            dataset['organ_portal_url'] = organ_portal_url
-        else:
-            dataset['organ_portal_url'] = ""
+
         dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
         dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
 
