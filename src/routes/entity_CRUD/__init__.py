@@ -630,7 +630,7 @@ def dataset_data_status():
     displayed_fields = [
         "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
         "has_contributors", "dataset_type", "source_sennet_id", "source_lab_id",
-        "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url", "portal_url", "ingest_url",
+        "has_dataset_metadata", "has_donor_metadata", "descendant_datasets", "upload", "has_rui_info", "globus_url",
         "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
 
