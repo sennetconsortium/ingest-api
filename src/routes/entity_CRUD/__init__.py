@@ -615,9 +615,9 @@ def dataset_data_status():
         "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT dds.sennet_id) AS descendant_datasets"
     )
 
-    derived_datasets_query = (
+    processed_datasets_query = (
         "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT s) AS derived_datasets"
+        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT s) AS processed_datasets"
     )
 
     has_rui_query = (
@@ -634,7 +634,7 @@ def dataset_data_status():
         "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
     ]
 
-    queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query, derived_datasets_query]
+    queries = [all_datasets_query, organ_query, source_query, descendant_datasets_query, has_rui_query, processed_datasets_query]
     results = [None] * len(queries)
     threads = []
     for i, query in enumerate(queries):
@@ -650,7 +650,7 @@ def dataset_data_status():
     source_result = results[2]
     descendant_datasets_result = results[3]
     has_rui_result = results[4]
-    derived_datasets_result = results[5]
+    processed_datasets_result = results[5]
 
     for dataset in all_datasets_result:
         output_dict[dataset['uuid']] = dataset
@@ -669,9 +669,9 @@ def dataset_data_status():
     for dataset in descendant_datasets_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['descendant_datasets'] = dataset['descendant_datasets']
-    for dataset in derived_datasets_result:
+    for dataset in processed_datasets_result:
         if output_dict.get(dataset['uuid']):
-            output_dict[dataset['uuid']]['derived_datasets'] = dataset['derived_datasets']
+            output_dict[dataset['uuid']]['processed_datasets'] = dataset['processed_datasets']
     for dataset in has_rui_result:
         if output_dict.get(dataset['uuid']):
             output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
@@ -693,7 +693,7 @@ def dataset_data_status():
         dataset['has_dataset_metadata'] = has_dataset_metadata
 
         for prop in dataset:
-            if isinstance(dataset[prop], list) and prop != 'derived_datasets':
+            if isinstance(dataset[prop], list) and prop != 'processed_datasets':
                 dataset[prop] = ", ".join(dataset[prop])
             if isinstance(dataset[prop], (bool)):
                 dataset[prop] = str(dataset[prop])
