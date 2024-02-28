@@ -515,7 +515,7 @@ def submit_dataset(uuid):
                 "provider": "{group_name}".format(group_name=AuthHelper.getGroupDisplayName(group_uuid))
             }
             logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
-            r = requests.post(pipeline_url, json=request_ingest_payload,
+            r = requests.post(pipeline_url, json=request_ingest_payload, timeout=7,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
             if r.ok == True:
@@ -915,12 +915,14 @@ def publish_datastage(identifier):
             status_history_update_clause = f', e.status_history = "{status_history_with_timestamp}"'
 
             # set dataset status to published and set the last modified user info and user who published
+            # also reset ingest_task and assigned_to_group_name
             update_q = "match (e:Entity {uuid:'" + dataset_uuid + "'}) set e.status = 'Published', e.last_modified_user_sub = '" + \
                        user_info['sub'] + "', e.last_modified_user_email = '" + user_info[
                            'email'] + "', e.last_modified_user_displayname = '" + user_info[
                            'name'] + "', e.last_modified_timestamp = TIMESTAMP(), e.published_timestamp = TIMESTAMP(), e.published_user_email = '" + \
                        user_info['email'] + "', e.published_user_sub = '" + user_info[
-                           'sub'] + "', e.published_user_displayname = '" + user_info['name'] + "'" + doi_update_clause + status_history_update_clause
+                           'sub'] + "', e.published_user_displayname = '" + user_info[
+                           'name'] + "', e.ingest_task = '', e.assigned_to_group_name=''" + doi_update_clause + status_history_update_clause
 
             logger.info(dataset_uuid + "\t" + dataset_uuid + "\tNEO4J-update-base-dataset\t" + update_q)
             neo_session.run(update_q)
@@ -1113,7 +1115,7 @@ def validate_upload(upload_uuid):
     validate_url = commons_file_helper.ensureTrailingSlashURL(
         current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
+    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
     logger.debug("--- %s seconds to send validate request to Airflow ---" % (time.time() - start_time))
@@ -1151,7 +1153,7 @@ def reorganize_upload(upload_uuid):
     ##call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify = False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
 
