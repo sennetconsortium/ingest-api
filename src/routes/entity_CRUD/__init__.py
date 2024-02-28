@@ -515,7 +515,7 @@ def submit_dataset(uuid):
                 "provider": "{group_name}".format(group_name=AuthHelper.getGroupDisplayName(group_uuid))
             }
             logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
-            r = requests.post(pipeline_url, json=request_ingest_payload,
+            r = requests.post(pipeline_url, json=request_ingest_payload, timeout=7,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
             if r.ok == True:
@@ -1115,7 +1115,7 @@ def validate_upload(upload_uuid):
     validate_url = commons_file_helper.ensureTrailingSlashURL(
         current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
+    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
     logger.debug("--- %s seconds to send validate request to Airflow ---" % (time.time() - start_time))
@@ -1153,7 +1153,7 @@ def reorganize_upload(upload_uuid):
     ##call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify = False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
 
