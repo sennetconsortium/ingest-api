@@ -33,12 +33,14 @@ logger = logging.getLogger(__name__)
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
+from routes.entity_CRUD.session_helper import SessionHelper
 from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
 from lib.services import get_associated_sources_from_dataset
 
+airflow_session = None
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
 def create_dataset():
@@ -509,6 +511,10 @@ def submit_dataset(uuid):
     # Datasets without directories or files fail an initial pipeline check so these never get set as 'processing' and just error out.
     def call_airflow():
         airflow_start = time.time()
+
+        session_helper = SessionHelper()
+        airflow_session = session_helper.get()
+
         try:
             logger.info('dataset_request: ' + json.dumps(dataset_request, indent=4, default=str))
             request_ingest_payload = {
@@ -520,7 +526,7 @@ def submit_dataset(uuid):
             logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
             airflow_first_stop = time.time()
             logger.info('Time to call pipeline: ' + str(airflow_first_stop-airflow_start))
-            r = requests.post(pipeline_url, json=request_ingest_payload,
+            r = airflow_session.post(pipeline_url, json=request_ingest_payload,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
             if r.ok == True:
