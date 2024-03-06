@@ -51,9 +51,9 @@ def get_entity_from_search_api(
     entity_id : str
         The uuid of the entity.
     token : Optional[str]
-        The groups token for the request if available
+        The groups token for the request if available.
     as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False
+        Should entity be returned as a dictionary, by default False.
 
     Returns
     -------
@@ -63,7 +63,7 @@ def get_entity_from_search_api(
     Raises
     ------
     hubmap_sdk.sdk_helper.HTTPException
-        If the search-api request fails or entity not found
+        If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
     search_api = SearchSdk(token=token, service_url=search_api_url)
@@ -105,7 +105,7 @@ def get_associated_sources_from_dataset(
     token : str
         The groups token for the request.
     as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False
+        Should entity be returned as a dictionary, by default False.
 
     Returns
     -------
@@ -115,7 +115,7 @@ def get_associated_sources_from_dataset(
     Raises
     ------
     hubmap_sdk.sdk_helper.HTTPException
-        If the entiti-api request fails or entity not found
+        If the entiti-api request fails or entity not found.
     """
     entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
     url = f"{entity_api_url}/datasets/{dataset_id}/sources"
@@ -132,3 +132,32 @@ def get_associated_sources_from_dataset(
         return [Entity(entity) for entity in res.json()]
 
     return [Entity(body)]
+
+
+def reindex_entities(entity_ids: list, token: str) -> None:
+    """Reindex the entities in the search-api.
+
+    Parameters
+    ----------
+    entity_ids : list
+        The list of uuids of the entities to be reindexed.
+    token : str
+        The groups token for the request.
+
+    Raises
+    ------
+    hubmap_sdk.sdk_helper.HTTPException
+        If the search-api request fails or entity not found.
+    """
+    search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
+    search_api = SearchSdk(token=token, service_url=search_api_url)
+    errors = {}
+    for entity_id in entity_ids:
+        try:
+            search_api.reindex(entity_id)
+        except SDKException as e:
+            errors[entity_id] = str(e)
+
+    if len(errors) > 0:
+        msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
+        raise SDKException(msg)

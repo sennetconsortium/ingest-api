@@ -6,6 +6,7 @@ import re
 import datetime
 import time
 from hubmap_sdk import Entity, EntitySdk
+from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
@@ -15,9 +16,10 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.rest import *
-from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found
+from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found, abort_internal_err
 from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import enum_val_lower
+from lib.decorators import require_data_admin, require_json
 
 from lib.exceptions import ResponseException
 from lib.file_upload_helper import UploadFileHelper
@@ -37,7 +39,7 @@ from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
-from lib.services import get_associated_sources_from_dataset
+from lib.services import get_associated_sources_from_dataset, reindex_entities
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
@@ -306,6 +308,52 @@ def create_datasets_from_bulk():
                 entity_created = True
             status_codes.append(r.status_code)
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
+
+
+@entity_CRUD_blueprint.route('/datasets/bulk/submit', methods=['PUT'])
+@require_data_admin(param='token')
+@require_json(param='uuids')
+def submit_datasets_from_bulk(uuids: list, token: str):
+    if not isinstance(uuids, list) or len(uuids) == 0:
+        abort_bad_req("A list of dataset uuids is required")
+
+    dataset_helper = DatasetHelper(current_app.config)
+    uuids = set(uuids)
+    try:
+        fields = {
+            'uuid',
+            'group_uuid',
+            'contains_human_genetic_sequences',
+            'data_access_level',
+            'status',
+        }
+        datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
+        if datasets is None:
+            abort_not_found('No datasets found with the provided uuids')
+
+        # Returned uuids are valid datasets in neo4j
+        uuids = [dataset['uuid'] for dataset in datasets]
+
+        # change the status to processing in neo4j
+        records = dataset_helper.set_dataset_status(uuids, status='Processing')
+        uuids = [record['uuid'] for record in records]
+
+        # create the ingest_payload list
+        ingest_payload = [dataset_helper.create_ingest_payload(dataset) for dataset in datasets]
+
+        # TODO: call the ingest pipeline to start the processing
+
+        # reindex the uuids in search-api
+        try:
+            reindex_entities(uuids, token)
+        except SDKException as e:
+            logger.error(f"Errors while reindexing datasets during submission: {str(e)}")
+
+        # return a 202 reponse with the accepted dataset uuids
+        return jsonify(uuids), 202
+    except Exception as e:
+        logger.error(f'Error while submitting datasets: {str(e)}')
+        abort_internal_err('Error while submitting datasets')
 
 
 @entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
