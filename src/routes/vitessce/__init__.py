@@ -32,14 +32,16 @@ def get_vitessce_config(ds_uuid: str):
         return jsonify({"error": "uuid must be a valid UUID"}), 400
 
     try:
-        auth_helper_instance = AuthHelper.instance()
-        groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
-        if not isinstance(groups_token, str):
-            return jsonify({"error": "unauthorized"}), 401
+        groups_token = None
+        if request.headers.get('Authorization') is not None:
+            auth_helper_instance = AuthHelper.instance()
+            groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+            if not isinstance(groups_token, str):
+                return jsonify({"error": "unauthorized"}), 401
 
-        cache: VitessceConfigCache = current_app.vitessce_cache
-        if cache and (config := cache.get(ds_uuid, groups_token, as_str=True)):
-            return Response(config, 200, mimetype="application/json")
+            cache: VitessceConfigCache = current_app.vitessce_cache
+            if cache and (config := cache.get(ds_uuid, groups_token, as_str=True)):
+                return Response(config, 200, mimetype="application/json")
 
         # Get entity from search-api
         entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
