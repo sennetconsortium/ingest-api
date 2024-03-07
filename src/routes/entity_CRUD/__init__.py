@@ -872,6 +872,7 @@ def publish_datastage(identifier):
             acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
                                                              True, no_indexing_and_acls)
 
+            doi_info = None
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
             if is_primary or has_entity_lab_processed_dataset_type:
                 # DOI gets generated here
