@@ -33,6 +33,7 @@ def get_vitessce_config(ds_uuid: str):
 
     try:
         groups_token = None
+        cache = None
         if request.headers.get('Authorization') is not None:
             auth_helper_instance = AuthHelper.instance()
             groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
