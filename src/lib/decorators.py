@@ -2,6 +2,7 @@ import contextlib
 import os
 from functools import wraps
 from inspect import signature
+from typing import Optional
 
 from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden
 from flask import current_app, request
@@ -104,8 +105,62 @@ def require_data_admin(param: str = "token"):
 
     return decorator
 
+
+def require_valid_token(param: str = "token", groups_param: Optional[str] = None):
+    """A decorator that checks if the provided token is valid.
+
+    If the decorated function has a parameter with the same name as `param`, the
+    user's token will be passed as that parameter. If the requests has no token or an
+    invalid token, a 403 Forbidden response will be returned.
+
+    If the decorated function has a parameter with the same name as `groups_param`, the
+    user's group ids will be passed as that parameter.
+
+    Parameters
+    ----------
+    param : str
+        The name of the parameter to pass the user's token to. Defaults to "token".
+    groups_param : Optional[str]
+        The name of the parameter to pass the user's group ids to. Defaults to None.
+
+    Example
+    -------
+        @app.route("/foo", methods=["POST"])
+        @require_valid_token(param="foo_token", groups_param="foo_groups")
+        def foo(foo_token: str, foo_groups: list):
+            return jsonify({
+                "message": (
+                    f"You are a valid user with token {foo_token} "
+                    f"and groups {foo_groups}!"
+                )
+            })
+
+        @app.route("/bar", methods=["PUT"])
+        @require_valid_token()
+        def bar(token: str):
+            return jsonify({"message": f"You are a valid user with token {token}!"})
+    """
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            auth_helper = AuthHelper.configured_instance(
+                current_app.config["APP_CLIENT_ID"],
+                current_app.config["APP_CLIENT_SECRET"],
+            )
+
+            token = auth_helper.getUserTokenFromRequest(request, getGroups=True)
+            if not isinstance(token, str):
+                abort_forbidden("User must be a valid member of the SenNet Consortium")
+
             if param in signature(f).parameters:
                 kwargs[param] = token
+
+            if groups_param is not None and groups_param in signature(f).parameters:
+                user_info = auth_helper.getUserInfo(token, getGroups=True)
+                if isinstance(user_info, dict):
+                    kwargs[groups_param] = user_info.get("hmgroupids", [])
+                else:
+                    kwargs[groups_param] = []
 
             return f(*args, **kwargs)
 
