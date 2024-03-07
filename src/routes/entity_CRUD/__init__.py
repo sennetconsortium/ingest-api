@@ -441,6 +441,8 @@ def __get_dict_prop(dic, prop_name):
 
 @entity_CRUD_blueprint.route('/datasets/<uuid>/submit', methods=['PUT'])
 def submit_dataset(uuid):
+    start = time.time()
+
     if not request.is_json:
         return Response("json request required", 400)
     try:
@@ -506,6 +508,7 @@ def submit_dataset(uuid):
 
     # Datasets without directories or files fail an initial pipeline check so these never get set as 'processing' and just error out.
     def call_airflow():
+        airflow_start = time.time()
         try:
             logger.info('dataset_request: ' + json.dumps(dataset_request, indent=4, default=str))
             request_ingest_payload = {
@@ -515,10 +518,14 @@ def submit_dataset(uuid):
                 "provider": "{group_name}".format(group_name=AuthHelper.getGroupDisplayName(group_uuid))
             }
             logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
-            r = requests.post(pipeline_url, json=request_ingest_payload, timeout=7,
+            airflow_first_stop = time.time()
+            logger.info('Time to call pipeline: ' + str(airflow_first_stop-airflow_start))
+            r = requests.post(pipeline_url, json=request_ingest_payload,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
             if r.ok == True:
+                airflow_second_stop = time.time()
+                logger.info('Time to get response from airflow: ' + str(airflow_second_stop-airflow_start))
                 """expect data like this:
                 {"ingest_id": "abc123", "run_id": "run_657-xyz", "overall_file_count": "99", "top_folder_contents": "["IMS", "processed_microscopy","raw_microscopy","VAN0001-RK-1-spatial_meta.txt"]"}
                 """
@@ -542,6 +549,8 @@ def submit_dataset(uuid):
             logger.error(e2, exc_info=True)
             change_status_and_call_entity_api(f"Exception: {str(e2)}")
 
+    end = time.time()
+    logger.info('Time to call call_airflow: ' + str(end - start))
     thread = Thread(target=call_airflow)
     thread.start()
     return Response("Request of Dataset Submission Accepted", 202)
@@ -1116,7 +1125,7 @@ def validate_upload(upload_uuid):
     validate_url = commons_file_helper.ensureTrailingSlashURL(
         current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify=False)
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
     logger.debug("--- %s seconds to send validate request to Airflow ---" % (time.time() - start_time))
@@ -1154,7 +1163,7 @@ def reorganize_upload(upload_uuid):
     ##call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
     ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, timeout=7, headers=http_headers, json=upload_changes, verify = False)
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
 
