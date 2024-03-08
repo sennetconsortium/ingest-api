@@ -20,7 +20,7 @@ atlas-consortia-commons==1.0.7
 rule_engine==4.1.0
 
 # For vitessce config generation
-https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.1.0.zip
+https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.2.0.zip
 
 # Testing
 pytest==7.3.1

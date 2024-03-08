@@ -46,7 +46,7 @@ def get_vitessce_config(ds_uuid: str):
 
         # Get entity from search-api
         entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
-
+        parent = entity['immediate_ancestors'][0]
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
             entity = get_entity(entity["uuid"], groups_token, as_dict=True)
@@ -54,7 +54,7 @@ def get_vitessce_config(ds_uuid: str):
             return calculate_assay_info(metadata)
 
         # Get assaytype from soft-assay
-        BuilderCls = get_view_config_builder(entity, get_assaytype)
+        BuilderCls = get_view_config_builder(entity, get_assaytype, parent)
         builder = BuilderCls(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
         )
