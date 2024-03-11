@@ -320,13 +320,7 @@ def submit_datasets_from_bulk(uuids: list, token: str):
     dataset_helper = DatasetHelper(current_app.config)
     uuids = set(uuids)
     try:
-        fields = {
-            'uuid',
-            # 'group_uuid',
-            # 'contains_human_genetic_sequences',
-            # 'data_access_level',
-            # 'status',
-        }
+        fields = {'uuid'}
         datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
         if datasets is None:
             abort_not_found('No datasets found with any of the provided uuids')
