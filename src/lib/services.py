@@ -1,3 +1,4 @@
+import time
 from typing import List, Optional, Union
 
 import requests
@@ -51,9 +52,9 @@ def get_entity_from_search_api(
     entity_id : str
         The uuid of the entity.
     token : Optional[str]
-        The groups token for the request if available
+        The groups token for the request if available.
     as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False
+        Should entity be returned as a dictionary, by default False.
 
     Returns
     -------
@@ -63,7 +64,7 @@ def get_entity_from_search_api(
     Raises
     ------
     hubmap_sdk.sdk_helper.HTTPException
-        If the search-api request fails or entity not found
+        If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
     search_api = SearchSdk(token=token, service_url=search_api_url)
@@ -105,7 +106,7 @@ def get_associated_sources_from_dataset(
     token : str
         The groups token for the request.
     as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False
+        Should entity be returned as a dictionary, by default False.
 
     Returns
     -------
@@ -115,7 +116,7 @@ def get_associated_sources_from_dataset(
     Raises
     ------
     hubmap_sdk.sdk_helper.HTTPException
-        If the entiti-api request fails or entity not found
+        If the entiti-api request fails or entity not found.
     """
     entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
     url = f"{entity_api_url}/datasets/{dataset_id}/sources"
@@ -132,3 +133,94 @@ def get_associated_sources_from_dataset(
         return [Entity(entity) for entity in res.json()]
 
     return [Entity(body)]
+
+
+def reindex_entities(entity_ids: list, token: str) -> None:
+    """Reindex the entities in the search-api.
+
+    Parameters
+    ----------
+    entity_ids : list
+        The list of uuids of the entities to be reindexed.
+    token : str
+        The groups token for the request.
+
+    Raises
+    ------
+    hubmap_sdk.sdk_helper.HTTPException
+        If the search-api request fails or entity not found.
+    """
+    search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
+    search_api = SearchSdk(token=token, service_url=search_api_url)
+    errors = {}
+    for entity_id in entity_ids:
+        try:
+            search_api.reindex(entity_id)
+        except SDKException as e:
+            errors[entity_id] = str(e)
+
+    if len(errors) > 0:
+        msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
+        raise SDKException(msg)
+
+
+def bulk_update_entities(
+    entity_updates: dict,
+    token: str,
+    total_tries: int = 3,
+    throttle: float = 5,
+    entity_api_url: str = None,
+) -> None:
+    """Bulk update the entities in the entity-api.
+
+    This function supports request throttling and retries.
+
+    Parameters
+    ----------
+    entity_updates : dict
+        The dictionary of entity updates. The key is the uuid and the value is the
+        update dictionary.
+    token : str
+        The groups token for the request.
+    total_tries : int, optional
+        The number of total requests to be made for each update, by default 3.
+    throttle : float, optional
+        The time to wait between requests and retries, by default 5.
+    entity_api_url : str, optional
+        The url of the entity-api, by default None. If None, the url is taken from the
+        current_app.config. Parameter is used for separate threads where current_app
+        is not available.
+
+    Returns
+    -------
+    dict
+        The results of the bulk update. The key is the uuid of the entity. If
+        successful, the value is a dictionary with "success" as True and "data" as the
+        entity data. If failed, the value is a dictionary with "success" as False and
+        "data" as the error message.
+    """
+    if entity_api_url is None:
+        entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
+    entity_api = EntitySdk(token=token, service_url=entity_api_url)
+    entity_api.header["X-SenNet-Application"] = "ingest-api"
+
+    results = {}
+    for idx, (uuid, payload) in enumerate(entity_updates.items()):
+        retries = 0
+        while retries < total_tries:
+            try:
+                entity = entity_api.update_entity(uuid, payload)
+                results[uuid] = {"success": True, "data": entity}
+                break
+            except SDKException as e:
+                if e.status_code not in [500, 502, 503, 504] or retries >= total_tries:
+                    results[uuid] = {"success": False, "data": str(e)}
+                    break
+
+                retries += 1
+                time.sleep(throttle)
+
+        if idx < len(entity_updates) - 1:
+            time.sleep(throttle)
+
+    return results

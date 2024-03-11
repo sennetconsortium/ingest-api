@@ -1,8 +1,10 @@
+from collections.abc import Iterable
 import json
 import os
 import sys
 from pathlib import Path
 from shutil import copy2
+from typing import Optional, Union
 
 from flask import jsonify, Response
 import logging
@@ -61,6 +63,86 @@ class DatasetHelper:
             if count == 0:
                 return Response(f"Dataset with uuid:{uuid} not found.", 404)
             return group_uuid
+
+    def get_datasets_by_uuid(self, uuids: Union[str, Iterable], fields: Union[dict, Iterable, None] = None) -> Optional[list]:
+        """Get the datasets from the neo4j database with the given uuids.
+
+        Parameters
+        ----------
+        uuids : Union[str, Iterable]
+            The uuid(s) of the datasets to get.
+        fields : Union[dict, Iterable, None], optional
+            The fields to return for each dataset. If None, all fields are returned.
+            If a dict, the keys are the database fields to return and the values are the names to return them as.
+            If an iterable, the fields to return. Defaults to None.
+
+        Returns
+        -------
+        Optional[List[neo4j.Record]]:
+            The dataset records with the given uuids, or None if no datasets were found.
+            The specified fields are returned for each dataset.
+
+        Raises
+        ------
+        ValueError
+            If fields is not a dict, an iterable, or None.
+        """
+
+        if not isinstance(uuids, list):
+            uuids = list(uuids)
+
+        if fields is None or len(fields) == 0:
+            return_stmt = 'd'
+        elif isinstance(fields, dict):
+            return_stmt = ', '.join([f'd.{field} AS {name}' for field, name in fields.items()])
+        elif isinstance(fields, Iterable):
+            return_stmt = ', '.join([f'd.{field} AS {field}' for field in fields])
+        else:
+            raise ValueError("fields must be a dict or an iterable")
+
+        with self.neo4j_driver_instance.session() as session:
+            length = len(uuids)
+            query = (
+                "MATCH (d:Dataset) WHERE d.uuid IN $uuids AND d.entity_type = 'Dataset' "
+                "RETURN " + return_stmt
+            )
+            records = session.run(query, uuids=uuids).fetch(length)
+            if records is None or len(records) == 0:
+                return None
+
+            return records
+
+    def set_dataset_status(self, uuids: Union[str, Iterable], status: str) -> Optional[list]:
+        """Set the status of the datasets with the given uuids in the neo4j database.
+
+        Parameters
+        ----------
+        uuids : Union[str, Iterable]
+            The uuid(s) of the datasets to set the status of.
+        status : str
+            The status to set for the datasets.
+
+        Returns
+        -------
+        Optional[List[neo4j.Record]]:
+            The dataset records with the given uuids, or None if no datasets were found.
+            Each record contains the 'uuid' of the dataset.
+        """
+
+        if not isinstance(uuids, list):
+            uuids = list(uuids)
+
+        with self.neo4j_driver_instance.session() as session:
+            length = len(uuids)
+            query = (
+                "MATCH (d:Dataset) WHERE d.uuid IN $uuids AND d.entity_type = 'Dataset' "
+                "SET d.status = $status RETURN d.uuid AS uuid"
+            )
+            records = session.run(query, uuids=uuids, status=status).fetch(length)
+            if records is None or len(records) == 0:
+                return None
+
+            return records
 
     def update_ingest_status_title_thumbnail(self, app_config: object, request_json: object,
                                              request_headers: object, entity_api: EntitySdk,
@@ -364,3 +446,13 @@ class DatasetHelper:
             if len(result) == 0:
                 return False
             return True
+
+    def create_ingest_payload(self, dataset):
+        provider = self.auth_helper_instance.getGroupDisplayName(group_uuid=dataset['group_uuid'])
+        full_path = self.ingest_helper.get_dataset_directory_absolute_path(dataset, dataset['group_uuid'], dataset['uuid'])
+        return {
+            "submission_id": f"{dataset['uuid']}",
+            "process": "SCAN.AND.BEGIN.PROCESSING",
+            "full_path": full_path,
+            "provider": provider,
+        }
