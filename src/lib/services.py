@@ -168,7 +168,7 @@ def bulk_update_entities(
     entity_updates: dict,
     token: str,
     total_tries: int = 3,
-    throttle: float = 3,
+    throttle: float = 5,
     entity_api_url: str = None,
 ) -> None:
     """Bulk update the entities in the entity-api.
@@ -185,7 +185,7 @@ def bulk_update_entities(
     total_tries : int, optional
         The number of total requests to be made for each update, by default 3.
     throttle : float, optional
-        The time to wait between requests and retries, by default 3.
+        The time to wait between requests and retries, by default 5.
     entity_api_url : str, optional
         The url of the entity-api, by default None. If None, the url is taken from the
         current_app.config. Parameter is used for separate threads where current_app
