@@ -6,7 +6,6 @@ import re
 import datetime
 import time
 from hubmap_sdk import Entity, EntitySdk
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
@@ -35,6 +34,7 @@ logger = logging.getLogger(__name__)
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
+from routes.entity_CRUD.tasks import submit_datasets
 from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
@@ -322,35 +322,30 @@ def submit_datasets_from_bulk(uuids: list, token: str):
     try:
         fields = {
             'uuid',
-            'group_uuid',
-            'contains_human_genetic_sequences',
-            'data_access_level',
-            'status',
+            # 'group_uuid',
+            # 'contains_human_genetic_sequences',
+            # 'data_access_level',
+            # 'status',
         }
         datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
         if datasets is None:
-            abort_not_found('No datasets found with the provided uuids')
+            abort_not_found('No datasets found with any of the provided uuids')
 
-        # Returned uuids are valid datasets in neo4j
-        uuids = [dataset['uuid'] for dataset in datasets]
+        diff = uuids.difference({dataset['uuid'] for dataset in datasets})
+        if len(diff) > 0:
+            abort_not_found(f"No datasets found with the following uuids: {', '.join(diff)}")
 
-        # change the status to processing in neo4j
-        records = dataset_helper.set_dataset_status(uuids, status='Processing')
-        uuids = [record['uuid'] for record in records]
-
-        # create the ingest_payload list
-        ingest_payload = [dataset_helper.create_ingest_payload(dataset) for dataset in datasets]
-
-        # TODO: call the ingest pipeline to start the processing
-
-        # reindex the uuids in search-api
         try:
-            reindex_entities(uuids, token)
-        except SDKException as e:
-            logger.error(f"Errors while reindexing datasets during submission: {str(e)}")
+            Thread(target=submit_datasets, args=[uuids, token, current_app.config]).start()
+            logger.info(
+                f"Started to submit datasetsa for processing with uuids: {uuids}"
+            )
+        except Exception as e:
+            logger.exception(e)
+            abort_internal_err(e)
 
         # return a 202 reponse with the accepted dataset uuids
-        return jsonify(uuids), 202
+        return jsonify(list(uuids)), 202
     except Exception as e:
         logger.error(f'Error while submitting datasets: {str(e)}')
         abort_internal_err('Error while submitting datasets')
