@@ -1,12 +1,13 @@
-import time
+import logging
 from typing import List, Optional, Union
 
 import requests
 from flask import current_app
+from hubmap_commons.file_helper import removeTrailingSlashURL
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
+from requests.adapters import HTTPAdapter, Retry
 
-import logging
 logger = logging.getLogger(__name__)
 
 
@@ -172,7 +173,7 @@ def bulk_update_entities(
     token: str,
     total_tries: int = 3,
     throttle: float = 5,
-    entity_api_url: str = None,
+    entity_api_url: Optional[str] = None,
 ) -> None:
     """Bulk update the entities in the entity-api.
 
@@ -204,28 +205,35 @@ def bulk_update_entities(
     """
     if entity_api_url is None:
         entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-    entity_api = EntitySdk(token=token, service_url=entity_api_url)
-    entity_api.header["X-SenNet-Application"] = "ingest-api"
+    entity_api_url = removeTrailingSlashURL(entity_api_url)
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SenNet-Application": "ingest-api",
+    }
+    # create a session with retries
+    session = requests.Session()
+    session.headers = headers
+    retries = Retry(
+        total=total_tries,
+        backoff_factor=throttle,
+        status_forcelist=[500, 502, 503, 504],
+    )
+    session.mount(entity_api_url, HTTPAdapter(max_retries=retries))
 
     results = {}
-    for idx, (uuid, payload) in enumerate(entity_updates.items()):
-        retries = 0
-        while retries < total_tries:
+    with session as s:
+        for uuid, payload in entity_updates.items():
             try:
-                logger.info("Updating entity {}".format(uuid))
-                entity = entity_api.update_entity(uuid, payload)
-                results[uuid] = {"success": True, "data": entity}
-                break
-            except SDKException as e:
-                if e.status_code not in [500, 502, 503, 504] or retries >= total_tries:
-                    logger.error("Error updating entity {}".format(uuid))
-                    results[uuid] = {"success": False, "data": str(e)}
-                    break
-
-                retries += 1
-                time.sleep(throttle)
-
-        if idx < len(entity_updates) - 1:
-            time.sleep(throttle)
+                res = s.put(
+                    f"{entity_api_url}/entities/{uuid}", json=payload, timeout=15
+                )
+                results[uuid] = {
+                    "success": res.ok,
+                    "data": res.json() if res.ok else res.json().get("error"),
+                }
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to update entity {uuid}: {e}")
+                results[uuid] = {"success": False, "data": str(e)}
 
     return results
