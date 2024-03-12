@@ -6,6 +6,9 @@ from flask import current_app
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 def get_entity(
     entity_id: str, token: Optional[str], as_dict: bool = False
@@ -209,11 +212,13 @@ def bulk_update_entities(
         retries = 0
         while retries < total_tries:
             try:
+                logger.info("Updating entity {}".format(uuid))
                 entity = entity_api.update_entity(uuid, payload)
                 results[uuid] = {"success": True, "data": entity}
                 break
             except SDKException as e:
                 if e.status_code not in [500, 502, 503, 504] or retries >= total_tries:
+                    logger.error("Error updating entity {}".format(uuid))
                     results[uuid] = {"success": False, "data": str(e)}
                     break
 
