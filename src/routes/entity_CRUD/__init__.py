@@ -336,7 +336,7 @@ def submit_datasets_from_bulk(uuids: list, token: str):
     try:
         Thread(target=submit_datasets, args=[uuids, token, current_app.config]).start()
         logger.info(
-            f'Started to submit datasetsa for processing with uuids: {uuids}'
+            f'Started to submit datasets for processing with uuids: {uuids}'
         )
     except Exception as e:
         logger.error(f'Error while submitting datasets: {str(e)}')
