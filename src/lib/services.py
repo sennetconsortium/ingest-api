@@ -210,7 +210,6 @@ def bulk_update_entities(
     headers = {
         "Authorization": f"Bearer {token}",
         "X-SenNet-Application": "ingest-api",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36",
     }
     # create a session with retries
     session = requests.Session()
