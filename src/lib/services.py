@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List, Optional, Union
 
 import requests
@@ -223,7 +224,7 @@ def bulk_update_entities(
 
     results = {}
     with session as s:
-        for uuid, payload in entity_updates.items():
+        for idx, (uuid, payload) in enumerate(entity_updates.items()):
             try:
                 res = s.put(
                     f"{entity_api_url}/entities/{uuid}", json=payload, timeout=15
@@ -235,5 +236,8 @@ def bulk_update_entities(
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to update entity {uuid}: {e}")
                 results[uuid] = {"success": False, "data": str(e)}
+
+            if idx < len(entity_updates) - 1:
+                time.sleep(throttle)
 
     return results
