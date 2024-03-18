@@ -28,6 +28,8 @@ from routes.vitessce import vitessce_blueprint
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
+from tasks import TaskQueue
+
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -48,6 +50,9 @@ if 'MEMCACHED_MODE' in app.config:
 else:
     MEMCACHED_MODE = False
     MEMCACHED_PREFIX = 'NONE'
+
+if app.config.get("REDIS_MODE", False):
+    TaskQueue.create(app.config['REDIS_SERVER'], "default")
 
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
