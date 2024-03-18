@@ -1,4 +1,5 @@
 import logging
+from typing import Union
 from uuid import UUID
 
 from atlas_consortia_commons.rest import abort_internal_err, abort_not_found
@@ -27,13 +28,7 @@ def get_task(task_id: UUID, user_id: str):
         logger.error(f"Task not found: {e}")
         abort_not_found("Task not found")
 
-    status = job.get_status()
-    results = None
-    errors = None
-    if status == JobStatus.FINISHED:
-        status = "complete" if job.result.get("success", False) else "error"
-        results = job.result.get("results") if job.result["success"] else None
-        errors = job.result.get("results") if not job.result["success"] else None
+    return job_to_response(job, task_id), 200
 
     return {
         "task_id": task_id,
@@ -68,3 +63,27 @@ def flush_tasks():
         failed_jobs.remove(job_id, delete_job=True)
 
     return {"status": "success", "message": "All tasks have been deleted"}, 200
+
+
+def job_to_response(job: Job, task_id: Union[str, UUID]) -> dict:
+    status = job.get_status()
+    results = None
+    errors = None
+    if status == JobStatus.FINISHED:
+        status = "complete" if job.result.get("success", False) else "error"
+        results = job.result.get("results") if job.result["success"] else None
+        errors = job.result.get("results") if not job.result["success"] else None
+
+    return {
+        "task_id": task_id,
+        "description": job.description,
+        "status": status.title(),
+        "started_timestamp": (
+            int(job.started_at.timestamp() * 1000) if job.started_at else None
+        ),
+        "ended_timestamp": (
+            int(job.ended_at.timestamp() * 1000) if job.ended_at else None
+        ),
+        "results": results,
+        "errors": errors,
+    }
