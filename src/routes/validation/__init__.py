@@ -12,6 +12,7 @@ from atlas_consortia_commons.rest import (
     rest_server_err,
 )
 from flask import Blueprint, jsonify, request
+from rq.job import JobStatus
 
 from lib.decorators import require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
@@ -69,7 +70,7 @@ def validate_metadata_upload(token: str, user_id: str):
     job.save_meta()
 
     status = job.get_status()
-    if status == "failed":
+    if status == JobStatus.FAILED:
         abort_internal_err("Validation task failed to start")
 
     return jsonify({"task_id": task_id, "status": status}), 202

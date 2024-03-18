@@ -19,7 +19,6 @@ from hubmap_commons.file_helper import ensureTrailingSlashURL
 
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
-from tasks import TaskFailure
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_table_validator as table_validator
@@ -40,7 +39,7 @@ def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: st
                 f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
             )
             id = get_cedar_schema_ids().get(sub_type)
-            raise TaskFailure(
+            raise Exception(
                 f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". Valid id for "{sub_type}": {id}. '
                 f"For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
             )
@@ -49,9 +48,9 @@ def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: st
         validation_results = validate_tsv(
             token=token, path=upload.get("fullpath"), schema=schema
         )
-        if len(validation_results) > 2:
+        if len(validation_results) > 0:
             logger.error(f"Error validating metadata: {validation_results}")
-            raise TaskFailure(json.loads(validation_results))
+            return {"success": False, "results": [validation_results]}
         else:
             records = get_metadata(upload.get("fullpath"))
             response = _get_response(
@@ -65,16 +64,21 @@ def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: st
             if tsv_row is not None:
                 os.remove(upload.get("fullpath"))
 
-        metadata_details = save_metadata_results(response, upload, task_id)
+            if response.get("code") != StatusCodes.OK:
+                return {"success": False, "results": response.get("description")}
 
+        metadata_details = save_metadata_results(response, upload, task_id)
         return {
-            "task_id": task_id,
-            "file": metadata_details.get("pathname"),
+            "success": True,
+            "results": {
+                "task_id": task_id,
+                "file": metadata_details.get("pathname"),
+            },
         }
 
     except Exception as e:
         logger.error(f"Error validating metadata: {e}")
-        raise TaskFailure(e)
+        raise
 
 
 def save_metadata_results(response: dict, upload: dict, task_id: str) -> dict:
@@ -153,7 +157,7 @@ def validate_tsv(token, schema="metadata", path=None):
             ).schema_name
         )
     except schema_loader.PreflightError as e:
-        result = {"Preflight": str(e)}
+        result = rest_server_err({"Preflight": str(e)}, True)
     else:
         try:
             app_context = {
@@ -174,7 +178,8 @@ def validate_tsv(token, schema="metadata", path=None):
                     result = result["CEDAR Validation Errors"]
         except Exception as e:
             result = rest_server_err(e, True)
-    return json.dumps(result)
+
+    return result
 
 
 def create_tsv_from_path(path, row):

@@ -92,10 +92,6 @@ class TaskQueue:
         return True
 
 
-class TaskFailure(Exception):
-    pass
-
-
 # Add ingest_validation_tools to the path
 dir_path = os.path.dirname(__file__)
 ingest_validation_tools_path = os.path.join(

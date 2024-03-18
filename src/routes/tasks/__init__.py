@@ -3,7 +3,7 @@ from uuid import UUID
 
 from atlas_consortia_commons.rest import abort_internal_err, abort_not_found
 from flask import Blueprint
-from rq.job import Job, NoSuchJobError
+from rq.job import Job, JobStatus, NoSuchJobError
 
 from lib.decorators import require_valid_token
 from tasks import TaskQueue
@@ -27,11 +27,24 @@ def get_task(task_id: UUID, user_id: str):
         logger.error(f"Task not found: {e}")
         abort_not_found("Task not found")
 
+    status = job.get_status()
+    results = None
+    errors = None
+    if status == JobStatus.FINISHED:
+        status = "complete" if job.result.get("success", False) else "error"
+        results = job.result.get("results") if job.result["success"] else None
+        errors = job.result.get("results") if not job.result["success"] else None
+
     return {
         "task_id": task_id,
         "description": job.meta.get("description"),
-        "status": job.get_status().title(),
-        "started_timestamp": int(job.started_at.timestamp() * 1000)if job.started_at else None,
-        "ended_timestamp": int(job.ended_at.timestamp() * 1000) if job.ended_at else None,
-        "results": job.result
+        "status": status.title(),
+        "started_timestamp": (
+            int(job.started_at.timestamp() * 1000) if job.started_at else None
+        ),
+        "ended_timestamp": (
+            int(job.ended_at.timestamp() * 1000) if job.ended_at else None
+        ),
+        "results": results,
+        "errors": errors,
     }, 200
