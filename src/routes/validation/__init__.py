@@ -1,23 +1,131 @@
-import sys
+import csv
+import logging
 import os
-from importlib import import_module
+import time
+from uuid import uuid4
 
-sys.path.append(os.path.join(os.path.dirname(__file__),
-                             'ingest_validation_tools', 'src'))
+from atlas_consortia_commons.rest import (
+    StatusCodes,
+    abort_internal_err,
+    full_response,
+    is_json_request,
+    rest_server_err,
+)
+from flask import Blueprint, jsonify, request
 
-ingest_validation_tools_upload = import_module('ingest_validation_tools.upload')
-ingest_validation_tools_error_report = import_module('ingest_validation_tools.error_report')
-ingest_validation_tools_validation_utils = import_module('ingest_validation_tools.validation_utils')
-ingest_validation_tools_plugin_validator = import_module('ingest_validation_tools.plugin_validator')
-ingest_validation_tools_schema_loader = import_module('ingest_validation_tools.schema_loader')
-ingest_validation_tools_table_validator = import_module('ingest_validation_tools.table_validator')
+from lib.decorators import require_valid_token
+from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
+from tasks import TaskQueue
+from tasks.validation import validate_uploaded_metadata
 
-__all__ = ["ingest_validation_tools_validation_utils",
-           "ingest_validation_tools_upload",
-           "ingest_validation_tools_error_report",
-           "ingest_validation_tools_plugin_validator",
-           "ingest_validation_tools_schema_loader",
-           "ingest_validation_tools_table_validator"
-           ]
+validation_blueprint = Blueprint("validation", __name__)
+logger = logging.getLogger(__name__)
 
-from .validation import *
+
+@validation_blueprint.route("/metadata/validate", methods=["POST"])
+@require_valid_token(param="token", user_id_param="user_id")
+def validate_metadata_upload(token: str, user_id: str):
+    if is_json_request():
+        data = request.json
+    else:
+        data = request.values
+
+    pathname = data.get("pathname")
+    tsv_row = data.get("tsv_row")
+
+    if pathname is None:
+        upload = check_metadata_upload()
+    else:
+        if tsv_row is None:
+            upload = set_file_details(pathname)
+        else:
+            upload = create_tsv_from_path(get_base_path() + pathname, int(tsv_row))
+
+    error = upload.get("error")
+    if error is not None:
+        return full_response(error)
+
+    task_queue = TaskQueue.instance()
+    task_id = uuid4()
+    queue_id = task_queue.create_queue_id(user_id, task_id)
+
+    job = task_queue.queue.enqueue(
+        validate_uploaded_metadata,
+        kwargs={
+            "task_id": task_id,
+            "upload": upload,
+            "data": dict(data),
+            "token": token,
+        },
+        job_id=queue_id,
+        job_timeout=600,  # 10 minutes
+        ttl=604800,  # 1 week
+        result_ttl=604800,
+        error_ttl=604800,
+    )
+    job.meta["description"] = (
+        f"Metadata {upload.get('pathname').split('/')[-1]} validation"
+    )
+    job.save_meta()
+
+    status = job.get_status()
+    if status == "failed":
+        abort_internal_err("Validation task failed to start")
+
+    return jsonify({"task_id": task_id, "status": status}), 202
+
+
+def check_metadata_upload():
+    """Checks the uploaded file.
+
+    Returns
+    -------
+    dict
+        A dictionary of containing upload details or an 'error' key if something went wrong.
+    """
+
+    result: dict = {"error": None}
+    file_upload = check_upload("metadata")
+    if file_upload.get("code") is StatusCodes.OK:
+        file = file_upload.get("description")
+        file_id = file.get("id")
+        file = file.get("file")
+        pathname = file_id + os.sep + file.filename
+        result = set_file_details(pathname)
+    else:
+        result["error"] = file_upload
+
+    return result
+
+
+def create_tsv_from_path(path, row):
+    """
+    Creates a tsv from path of a specific row.
+    This is in order to validate only one if necessary.
+
+    Parameters
+    ----------
+    path : str
+        Path of original tsv
+    row : int
+        Row number in tsv to extract for new tsv
+
+    Returns
+    -------
+    dict
+        A dictionary containing file details
+    """
+
+    result: dict = {"error": None}
+    try:
+        records = get_csv_records(path, records_as_arr=True)
+        result = set_file_details(f"{time.time()}.tsv")
+
+        with open(result.get("fullpath"), "wt") as out_file:
+            tsv_writer = csv.writer(out_file, delimiter="\t")
+            tsv_writer.writerow(records.get("headers"))
+            tsv_writer.writerow(records.get("records")[row])
+    except Exception as e:
+        result = rest_server_err(e, True)
+
+    return result
