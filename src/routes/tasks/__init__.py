@@ -5,7 +5,7 @@ from atlas_consortia_commons.rest import abort_internal_err, abort_not_found
 from flask import Blueprint
 from rq.job import Job, JobStatus, NoSuchJobError
 
-from lib.decorators import require_valid_token
+from lib.decorators import require_data_admin, require_valid_token
 from tasks import TaskQueue
 
 tasks_blueprint = Blueprint("tasks", __name__)
@@ -48,3 +48,23 @@ def get_task(task_id: UUID, user_id: str):
         "results": results,
         "errors": errors,
     }, 200
+
+
+@tasks_blueprint.route("/tasks/flush", methods=["DELETE"])
+@require_data_admin()
+def flush_tasks():
+    if TaskQueue.is_initialized() is False:
+        logger.error("Task queue has not been initialized")
+        abort_internal_err("Unable to retrieve task information")
+
+    task_queue = TaskQueue.instance()
+
+    finished_jobs = task_queue.queue.finished_job_registry
+    for job_id in finished_jobs.get_job_ids():
+        finished_jobs.remove(job_id, delete_job=True)
+
+    failed_jobs = task_queue.queue.failed_job_registry
+    for job_id in failed_jobs.get_job_ids():
+        failed_jobs.remove(job_id, delete_job=True)
+
+    return {"status": "success", "message": "All tasks have been deleted"}, 200
