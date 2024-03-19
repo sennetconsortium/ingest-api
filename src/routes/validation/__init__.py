@@ -59,7 +59,7 @@ def validate_metadata_upload(token: str, user_id: str):
             "token": token,
         },
         job_id=queue_id,
-        job_timeout=600,  # 10 minutes
+        job_timeout=18000,  # 5 hours
         ttl=604800,  # 1 week
         result_ttl=604800,
         error_ttl=604800,
