@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import time
+from typing import Optional
 
 import requests
 from atlas_consortia_commons.rest import (
@@ -111,7 +112,7 @@ def save_metadata_results(response: dict, upload: dict, task_id: str) -> dict:
         return metadata_details
 
 
-def get_metadata(path):
+def get_metadata(path: str) -> list:
     """Parses a tsv and returns the rows of that tsv.
 
     Parameters
@@ -129,23 +130,24 @@ def get_metadata(path):
     return result.get("records")
 
 
-def validate_tsv(token, schema="metadata", path=None):
-    """
-    Calls methods of the Ingest Validation Tools submodule
+def validate_tsv(
+    token: str, schema: str = "metadata", path: Optional[str] = None
+) -> dict:
+    """Calls methods of the Ingest Validation Tools submodule.
 
     Parameters
     ----------
     token : str
-        The groups_token to use for validation
+        The groups_token to use for validation.
     schema : str
-        Name of the schema to validate against
-    path : str
-        The path of the tsv for Ingest Validation Tools
+        Name of the schema to validate against. Defaults to "metadata".
+    path : str, optional
+        The path of the tsv for Ingest Validation Tools. Defaults to None.
 
     Returns
     -------
     dict
-        A dictionary containing validation results
+        A dictionary containing validation results.
     """
 
     try:
@@ -182,22 +184,22 @@ def validate_tsv(token, schema="metadata", path=None):
     return result
 
 
-def create_tsv_from_path(path, row):
-    """
-    Creates a tsv from path of a specific row.
+def create_tsv_from_path(path: str, row: int) -> dict:
+    """Creates a tsv from path of a specific row.
+
     This is in order to validate only one if necessary.
 
     Parameters
     ----------
     path : str
-        Path of original tsv
+        Path of original tsv.
     row : int
-        Row number in tsv to extract for new tsv
+        Row number in tsv to extract for new tsv.
 
     Returns
     -------
     dict
-        A dictionary containing file details
+        A dictionary containing file details.
     """
 
     result: dict = {"error": None}
@@ -215,7 +217,14 @@ def create_tsv_from_path(path, row):
     return result
 
 
-def get_cedar_schema_ids():
+def get_cedar_schema_ids() -> dict:
+    """Returns the CEDAR schema ids for the different sample sub types.
+
+    Returns
+    -------
+    dict
+        A dictionary containing the schema ids for each sample sub type.
+    """
     return {
         "Block": "3e98cee6-d3fb-467b-8d4e-9ba7ee49eeff",
         "Section": "01e9bc58-bdf2-49f4-9cf9-dd34f3cc62d7",
@@ -267,18 +276,18 @@ def _get_response(
     return response
 
 
-def get_col_id_name_by_entity_type(entity_type):
+def get_col_id_name_by_entity_type(entity_type: str) -> str:
     """Returns the tsv id column name for the given entity type.
 
     Parameters
     ----------
     entity_type : str
-        The entity type
+        The entity type.
 
     Returns
     -------
     str
-        The name of the column in the tsv
+        The name of the column in the tsv.
     """
 
     if equals(entity_type, Ontology.ops().entities().SAMPLE):
@@ -305,7 +314,9 @@ def supported_metadata_sub_types(entity_type):
         ]
 
 
-def validate_records_uuids(records, entity_type, sub_type, pathname, token):
+def validate_records_uuids(
+    records: list, entity_type: str, sub_type: str, pathname: str, token: str
+) -> dict:
     """Validates the uuids / SenNet ids of given records.
 
     This is used for bulk upload so that ancestor ids referenced by the user in TSVs
@@ -327,8 +338,8 @@ def validate_records_uuids(records, entity_type, sub_type, pathname, token):
 
     Returns
     -------
-    Response
-        Rest response containing results of validation
+    dict
+        atlas_consortia_commons.rest.rest_response dict containing results of validation
     """
     errors = []
     passing = []
