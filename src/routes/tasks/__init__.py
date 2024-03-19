@@ -1,9 +1,13 @@
 import logging
 from uuid import UUID
 
-from atlas_consortia_commons.rest import abort_internal_err, abort_not_found
+from atlas_consortia_commons.rest import (
+    abort_bad_req,
+    abort_internal_err,
+    abort_not_found,
+)
 from flask import Blueprint, jsonify
-from rq.job import Job, JobStatus, NoSuchJobError
+from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
 from lib.decorators import require_data_admin, require_valid_token
 from tasks import TaskQueue, TaskResult, create_queue_id, split_queue_id
@@ -68,7 +72,38 @@ def flush_tasks():
     for job_id in failed_jobs.get_job_ids():
         failed_jobs.remove(job_id, delete_job=True)
 
+    canceled_jobs = task_queue.queue.canceled_job_registry
+    for job_id in canceled_jobs.get_job_ids():
+        canceled_jobs.remove(job_id, delete_job=True)
+
     return {"status": "success", "message": "All tasks have been deleted"}, 200
+
+
+@tasks_blueprint.route("/tasks/<uuid:task_id>/cancel", methods=["PUT"])
+@require_valid_token(user_id_param="user_id")
+def cancel_task(task_id: UUID, user_id: str):
+    if TaskQueue.is_initialized() is False:
+        logger.error("Task queue has not been initialized")
+        abort_internal_err("Unable to cancel task")
+
+    task_queue = TaskQueue.instance()
+    queue_id = create_queue_id(user_id, task_id)
+    try:
+        job = Job.fetch(queue_id, connection=task_queue.redis)
+    except NoSuchJobError as e:
+        logger.error(f"Task not found: {e}")
+        abort_not_found("Task not found")
+
+    if job.get_status() in [JobStatus.FINISHED, JobStatus.FAILED]:
+        abort_bad_req("Task has already been completed or failed")
+
+    try:
+        job.cancel()
+    except InvalidJobOperation as e:
+        logger.error(f"Task cannot be canceled: {e}")
+        abort_bad_req("Task has already been canceled")
+
+    return {}, 200
 
 
 def job_to_response(job: Job) -> dict:
