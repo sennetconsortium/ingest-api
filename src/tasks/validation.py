@@ -19,6 +19,7 @@ from hubmap_commons.file_helper import ensureTrailingSlashURL
 
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
+from tasks import TaskResult
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_table_validator as table_validator
@@ -27,7 +28,9 @@ from . import ingest_validation_tools_validation_utils as iv_utils
 logger = logging.getLogger(__name__)
 
 
-def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: str):
+def validate_uploaded_metadata(
+    task_id: str, upload: dict, data: dict, token: str
+) -> TaskResult:
     try:
         entity_type = data.get("entity_type")
         sub_type = data.get("sub_type")
@@ -50,7 +53,7 @@ def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: st
         )
         if len(validation_results) > 0:
             logger.error(f"Error validating metadata: {validation_results}")
-            return {"success": False, "results": [validation_results]}
+            return TaskResult(success=False, results=[validation_results])
         else:
             records = get_metadata(upload.get("fullpath"))
             response = _get_response(
@@ -65,16 +68,13 @@ def validate_uploaded_metadata(task_id: str, upload: dict, data: dict, token: st
                 os.remove(upload.get("fullpath"))
 
             if response.get("code") != StatusCodes.OK:
-                return {"success": False, "results": response.get("description")}
+                return TaskResult(success=False, results=response.get("description"))
 
         metadata_details = save_metadata_results(response, upload, task_id)
-        return {
-            "success": True,
-            "results": {
-                "task_id": task_id,
-                "file": metadata_details.get("pathname"),
-            },
-        }
+        return TaskResult(
+            success=True,
+            results={"task_id": task_id, "file": metadata_details.get("pathname")},
+        )
 
     except Exception as e:
         logger.error(f"Error validating metadata: {e}")

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import logging
 import os
 import sys
@@ -11,6 +12,12 @@ from rq import Queue
 logger: logging.Logger = logging.getLogger(__name__)
 
 _instance = None
+
+
+@dataclass(frozen=True)
+class TaskResult:
+    success: bool
+    results: dict
 
 
 class TaskQueue:

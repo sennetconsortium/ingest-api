@@ -116,7 +116,7 @@ def files_exist(uuid, data_access_level, group_name, metadata=False):
         return False
 
 
-def set_file_details(pathname: str):
+def set_file_details(pathname: str) -> dict:
     """Creates a dictionary of file and path details.
 
     Parameters
@@ -127,7 +127,11 @@ def set_file_details(pathname: str):
     Returns
     -------
     dict
-        A dictionary containing the filename and fullpath details.
+        A dictionary containing the filename, pathname, and fullpath details.
     """
     base_path = get_base_path()
-    return {"pathname": pathname, "fullpath": base_path + pathname}
+    return {
+        "filename": os.path.basename(pathname),
+        "pathname": pathname,
+        "fullpath": base_path + pathname,
+    }

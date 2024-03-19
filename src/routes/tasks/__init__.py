@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from lib.decorators import require_data_admin, require_valid_token
-from tasks import TaskQueue, create_queue_id, split_queue_id
+from tasks import TaskQueue, TaskResult, create_queue_id, split_queue_id
 
 tasks_blueprint = Blueprint("tasks", __name__)
 logger = logging.getLogger(__name__)
@@ -77,9 +77,10 @@ def job_to_response(job: Job) -> dict:
     results = None
     errors = None
     if status == JobStatus.FINISHED:
-        status = "complete" if job.result.get("success", False) else "error"
-        results = job.result.get("results") if job.result["success"] else None
-        errors = job.result.get("results") if not job.result["success"] else None
+        result: TaskResult = job.result
+        status = "complete" if result.success else "error"
+        results = result.results if result.success else None
+        errors = result.results if not result.success else None
 
     return {
         "task_id": task_id,

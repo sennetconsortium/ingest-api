@@ -63,7 +63,7 @@ def validate_metadata_upload(token: str, user_id: str):
         ttl=604800,  # 1 week
         result_ttl=604800,
         error_ttl=604800,
-        description=f"Metadata {upload.get('pathname').split('/')[-1]} validation",
+        description=f"Metadata {upload.get('filename')} validation",
     )
 
     status = job.get_status()
