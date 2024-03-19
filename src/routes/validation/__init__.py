@@ -16,7 +16,7 @@ from rq.job import JobStatus
 
 from lib.decorators import require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
-from tasks import TaskQueue
+from tasks import TaskQueue, create_queue_id
 from tasks.validation import validate_uploaded_metadata
 
 validation_blueprint = Blueprint("validation", __name__)
@@ -48,7 +48,7 @@ def validate_metadata_upload(token: str, user_id: str):
 
     task_queue = TaskQueue.instance()
     task_id = uuid4()
-    queue_id = task_queue.create_queue_id(user_id, task_id)
+    queue_id = create_queue_id(user_id, task_id)
 
     job = task_queue.queue.enqueue(
         validate_uploaded_metadata,

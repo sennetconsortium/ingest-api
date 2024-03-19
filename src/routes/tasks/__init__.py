@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from lib.decorators import require_data_admin, require_valid_token
-from tasks import TaskQueue
+from tasks import TaskQueue, create_queue_id, split_queue_id
 
 tasks_blueprint = Blueprint("tasks", __name__)
 logger = logging.getLogger(__name__)
@@ -20,7 +20,7 @@ def get_task(task_id: UUID, user_id: str):
         abort_internal_err("Unable to retrieve task information")
 
     task_queue = TaskQueue.instance()
-    queue_id = task_queue.create_queue_id(user_id, task_id)
+    queue_id = create_queue_id(user_id, task_id)
     try:
         job = Job.fetch(queue_id, connection=task_queue.redis)
     except NoSuchJobError as e:
@@ -72,7 +72,7 @@ def flush_tasks():
 
 
 def job_to_response(job: Job) -> dict:
-    _, task_id = TaskQueue.instance().split_queue_id(job.id)
+    _, task_id = split_queue_id(job.id)
     status = job.get_status()
     results = None
     errors = None

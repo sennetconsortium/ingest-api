@@ -27,46 +27,6 @@ class TaskQueue:
     def redis(self) -> Redis:
         return self._redis
 
-    def create_queue_id(
-        self, user_id: str, task_id: Optional[Union[str, UUID]] = None
-    ) -> str:
-        """Create a unique queue id for a user.
-
-        This is used as the actual key for the task in the queue. We prefix the user_id
-        to the task_id to ensure that the queue_id is unique for each user.
-
-        Parameters
-        ----------
-        user_id : str
-            The user uuid.
-        task_id : Optional[Union[str, UUID]]
-            The task uuid.
-
-        Returns
-        -------
-        str
-            The queue_id
-        """
-        if task_id is None:
-            task_id = uuid4()
-        return f"{user_id}:{task_id}"
-
-    def split_queue_id(self, queue_id: str) -> tuple:
-        """Split the queue_id into the user_id and task_id
-
-        Parameters
-        ----------
-        queue_id : str
-            The queue_id
-
-        Returns
-        -------
-        tuple
-            The user_id and task_id
-        """
-        user_id, task_id = queue_id.split(":")
-        return user_id, task_id
-
     @staticmethod
     def create(url: str, queue_name: str = "default") -> None:
         global _instance
@@ -90,6 +50,46 @@ class TaskQueue:
         if _instance is None:
             return False
         return True
+
+
+def create_queue_id(user_id: str, task_id: Optional[Union[str, UUID]] = None) -> str:
+    """Create a unique queue id for a user.
+
+    This is used as the actual key for the task in the queue. We prefix the user_id
+    to the task_id to ensure that the queue_id is unique for each user.
+
+    Parameters
+    ----------
+    user_id : str
+        The user uuid.
+    task_id : Optional[Union[str, UUID]]
+        The task uuid.
+
+    Returns
+    -------
+    str
+        The queue_id
+    """
+    if task_id is None:
+        task_id = uuid4()
+    return f"{user_id}:{task_id}"
+
+
+def split_queue_id(queue_id: str) -> tuple:
+    """Split the queue_id into the user_id and task_id
+
+    Parameters
+    ----------
+    queue_id : str
+        The queue_id
+
+    Returns
+    -------
+    tuple
+        The user_id and task_id
+    """
+    user_id, task_id = queue_id.split(":")
+    return user_id, task_id
 
 
 # Add ingest_validation_tools to the path
