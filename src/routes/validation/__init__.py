@@ -14,10 +14,10 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify, request
 from rq.job import JobStatus
 
+from jobs import JobQueue, create_queue_id
+from jobs.validation import validate_uploaded_metadata
 from lib.decorators import require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
-from tasks import TaskQueue, create_queue_id
-from tasks.validation import validate_uploaded_metadata
 
 validation_blueprint = Blueprint("validation", __name__)
 logger = logging.getLogger(__name__)
@@ -46,14 +46,14 @@ def validate_metadata_upload(token: str, user_id: str):
     if error is not None:
         return full_response(error)
 
-    task_queue = TaskQueue.instance()
-    task_id = uuid4()
-    queue_id = create_queue_id(user_id, task_id)
+    job_queue = JobQueue.instance()
+    job_id = uuid4()
+    queue_id = create_queue_id(user_id, job_id)
 
-    job = task_queue.queue.enqueue(
+    job = job_queue.queue.enqueue(
         validate_uploaded_metadata,
         kwargs={
-            "task_id": task_id,
+            "job_id": job_id,
             "upload": upload,
             "data": dict(data),
             "token": token,
@@ -68,9 +68,9 @@ def validate_metadata_upload(token: str, user_id: str):
 
     status = job.get_status()
     if status == JobStatus.FAILED:
-        abort_internal_err("Validation task failed to start")
+        abort_internal_err("Validation job failed to start")
 
-    return jsonify({"task_id": task_id, "status": status}), 202
+    return jsonify({"job_id": job_id, "status": status}), 202
 
 
 def check_metadata_upload():

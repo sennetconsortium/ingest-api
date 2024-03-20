@@ -18,9 +18,9 @@ from atlas_consortia_commons.string import equals, to_title_case
 from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
+from jobs import JobResult
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
-from tasks import TaskResult
 
 from . import ingest_validation_tools_schema_loader as schema_loader
 from . import ingest_validation_tools_table_validator as table_validator
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 
 
 def validate_uploaded_metadata(
-    task_id: str, upload: dict, data: dict, token: str
-) -> TaskResult:
+    job_id: str, upload: dict, data: dict, token: str
+) -> JobResult:
     try:
         entity_type = data.get("entity_type")
         sub_type = data.get("sub_type")
@@ -43,9 +43,15 @@ def validate_uploaded_metadata(
                 f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
             )
             id = get_cedar_schema_ids().get(sub_type)
-            raise Exception(
-                f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". Valid id for "{sub_type}": {id}. '
-                f"For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+            return JobResult(
+                success=False,
+                results={
+                    "message": (
+                        f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
+                        f'Valid id for "{sub_type}": {id}. '
+                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+                    )
+                },
             )
 
         schema = determine_schema(entity_type, sub_type)
@@ -54,7 +60,7 @@ def validate_uploaded_metadata(
         )
         if len(validation_results) > 0:
             logger.error(f"Error validating metadata: {validation_results}")
-            return TaskResult(success=False, results=[validation_results])
+            return JobResult(success=False, results=[validation_results])
         else:
             records = get_metadata(upload.get("fullpath"))
             response = _get_response(
@@ -69,12 +75,12 @@ def validate_uploaded_metadata(
                 os.remove(upload.get("fullpath"))
 
             if response.get("code") != StatusCodes.OK:
-                return TaskResult(success=False, results=response.get("description"))
+                return JobResult(success=False, results=response.get("description"))
 
-        metadata_details = save_metadata_results(response, upload, task_id)
-        return TaskResult(
+        metadata_details = save_metadata_results(response, upload, job_id)
+        return JobResult(
             success=True,
-            results={"task_id": task_id, "file": metadata_details.get("pathname")},
+            results={"job_id": job_id, "file": metadata_details.get("pathname")},
         )
 
     except Exception as e:
@@ -82,10 +88,10 @@ def validate_uploaded_metadata(
         raise
 
 
-def save_metadata_results(response: dict, upload: dict, task_id: str) -> dict:
-    """Save the metadata results to a file named <tmp_dir>/<task_id>_metadata_results.json.
+def save_metadata_results(response: dict, upload: dict, job_id: str) -> dict:
+    """Save the metadata results to a file named <tmp_dir>/<job_id>_metadata_results.json.
 
-    This depends on the current task context. Can only be called within a task.
+    This depends on the current job context. Can only be called within a job.
 
     Parameters
     ----------
@@ -93,8 +99,8 @@ def save_metadata_results(response: dict, upload: dict, task_id: str) -> dict:
         The result of the validation.
     upload : dict
         The upload file details.
-    task_id : str
-        The current task UUID.
+    job_id : str
+        The current job UUID.
 
     Returns
     -------
@@ -103,7 +109,7 @@ def save_metadata_results(response: dict, upload: dict, task_id: str) -> dict:
     """
     fullpath = upload.get("pathname")
     dir_path = os.path.dirname(fullpath)
-    metadata_results_path = os.path.join(dir_path, f"{task_id}_metadata_results.json")
+    metadata_results_path = os.path.join(dir_path, f"{job_id}_metadata_results.json")
 
     metadata_details = set_file_details(metadata_results_path)
 

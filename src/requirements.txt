@@ -19,7 +19,7 @@ atlas-consortia-commons==1.0.7
 # For assay type rules
 rule_engine==4.1.0
 
-# Task queue
+# Job queue
 redis==5.0.3
 rq==1.16.1
 

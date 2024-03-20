@@ -1,7 +1,9 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from importlib import import_module
 from typing import Optional, Union
 from uuid import UUID, uuid4
@@ -15,20 +17,20 @@ _instance = None
 
 
 @dataclass(frozen=True)
-class TaskResult:
+class JobResult:
     success: bool
     results: dict
 
 
-class TaskQueue:
+class JobQueue:
     def __init__(self, url: str, queue_name: str = "default"):
         conn = from_url(url)
-        self._task_queue = Queue(queue_name, connection=conn)
+        self._job_queue = Queue(queue_name, connection=conn)
         self._redis = conn
 
     @property
     def queue(self) -> Queue:
-        return self._task_queue
+        return self._job_queue
 
     @property
     def redis(self) -> Redis:
@@ -39,16 +41,16 @@ class TaskQueue:
         global _instance
         if _instance is not None:
             raise Exception(
-                "An instance of TaskQueue exists already. Use the TaskQueue.instance() method to retrieve it."
+                "An instance of JobQueue exists already. Use the JobQueue.instance() method to retrieve it."
             )
-        _instance = TaskQueue(url, queue_name)
+        _instance = JobQueue(url, queue_name)
 
     @staticmethod
-    def instance() -> "TaskQueue":
+    def instance() -> JobQueue:
         global _instance
         if _instance is None:
             raise Exception(
-                "An instance of TaskQueue does not yet exist. Use TaskQueue.create(...) to create a new instance"
+                "An instance of JobQueue does not yet exist. Use JobQueue.create(...) to create a new instance"
             )
         return _instance
 
@@ -59,31 +61,31 @@ class TaskQueue:
         return True
 
 
-def create_queue_id(user_id: str, task_id: Optional[Union[str, UUID]] = None) -> str:
+def create_queue_id(user_id: str, job_id: Optional[Union[str, UUID]] = None) -> str:
     """Create a unique queue id for a user.
 
-    This is used as the actual key for the task in the queue. We prefix the user_id
-    to the task_id to ensure that the queue_id is unique for each user.
+    This is used as the actual key for the job in the queue. We prefix the user_id
+    to the job_id to ensure that the queue_id is unique for each user.
 
     Parameters
     ----------
     user_id : str
         The user uuid.
-    task_id : Optional[Union[str, UUID]]
-        The task uuid.
+    job_id : Optional[Union[str, UUID]]
+        The job uuid.
 
     Returns
     -------
     str
         The queue_id
     """
-    if task_id is None:
-        task_id = uuid4()
-    return f"{user_id}:{task_id}"
+    if job_id is None:
+        job_id = uuid4()
+    return f"{user_id}:{job_id}"
 
 
 def split_queue_id(queue_id: str) -> tuple:
-    """Split the queue_id into the user_id and task_id
+    """Split the queue_id into the user_id and job_id
 
     Parameters
     ----------
@@ -93,10 +95,10 @@ def split_queue_id(queue_id: str) -> tuple:
     Returns
     -------
     tuple
-        The user_id and task_id
+        The user_id and job_id
     """
-    user_id, task_id = queue_id.split(":")
-    return user_id, task_id
+    user_id, job_id = queue_id.split(":")
+    return user_id, job_id
 
 
 # Add ingest_validation_tools to the path
