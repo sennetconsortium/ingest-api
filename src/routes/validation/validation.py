@@ -109,6 +109,7 @@ def validate_tsv(schema='metadata', path=None):
         try:
             app_context = {
                 'request_header': {'X-SenNet-Application': 'ingest-api'},
+                'ingest_url': commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_URL']),
                 'entities_url': f"{commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/"
             }
             result = iv_utils.get_tsv_errors(path, schema_name=schema_name, report_type=table_validator.ReportType.JSON,
@@ -118,6 +119,11 @@ def validate_tsv(schema='metadata', path=None):
                     result = result['CEDAR Validation Errors'][path]
                 else:
                     result = result['CEDAR Validation Errors']
+            if 'Local Validation Errors' in result:
+                if len(result['Local Validation Errors'].keys())>0:
+                    result = result['Local Validation Errors'][list(result['Local Validation Errors'].keys())[0]]
+                else:
+                    result = result['Local Validation Errors']
         except Exception as e:
             result = rest_server_err(e, True)
     return json.dumps(result)
