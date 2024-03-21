@@ -6,17 +6,20 @@ from uuid import uuid4
 
 from atlas_consortia_commons.rest import (
     StatusCodes,
+    abort_bad_req,
     abort_internal_err,
+    abort_not_found,
     full_response,
     is_json_request,
     rest_server_err,
 )
 from flask import Blueprint, jsonify, request
-from rq.job import JobStatus
+from rq.job import Job, JobStatus, NoSuchJobError
 
-from jobs import JobQueue, JobType, create_queue_id
+from jobs import JobQueue, JobResult, JobType, create_queue_id
+from jobs.registration import register_uploaded_metadata
 from jobs.validation import validate_uploaded_metadata
-from lib.decorators import require_valid_token
+from lib.decorators import require_json, require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 
 validation_blueprint = Blueprint("validation", __name__)
@@ -68,6 +71,62 @@ def validate_metadata_upload(token: str, user_id: str):
 
     # Add metadata to the job
     job.meta["job_type"] = JobType.VALIDATE.value
+    job.save()
+
+    status = job.get_status()
+    if status == JobStatus.FAILED:
+        abort_internal_err("Validation job failed to start")
+
+    return jsonify({"job_id": job_id, "status": status}), 202
+
+
+@validation_blueprint.route("/metadata/register", methods=["POST"])
+@require_valid_token(param="token", user_id_param="user_id")
+@require_json()
+def register_metadata_upload(body: dict, token: str, user_id: str):
+    if not isinstance(body, dict):
+        abort_bad_req("Invalid request body")
+
+    validation_job_id = body.get("job_id")
+    if validation_job_id is None:
+        abort_bad_req("Missing job_id in request body")
+
+    job_queue = JobQueue.instance()
+    validation_queue_id = create_queue_id(user_id, validation_job_id)
+    try:
+        validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
+    except NoSuchJobError as e:
+        logger.error(f"Validation job not found: {e}")
+        abort_not_found("Validation job not found")
+
+    if validation_job.get_status() != JobStatus.FINISHED:
+        abort_bad_req("Validation job has not completed")
+
+    validation_results: JobResult = validation_job.results
+    if validation_results.success is False or "file" not in validation_results.results:
+        abort_bad_req("Validation job failed")
+
+    metadata_filepath = validation_results.results.get("file")
+    job_id = uuid4()
+    queue_id = create_queue_id(user_id, job_id)
+
+    job = job_queue.queue.enqueue(
+        register_uploaded_metadata,
+        kwargs={
+            "job_id": job_id,
+            "metadata_file": metadata_filepath,
+            "token": token,
+        },
+        job_id=queue_id,
+        job_timeout=18000,  # 5 hours
+        ttl=604800,  # 1 week
+        result_ttl=604800,
+        error_ttl=604800,
+        description=f"Metadata {validation_job_id} registration",
+    )
+
+    # Add metadata to the job
+    job.meta["job_type"] = JobType.REGISTER.value
     job.save()
 
     status = job.get_status()
