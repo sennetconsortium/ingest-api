@@ -115,11 +115,11 @@ def register_metadata_upload(body: dict, token: str, user_id: str):
     if validation_job.get_status() != JobStatus.FINISHED:
         abort_bad_req("Validation job has not completed")
 
-    validation_results: JobResult = validation_job.results
-    if validation_results.success is False or "file" not in validation_results.results:
+    validation_result: JobResult = validation_job.result
+    if validation_result.success is False or "file" not in validation_result.results:
         abort_bad_req("Validation job failed")
 
-    metadata_filepath = validation_results.results.get("file")
+    metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
     queue_id = create_queue_id(user_id, job_id)
 
@@ -206,8 +206,10 @@ def create_tsv_from_path(path, row):
 
 
 def validate_referrer(data: dict, job_type: JobType) -> dict:
-    referrer = data.get("referrer", {})
-    referrer = json.loads(referrer)
+    referrer = data.get("referrer", "{}")
+    if isinstance(referrer, str):
+        referrer = json.loads(referrer)
+
     if "type" not in referrer or referrer["type"] != job_type.value:
         raise ValueError(f"Invalid referrer {referrer}")
 
@@ -219,7 +221,8 @@ def validate_referrer(data: dict, job_type: JobType) -> dict:
     if parsed.scheme != "" or parsed.netloc != "" or len(parsed.path) < 1:
         raise ValueError(f"Invalid referrer URL {path}")
 
+    query = f"?{parsed.query}" if parsed.query else ""
     return {
         "type": job_type.value,
-        "path": f"{parsed.path}?{parsed.query}",
+        "path": f"{parsed.path}{query}",
     }

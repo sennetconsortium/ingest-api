@@ -1,6 +1,7 @@
 import json
 
 from jobs import JobResult
+from lib.file import set_file_details
 from lib.services import bulk_update_entities
 
 
@@ -8,7 +9,9 @@ def register_uploaded_metadata(
     job_id: str, metadata_file: str, token: str
 ) -> JobResult:
     # Metadata should already be validated at this point
-    with open(metadata_file, "r") as f:
+    upload = set_file_details(metadata_file)
+    fullpath = upload.get("fullpath")
+    with open(fullpath, "r") as f:
         entities = json.load(f)
 
     update_payload = {e["uuid"]: {"metadata": e["metadata"]} for e in entities}
