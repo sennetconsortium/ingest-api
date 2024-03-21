@@ -14,7 +14,7 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify, request
 from rq.job import JobStatus
 
-from jobs import JobQueue, create_queue_id
+from jobs import JobQueue, JobType, create_queue_id
 from jobs.validation import validate_uploaded_metadata
 from lib.decorators import require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
@@ -65,6 +65,10 @@ def validate_metadata_upload(token: str, user_id: str):
         error_ttl=604800,
         description=f"Metadata {upload.get('filename')} validation",
     )
+
+    # Add metadata to the job
+    job.meta["job_type"] = JobType.VALIDATE.value
+    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:

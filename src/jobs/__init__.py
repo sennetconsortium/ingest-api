@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from importlib import import_module
 from typing import Optional, Union
 from uuid import UUID, uuid4
@@ -20,6 +21,11 @@ _instance = None
 class JobResult:
     success: bool
     results: dict
+
+
+class JobType(str, Enum):
+    VALIDATE = "validate"
+    REGISTER = "register"
 
 
 class JobQueue:
