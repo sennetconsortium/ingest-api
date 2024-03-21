@@ -116,7 +116,7 @@ def validate_tsv(schema='metadata', path=None):
                                              globus_token=get_groups_token(), app_context=app_context)
             if 'CEDAR Validation Errors' in result:
                 if path in result['CEDAR Validation Errors']:
-                    result = result['CEDAR Validation Errors'][path]
+                    result = result['CEDAR Validation Errors'][path]['URL Errors']
                 else:
                     result = result['CEDAR Validation Errors']
             if 'Local Validation Errors' in result:
