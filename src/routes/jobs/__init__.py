@@ -138,7 +138,7 @@ def job_to_response(job: Job) -> dict:
 
     return {
         "job_id": job_id,
-        "job_type": job.meta.get("job_type", "unknown"),
+        "referrer": job.meta.get("referrer", {}),
         "description": job.description,
         "status": status.title(),
         "started_timestamp": (

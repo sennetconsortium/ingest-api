@@ -1,7 +1,9 @@
 import csv
+import json
 import logging
 import os
 import time
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from atlas_consortia_commons.rest import (
@@ -34,9 +36,14 @@ def validate_metadata_upload(token: str, user_id: str):
     else:
         data = request.values
 
+    try:
+        referrer = validate_referrer(data, JobType.VALIDATE)
+    except ValueError as e:
+        logger.error(f"Invalid referrer: {e}")
+        abort_bad_req("Invalid referrer")
+
     pathname = data.get("pathname")
     tsv_row = data.get("tsv_row")
-
     if pathname is None:
         upload = check_metadata_upload()
     else:
@@ -70,7 +77,7 @@ def validate_metadata_upload(token: str, user_id: str):
     )
 
     # Add metadata to the job
-    job.meta["job_type"] = JobType.VALIDATE.value
+    job.meta["referrer"] = referrer
     job.save()
 
     status = job.get_status()
@@ -86,6 +93,12 @@ def validate_metadata_upload(token: str, user_id: str):
 def register_metadata_upload(body: dict, token: str, user_id: str):
     if not isinstance(body, dict):
         abort_bad_req("Invalid request body")
+
+    try:
+        referrer = validate_referrer(body, JobType.REGISTER)
+    except ValueError as e:
+        logger.error(f"Invalid referrer: {e}")
+        abort_bad_req("Invalid referrer")
 
     validation_job_id = body.get("job_id")
     if validation_job_id is None:
@@ -126,7 +139,7 @@ def register_metadata_upload(body: dict, token: str, user_id: str):
     )
 
     # Add metadata to the job
-    job.meta["job_type"] = JobType.REGISTER.value
+    job.meta["referrer"] = referrer
     job.save()
 
     status = job.get_status()
@@ -190,3 +203,23 @@ def create_tsv_from_path(path, row):
         result = rest_server_err(e, True)
 
     return result
+
+
+def validate_referrer(data: dict, job_type: JobType) -> dict:
+    referrer = data.get("referrer", {})
+    referrer = json.loads(referrer)
+    if "type" not in referrer or referrer["type"] != job_type.value:
+        raise ValueError(f"Invalid referrer {referrer}")
+
+    if "path" not in referrer:
+        raise ValueError("Missing referrer URL")
+
+    path = referrer["path"].replace(" ", "")
+    parsed = urlparse(path)
+    if parsed.scheme != "" or parsed.netloc != "" or len(parsed.path) < 1:
+        raise ValueError(f"Invalid referrer URL {path}")
+
+    return {
+        "type": job_type.value,
+        "path": f"{parsed.path}?{parsed.query}",
+    }
