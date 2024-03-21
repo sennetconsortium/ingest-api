@@ -37,7 +37,7 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
 
     # # submit the datasets to the processing pipeline
     # ingest_pipline_url = (
-    #     ensureTrailingSlashURL(config["INGEST_PIPELINE_URL"]) + "/datasets/bulk/submit"
+    #     ensureTrailingSlashURL(config["INGEST_PIPELINE_URL"]) + "request_bulk_ingest"
     # )
     # try:
     #     ingest_res = requests.post(
@@ -49,33 +49,56 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
     #     ingest_res = None
     #     logger.error(f"Failed to submit datasets to pipeline: {e}")
 
-    # if ingest_res and ingest_res.status_code == 202:
-    #     # Assumes a 202 status code with json of the form. This may change.
+    # if ingest_res and (ingest_res.status_code == 200 or ingest_res.status_code == 400):
+    #     # assumes a 200/400 status code with json of the form
+    #     # 200:
     #     # {
-    #     #   "uuid": {
-    #     #       "status": "success",
-    #     #       "ingest_id": "uuid",
-    #     #       "run_id": "uuid"
-    #     #   },
-    #     #   "uuid": {
-    #     #       "status": "error",
-    #     #       "message": "error message"
+    #     #   "response": [
+    #     #     {
+    #     #       "ingest_id": "",
+    #     #       "run_id": "",
+    #     #       "submission_id": ""
+    #     #     }, ...
+    #     #   ]
+    #     # }
+    #     #
+    #     # 400:
+    #     # {
+    #     #   "response": {
+    #     #     "error": [
+    #     #       {
+    #     #         "message": "",
+    #     #         "submission_id" : "",
+    #     #       }, ...
+    #     #     ],
+    #     #     "success":[
+    #     #       {
+    #     #         "ingest_id": "",
+    #     #         "run_id": "",
+    #     #         "submission_id": "",
+    #     #       }, ...
+    #     #     ]
     #     #   }
     #     # }
-    #     # successful request, could have errored datasets though
-    #     pipeline_result = ingest_res.json()
-    #     update_payload = {}
-    #     for uuid, info in pipeline_result.items():
-    #         if info["status"] == "success":
-    #             update_payload[uuid] = {
-    #                 "ingest_id": info["ingest_id"],
-    #                 "run_id": info["run_id"],
-    #             }
-    #         else:
-    #             update_payload[uuid] = {
-    #                 "status": "Error",
-    #                 "pipeline_message": info["message"],
-    #             }
+
+    #     # update the datasets with the received info from the pipeline
+    #     pipeline_result = ingest_res.json().get("response", {})
+    #     update_payload = {
+    #         s["submission_id"]: {
+    #             "ingest_id": s["ingest_id"],
+    #             "run_id": s["run_id"]
+    #         }
+    #         for s in pipeline_result.get("success", [])
+    #     }
+    #     error_payload = {
+    #         e["submission_id"]: {
+    #             "status": "Error",
+    #             "pipeline_message": e["message"],
+    #         }
+    #         for e in pipeline_result.get("error", [])
+    #     }
+    #     update_payload.update(error_payload)
+
     #     update_res = bulk_update_entities(
     #         update_payload, token, entity_api_url=entity_api_url
     #     )
@@ -89,6 +112,7 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
     #             )
 
     # else:
+    #     # request failed, update the datasets to error
     #     update_payload = {
     #         dataset["uuid"]: {
     #             "status": "Error",
