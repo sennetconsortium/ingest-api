@@ -34,6 +34,25 @@ def get_job(job_id: UUID, user_id: str):
     return job_to_response(job), 200
 
 
+@jobs_blueprint.route("/jobs/<uuid:job_id>", methods=["DELETE"])
+@require_valid_token(user_id_param="user_id")
+def delete_job(job_id: UUID, user_id: str):
+    if JobQueue.is_initialized() is False:
+        logger.error("Job queue has not been initialized")
+        abort_internal_err("Unable to retrieve job information")
+
+    job_queue = JobQueue.instance()
+    queue_id = create_queue_id(user_id, job_id)
+    try:
+        job = Job.fetch(queue_id, connection=job_queue.redis)
+        job.delete()
+    except NoSuchJobError as e:
+        logger.error(f"Job not found: {e}")
+        abort_not_found("Job not found")
+
+    return {"status": "success", "message": "Job deleted successfully"}, 200
+
+
 @jobs_blueprint.route("/jobs", methods=["GET"])
 @require_valid_token(user_id_param="user_id")
 def get_jobs(user_id: str):
