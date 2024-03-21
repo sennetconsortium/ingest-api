@@ -107,6 +107,10 @@ def save_metadata_results(response: dict, upload: dict, job_id: str) -> dict:
     dict
         The file details of the saved file.
     """
+    # strip out the response information so we're left with just the entity information
+    data = response.get("description", {}).get("data", [])
+    entities = [d.get("description", {}) for d in data]
+
     fullpath = upload.get("pathname")
     dir_path = os.path.dirname(fullpath)
     metadata_results_path = os.path.join(dir_path, f"{job_id}_metadata_results.json")
@@ -114,7 +118,7 @@ def save_metadata_results(response: dict, upload: dict, job_id: str) -> dict:
     metadata_details = set_file_details(metadata_results_path)
 
     with open(metadata_details.get("fullpath"), "w") as f:
-        json.dump(response, f, separators=(",", ":"))
+        json.dump(entities, f, separators=(",", ":"))
         return metadata_details
 
 
