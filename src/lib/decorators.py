@@ -179,6 +179,7 @@ def require_valid_token(
     param: str = "token",
     user_id_param: Optional[str] = None,
     groups_param: Optional[str] = None,
+    is_data_admin_param: Optional[str] = None,
 ):
     """A decorator that checks if the provided token is valid.
 
@@ -246,6 +247,10 @@ def require_valid_token(
 
             if groups_param and groups_param in signature(f).parameters:
                 kwargs[groups_param] = user_info.get("hmgroupids", [])
+
+            if is_data_admin_param and is_data_admin_param in signature(f).parameters:
+                is_admin = auth_helper.has_data_admin_privs(token)
+                kwargs[is_data_admin_param] = isinstance(is_admin, bool) and is_admin
 
             return f(*args, **kwargs)
 

@@ -54,8 +54,8 @@ def delete_job(job_id: UUID, user_id: str):
 
 
 @jobs_blueprint.route("/jobs", methods=["GET"])
-@require_valid_token(user_id_param="user_id")
-def get_jobs(user_id: str):
+@require_valid_token(user_id_param="user_id", is_data_admin_param="is_data_admin")
+def get_jobs(user_id: str, is_data_admin: bool):
     if JobQueue.is_initialized() is False:
         logger.error("Job queue has not been initialized")
         abort_internal_err("Unable to retrieve job information")
@@ -63,11 +63,18 @@ def get_jobs(user_id: str):
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
+    prefix = "rq:job"
+    if is_data_admin is True:
+        # Admin able to get all jobs
+        scan_query = f"{prefix}:*"
+    else:
+        # Non-admin only able to get their own jobs
+        scan_query = f"{prefix}:{user_id}:*"
+
     # this returns a list of byte objects
-    prefix = "rq:job:"
     queue_ids = [
         queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(f"{prefix}{user_id}:*")
+        for queue_id in redis.scan_iter(scan_query)
     ]
     jobs = Job.fetch_many(queue_ids, connection=redis)
     res = [job_to_response(job) for job in jobs]
