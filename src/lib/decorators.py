@@ -61,6 +61,69 @@ def require_json(param: str = "body"):
     return decorator
 
 
+def require_multipart_form(
+    form_param: str = "form", files_param: str = "files", combined_param: str = "data"
+):
+    """A decorator that checks if the request content type is multipart/form-data.
+
+    If the decorated function has a parameter with the same name as `form_param`, the
+    form body will be passed as that parameter.
+
+    If the decorated function has a parameter with the same name as `files_param`, the
+    files will be passed as that parameter.
+
+    If the decorated function has a parameter with the same name as `combined_param`,
+    the form and files will be passed as that parameter.
+
+    Parameters
+    ----------
+    form_param : str
+        The name of the parameter to pass the form body.
+        Defaults to "form".
+    files_param : str
+        The name of the parameter to pass the files.
+        Defaults to "files".
+    combined_param : str
+        The name of the parameter to pass the form and files.
+        Defaults to "data".
+
+    Notes
+    -----
+    This decorator does not do any validation on the form request body.
+
+    Example
+    -------
+        @app.route("/foo", methods=["POST"])
+        @require_multipart_form(combined_param="foo_data")
+        def foo(foo_data: dict):
+            name = foo_data.get("name")
+            return jsonify({"name": name})
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not request.content_type.startswith("multipart/form-data"):
+                abort_bad_req(
+                    "A form data body and appropriate Content-Type header are required"
+                )
+
+            if form_param and form_param in signature(f).parameters:
+                kwargs[form_param] = request.form
+
+            if files_param and files_param in signature(f).parameters:
+                kwargs[files_param] = request.files
+
+            if combined_param and combined_param in signature(f).parameters:
+                kwargs[combined_param] = request.values
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
 def require_data_admin(param: str = "token"):
     """A decorator that checks if the user is a member of the SenNet Data Admin group.
 

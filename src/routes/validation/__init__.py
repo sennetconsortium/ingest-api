@@ -12,16 +12,15 @@ from atlas_consortia_commons.rest import (
     abort_internal_err,
     abort_not_found,
     full_response,
-    is_json_request,
     rest_server_err,
 )
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from jobs import JobQueue, JobResult, JobType, create_queue_id
 from jobs.registration import register_uploaded_metadata
 from jobs.validation import validate_uploaded_metadata
-from lib.decorators import require_json, require_valid_token
+from lib.decorators import require_multipart_form, require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 
 validation_blueprint = Blueprint("validation", __name__)
@@ -30,12 +29,8 @@ logger = logging.getLogger(__name__)
 
 @validation_blueprint.route("/metadata/validate", methods=["POST"])
 @require_valid_token(param="token", user_id_param="user_id")
-def validate_metadata_upload(token: str, user_id: str):
-    if is_json_request():
-        data = request.json
-    else:
-        data = request.values
-
+@require_multipart_form(combined_param="data")
+def validate_metadata_upload(data: dict, token: str, user_id: str):
     try:
         referrer = validate_referrer(data, JobType.VALIDATE)
     except ValueError as e:
@@ -89,7 +84,6 @@ def validate_metadata_upload(token: str, user_id: str):
 
 @validation_blueprint.route("/metadata/register", methods=["POST"])
 @require_valid_token(param="token", user_id_param="user_id")
-@require_json()
 def register_metadata_upload(body: dict, token: str, user_id: str):
     if not isinstance(body, dict):
         abort_bad_req("Invalid request body")
