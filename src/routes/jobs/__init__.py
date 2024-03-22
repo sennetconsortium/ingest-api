@@ -6,10 +6,11 @@ from atlas_consortia_commons.rest import (
     abort_internal_err,
     abort_not_found,
 )
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
 from jobs import JobQueue, JobResult, create_queue_id, split_queue_id
+from lib import globus
 from lib.decorators import require_data_admin, require_valid_token
 
 jobs_blueprint = Blueprint("jobs", __name__)
@@ -63,13 +64,20 @@ def get_jobs(user_id: str, is_data_admin: bool):
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
-    prefix = "rq:job"
-    if is_data_admin is True:
+    prefix = "rq:job:"
+    if is_data_admin is True and request.args.get("email") is None:
         # Admin able to get all jobs
-        scan_query = f"{prefix}:*"
+        scan_query = f"{prefix}*"
+    elif is_data_admin is True and request.args.get("email") is not None:
+        # Admins can also query jobs by a user's email
+        email = request.args.get("email")
+        user_id = globus.get_user_id(email)
+        if user_id is None:
+            abort_not_found("User with email not found")
+        scan_query = f"{prefix}{user_id}:*"
     else:
         # Non-admin only able to get their own jobs
-        scan_query = f"{prefix}:{user_id}:*"
+        scan_query = f"{prefix}{user_id}:*"
 
     # this returns a list of byte objects
     queue_ids = [
