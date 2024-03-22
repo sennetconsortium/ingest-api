@@ -39,7 +39,7 @@ from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
 from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
-from lib.services import get_associated_sources_from_dataset, reindex_entities
+from lib.services import get_associated_sources_from_dataset
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
