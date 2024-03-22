@@ -45,6 +45,9 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
             json=ingest_payload,
             headers={"Authorization": f"Bearer {token}"},
         )
+        logger.info(
+            f"Response from ingest-pipeline {ingest_res.status_code}: {ingest_res.json()}"
+        )
     except requests.exceptions.RequestException as e:
         ingest_res = None
         logger.error(f"Failed to submit datasets to pipeline: {e}")
@@ -85,9 +88,14 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
 
         # update the datasets with the received info from the pipeline
         pipeline_result = ingest_res.json().get("response", {})
+        successful = (
+            pipeline_result
+            if ingest_res.status_code == 200
+            else pipeline_result.get("success", [])
+        )
         update_payload = {
             s["submission_id"]: {"ingest_id": s["ingest_id"], "run_id": s["run_id"]}
-            for s in pipeline_result.get("success", [])
+            for s in successful
         }
         error_payload = {
             e["submission_id"]: {
