@@ -27,13 +27,14 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
             logger.error(
                 f"Failed to set dataset status to processing {uuid}: {res['data']}"
             )
-    logger.info(f"Sending datasets to ingest-pipeline: {processing_datasets}")
 
     # create the ingest_payload list
     dataset_helper = DatasetHelper(config)
     ingest_payload = [
         dataset_helper.create_ingest_payload(dataset) for dataset in processing_datasets
     ]
+
+    logger.info(f"Sending ingest payload to ingest-pipeline: {ingest_payload}")
 
     # submit the datasets to the processing pipeline
     ingest_pipline_url = (
