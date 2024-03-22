@@ -98,14 +98,16 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
             s["submission_id"]: {"ingest_id": s["ingest_id"], "run_id": s["run_id"]}
             for s in successful
         }
-        error_payload = {
-            e["submission_id"]: {
-                "status": "Error",
-                "pipeline_message": e["message"],
+
+        if ingest_res.status_code == 400:
+            error_payload = {
+                e["submission_id"]: {
+                    "status": "Error",
+                    "pipeline_message": e["message"],
+                }
+                for e in pipeline_result.get("error", [])
             }
-            for e in pipeline_result.get("error", [])
-        }
-        update_payload.update(error_payload)
+            update_payload.update(error_payload)
 
         update_res = bulk_update_entities(
             update_payload, token, entity_api_url=entity_api_url
