@@ -17,6 +17,8 @@ git submodule update --init --remote
 Right click the ***src*** folder and select *Mark directory as > sources root*
 You should see the ***src*** folder turn blue
 
+After completing the steps in the [Working with submodule section](#working-with-submodule), right click the ***src/submodules/ingest_validation_tools/src*** folder and select *Mark directory as > sources root*
+
 ## Flask app configuration
 
 This application is written in Flask and it includes an **app.cfg.example** file in the `instance` directory.  Copy the file and rename it **app.cfg** and modify  with the appropriate information.
