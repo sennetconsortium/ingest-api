@@ -20,7 +20,7 @@ from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
-from routes.validation import validation_blueprint
+from routes.metadata import metadata_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
 from routes.vitessce import vitessce_blueprint
@@ -60,7 +60,7 @@ app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
-app.register_blueprint(validation_blueprint)
+app.register_blueprint(metadata_blueprint)
 app.register_blueprint(file_blueprint)
 app.register_blueprint(assayclassifier_blueprint)
 app.register_blueprint(vitessce_blueprint)

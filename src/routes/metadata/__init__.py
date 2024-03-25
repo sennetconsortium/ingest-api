@@ -23,11 +23,11 @@ from jobs.validation import validate_uploaded_metadata
 from lib.decorators import require_multipart_form, require_valid_token, require_json
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 
-validation_blueprint = Blueprint("validation", __name__)
+metadata_blueprint = Blueprint("metadata", __name__)
 logger = logging.getLogger(__name__)
 
 
-@validation_blueprint.route("/metadata/validate", methods=["POST"])
+@metadata_blueprint.route("/metadata/validate", methods=["POST"])
 @require_valid_token(param="token", user_id_param="user_id")
 @require_multipart_form(combined_param="data")
 def validate_metadata_upload(data: dict, token: str, user_id: str):
@@ -82,7 +82,7 @@ def validate_metadata_upload(data: dict, token: str, user_id: str):
     return jsonify({"job_id": job_id, "status": status}), 202
 
 
-@validation_blueprint.route("/metadata/register", methods=["POST"])
+@metadata_blueprint.route("/metadata/register", methods=["POST"])
 @require_valid_token(param="token", user_id_param="user_id")
 @require_json(param="body")
 def register_metadata_upload(body: dict, token: str, user_id: str):
