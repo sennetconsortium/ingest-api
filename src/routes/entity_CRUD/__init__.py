@@ -15,9 +15,10 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.rest import *
-from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found
+from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found, abort_internal_err
 from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import enum_val_lower
+from lib.decorators import require_data_admin, require_json
 
 from lib.exceptions import ResponseException
 from lib.file_upload_helper import UploadFileHelper
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
 from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
+from routes.entity_CRUD.tasks import submit_datasets
 from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
@@ -306,6 +308,42 @@ def create_datasets_from_bulk():
                 entity_created = True
             status_codes.append(r.status_code)
         return _send_response_on_file(entity_created, entity_failed_to_create, entity_response, _get_status_code__by_priority(status_codes))
+
+
+@entity_CRUD_blueprint.route('/datasets/bulk/submit', methods=['PUT'])
+@require_data_admin(param='token')
+@require_json(param='uuids')
+def submit_datasets_from_bulk(uuids: list, token: str):
+    if not isinstance(uuids, list) or len(uuids) == 0:
+        abort_bad_req('A list of dataset uuids is required')
+
+    dataset_helper = DatasetHelper(current_app.config)
+    uuids = set(uuids)
+    try:
+        fields = {'uuid'}
+        datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
+    except Exception as e:
+        logger.error(f'Error while submitting datasets: {str(e)}')
+        abort_internal_err(str(e))
+
+    if datasets is None:
+        abort_not_found('No datasets found with any of the provided uuids')
+
+    diff = uuids.difference({dataset['uuid'] for dataset in datasets})
+    if len(diff) > 0:
+        abort_not_found(f"No datasets found with the following uuids: {', '.join(diff)}")
+
+    try:
+        Thread(target=submit_datasets, args=[uuids, token, current_app.config]).start()
+        logger.info(
+            f'Started to submit datasets for processing with uuids: {uuids}'
+        )
+    except Exception as e:
+        logger.error(f'Error while submitting datasets: {str(e)}')
+        abort_internal_err(str(e))
+
+    # return a 202 reponse with the accepted dataset uuids
+    return jsonify(list(uuids)), 202
 
 
 @entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
