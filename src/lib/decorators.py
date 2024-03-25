@@ -178,6 +178,7 @@ def require_data_admin(param: str = "token"):
 def require_valid_token(
     param: str = "token",
     user_id_param: Optional[str] = None,
+    email_param: Optional[str] = None,
     groups_param: Optional[str] = None,
     is_data_admin_param: Optional[str] = None,
 ):
@@ -199,6 +200,8 @@ def require_valid_token(
         The name of the parameter to pass the user's token to. Defaults to "token".
     user_id_param : Optional[str]
         The name of the parameter to pass the user's id to. Defaults to None.
+    email_param : Optional[str]
+        The name of the parameter to pass the user's email to. Defaults to None.
     groups_param : Optional[str]
         The name of the parameter to pass the user's group ids to. Defaults to None.
 
@@ -244,6 +247,12 @@ def require_valid_token(
                 if not user_id:
                     abort_internal_err("User id not found for token")
                 kwargs[user_id_param] = user_id
+
+            if email_param and email_param in signature(f).parameters:
+                email = user_info.get("email")
+                if not email:
+                    abort_internal_err("Email not found for token")
+                kwargs[email_param] = email
 
             if groups_param and groups_param in signature(f).parameters:
                 kwargs[groups_param] = user_info.get("hmgroupids", [])

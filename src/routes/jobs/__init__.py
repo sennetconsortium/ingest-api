@@ -156,6 +156,7 @@ def job_to_response(job: Job) -> dict:
         "referrer": job.meta.get("referrer", {}),
         "description": job.description,
         "status": status.title(),
+        "user": job.meta.get("user", {}),
         "started_timestamp": (
             int(job.started_at.timestamp() * 1000) if job.started_at else None
         ),

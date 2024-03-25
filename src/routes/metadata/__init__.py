@@ -20,7 +20,7 @@ from rq.job import Job, JobStatus, NoSuchJobError
 from jobs import JobQueue, JobResult, JobType, create_queue_id
 from jobs.registration import register_uploaded_metadata
 from jobs.validation import validate_uploaded_metadata
-from lib.decorators import require_multipart_form, require_valid_token, require_json
+from lib.decorators import require_json, require_multipart_form, require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 
 metadata_blueprint = Blueprint("metadata", __name__)
@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 
 
 @metadata_blueprint.route("/metadata/validate", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id")
+@require_valid_token(param="token", user_id_param="user_id", email_param="email")
 @require_multipart_form(combined_param="data")
-def validate_metadata_upload(data: dict, token: str, user_id: str):
+def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
     try:
         referrer = validate_referrer(data, JobType.VALIDATE)
     except ValueError as e:
@@ -73,6 +73,7 @@ def validate_metadata_upload(data: dict, token: str, user_id: str):
 
     # Add metadata to the job
     job.meta["referrer"] = referrer
+    job.meta["user"] = {"id": user_id, "email": email}
     job.save()
 
     status = job.get_status()
@@ -83,9 +84,9 @@ def validate_metadata_upload(data: dict, token: str, user_id: str):
 
 
 @metadata_blueprint.route("/metadata/register", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id")
+@require_valid_token(param="token", user_id_param="user_id", email_param="email")
 @require_json(param="body")
-def register_metadata_upload(body: dict, token: str, user_id: str):
+def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
     if not isinstance(body, dict):
         abort_bad_req("Invalid request body")
 
@@ -135,6 +136,7 @@ def register_metadata_upload(body: dict, token: str, user_id: str):
 
     # Add metadata to the job
     job.meta["referrer"] = referrer
+    job.meta["user"] = {"id": user_id, "email": email}
     job.save()
 
     status = job.get_status()
