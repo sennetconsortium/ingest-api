@@ -3,7 +3,6 @@ import logging
 import requests
 import os
 import re
-import datetime
 import time
 from hubmap_sdk import Entity, EntitySdk
 from werkzeug import utils
@@ -20,11 +19,11 @@ from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import enum_val_lower
 
 from lib.exceptions import ResponseException
+from lib.file import set_file_details
 from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
-from routes.validation import set_file_details
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
