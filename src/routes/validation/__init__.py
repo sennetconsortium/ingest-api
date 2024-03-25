@@ -20,7 +20,7 @@ from rq.job import Job, JobStatus, NoSuchJobError
 from jobs import JobQueue, JobResult, JobType, create_queue_id
 from jobs.registration import register_uploaded_metadata
 from jobs.validation import validate_uploaded_metadata
-from lib.decorators import require_multipart_form, require_valid_token
+from lib.decorators import require_multipart_form, require_valid_token, require_json
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 
 validation_blueprint = Blueprint("validation", __name__)
@@ -84,6 +84,7 @@ def validate_metadata_upload(data: dict, token: str, user_id: str):
 
 @validation_blueprint.route("/metadata/register", methods=["POST"])
 @require_valid_token(param="token", user_id_param="user_id")
+@require_json(param="body")
 def register_metadata_upload(body: dict, token: str, user_id: str):
     if not isinstance(body, dict):
         abort_bad_req("Invalid request body")

@@ -15,6 +15,7 @@ from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
+import submodules
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint

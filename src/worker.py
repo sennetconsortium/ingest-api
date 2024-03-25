@@ -8,6 +8,8 @@ from flask import Flask
 from redis import from_url as redis_from_url
 from rq import Connection, Queue, Worker
 
+import submodules
+
 logging.basicConfig(
     format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
     level=logging.INFO,

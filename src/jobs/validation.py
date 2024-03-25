@@ -17,14 +17,12 @@ from atlas_consortia_commons.rest import (
 from atlas_consortia_commons.string import equals, to_title_case
 from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
+from ingest_validation_tools import schema_loader, table_validator
+from ingest_validation_tools import validation_utils as iv_utils
 
 from jobs import JobResult
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
-
-from . import ingest_validation_tools_schema_loader as schema_loader
-from . import ingest_validation_tools_table_validator as table_validator
-from . import ingest_validation_tools_validation_utils as iv_utils
 
 logger = logging.getLogger(__name__)
 

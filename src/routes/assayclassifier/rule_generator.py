@@ -8,8 +8,8 @@ import yaml
 
 ASSAY_TYPES_YAML = "assay_types.yaml"
 
-INGEST_VALIDATION_TABLE_PATH = "../validation/ingest_validation_tools/src/ingest_validation_tools/table-schemas/assays"
-INGEST_VALIDATION_DIR_SCHEMA_PATH = "../validation/ingest_validation_tools/src/ingest_validation_tools/directory-schemas"
+INGEST_VALIDATION_TABLE_PATH = "../../submodules/ingest_validation_tools/src/ingest_validation_tools/table-schemas/assays"
+INGEST_VALIDATION_DIR_SCHEMA_PATH = "../../submodules/ingest_validation_tools/src/ingest_validation_tools/directory-schemas"
 
 SCHEMA_SPLIT_REGEX = r"(.+)-v(\d)"
 
