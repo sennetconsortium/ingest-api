@@ -9,12 +9,28 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
-from jobs import JobQueue, create_queue_id
+from jobs import JOBS_PREFIX, JobQueue, create_queue_id
 from lib.decorators import require_valid_token
-from lib.jobs import job_to_response
+from lib.jobs import job_to_response, query_jobs
 
 jobs_blueprint = Blueprint("jobs", __name__)
 logger = logging.getLogger(__name__)
+
+
+@jobs_blueprint.route("/jobs", methods=["GET"])
+@require_valid_token(user_id_param="user_id")
+def get_jobs(user_id: str):
+    if JobQueue.is_initialized() is False:
+        logger.error("Job queue has not been initialized")
+        abort_internal_err("Unable to retrieve job information")
+
+    job_queue = JobQueue.instance()
+    redis = job_queue.redis
+
+    query = f"{JOBS_PREFIX}{user_id}:*"
+    jobs = query_jobs(query, redis)
+    res = [job_to_response(job) for job in jobs]
+    return jsonify(res), 200
 
 
 @jobs_blueprint.route("/jobs/<uuid:job_id>", methods=["GET"])
@@ -52,29 +68,6 @@ def delete_job(job_id: UUID, user_id: str):
         abort_not_found("Job not found")
 
     return {"status": "success", "message": "Job deleted successfully"}, 200
-
-
-@jobs_blueprint.route("/jobs", methods=["GET"])
-@require_valid_token(user_id_param="user_id")
-def get_jobs(user_id: str):
-    if JobQueue.is_initialized() is False:
-        logger.error("Job queue has not been initialized")
-        abort_internal_err("Unable to retrieve job information")
-
-    job_queue = JobQueue.instance()
-    redis = job_queue.redis
-
-    prefix = "rq:job:"
-    scan_query = f"{prefix}{user_id}:*"
-
-    # this returns a list of byte objects
-    queue_ids = [
-        queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(scan_query)
-    ]
-    jobs = Job.fetch_many(queue_ids, connection=redis)
-    res = [job_to_response(job) for job in jobs]
-    return jsonify(res), 200
 
 
 @jobs_blueprint.route("/jobs/<uuid:job_id>/cancel", methods=["PUT"])

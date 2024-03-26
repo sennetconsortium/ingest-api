@@ -7,12 +7,12 @@ from atlas_consortia_commons.rest import (
     abort_not_found,
 )
 from flask import Blueprint, jsonify, request
-from rq.job import InvalidJobOperation, Job, NoSuchJobError
+from rq.job import InvalidJobOperation, JobStatus, NoSuchJobError
 
-from jobs import JobQueue
+from jobs import JOBS_PREFIX, JobQueue
 from lib import globus
 from lib.decorators import require_data_admin
-from lib.jobs import job_to_response
+from lib.jobs import TooManyJobsFoundError, job_to_response, query_job, query_jobs
 
 admin_blueprint = Blueprint("admin", __name__)
 logger = logging.getLogger(__name__)
@@ -28,22 +28,17 @@ def get_admin_jobs():
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
-    prefix = "rq:job:"
     if request.args.get("email") is not None:
+        # Support querying by email
         email = request.args.get("email")
         user_id = globus.get_user_id(email)
         if user_id is None:
             abort_not_found("User with email not found")
-        scan_query = f"{prefix}{user_id}:*"
+        scan_query = f"{JOBS_PREFIX}{user_id}:*"
     else:
-        scan_query = f"{prefix}*"
+        scan_query = f"{JOBS_PREFIX}*"
 
-    # this returns a list of byte objects
-    queue_ids = [
-        queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(scan_query)
-    ]
-    jobs = Job.fetch_many(queue_ids, connection=redis)
+    jobs = query_jobs(scan_query, redis)
     res = [job_to_response(job) for job in jobs]
     return jsonify(res), 200
 
@@ -58,25 +53,15 @@ def get_admin_job(job_id: UUID):
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
-    prefix = "rq:job:"
-    scan_query = f"{prefix}*:{job_id}"
-
-    # this returns a list of byte objects
-    queue_ids = [
-        queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(scan_query)
-    ]
-    if len(queue_ids) == 0:
-        abort_not_found("Job not found")
-    if len(queue_ids) > 1:
-        logger.error(f"Multiple jobs found with id {job_id}")
-        abort_internal_err("Multiple jobs found with job id")
-
+    scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = Job.fetch(queue_ids[0], connection=job_queue.redis)
+        job = query_job(scan_query, redis)
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
+    except TooManyJobsFoundError as e:
+        logger.error(f"Multiple jobs found with id {job_id}: {e}")
+        abort_internal_err("Multiple jobs found with job id")
 
     return job_to_response(job), 200
 
@@ -91,26 +76,16 @@ def delete_admin_job(job_id: UUID):
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
-    prefix = "rq:job:"
-    scan_query = f"{prefix}*:{job_id}"
-
-    # this returns a list of byte objects
-    queue_ids = [
-        queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(scan_query)
-    ]
-    if len(queue_ids) == 0:
-        abort_not_found("Job not found")
-    if len(queue_ids) > 1:
-        logger.error(f"Multiple jobs found with id {job_id}")
-        abort_internal_err("Multiple jobs found with job id")
-
+    scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = Job.fetch(queue_ids[0], connection=job_queue.redis)
+        job = query_job(scan_query, redis)
         job.delete()
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
+    except TooManyJobsFoundError as e:
+        logger.error(f"Multiple jobs found with id {job_id}: {e}")
+        abort_internal_err("Multiple jobs found with job id")
 
     return {"status": "success", "message": "Job deleted successfully"}, 200
 
@@ -125,25 +100,18 @@ def cancel_admin_job(job_id: UUID):
     job_queue = JobQueue.instance()
     redis = job_queue.redis
 
-    prefix = "rq:job:"
-    scan_query = f"{prefix}*:{job_id}"
-
-    # this returns a list of byte objects
-    queue_ids = [
-        queue_id.decode("utf-8").removeprefix(prefix)
-        for queue_id in redis.scan_iter(scan_query)
-    ]
-    if len(queue_ids) == 0:
-        abort_not_found("Job not found")
-    if len(queue_ids) > 1:
-        logger.error(f"Multiple jobs found with id {job_id}")
-        abort_internal_err("Multiple jobs found with job id")
-
+    scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = Job.fetch(queue_ids[0], connection=job_queue.redis)
+        job = query_job(scan_query, redis)
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
+    except TooManyJobsFoundError as e:
+        logger.error(f"Multiple jobs found with id {job_id}: {e}")
+        abort_internal_err("Multiple jobs found with job id")
+
+    if job.get_status() in [JobStatus.FINISHED, JobStatus.FAILED]:
+        abort_bad_req("Job has already been completed or failed")
 
     try:
         job.cancel()

@@ -13,6 +13,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 _instance = None
 
+JOBS_PREFIX = "rq:job:"  # The prefix for all job keys in Redis
+
 
 @dataclass(frozen=True)
 class JobResult:
