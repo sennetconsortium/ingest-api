@@ -6,12 +6,12 @@ from atlas_consortia_commons.rest import (
     abort_internal_err,
     abort_not_found,
 )
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
-from jobs import JobQueue, JobResult, create_queue_id, split_queue_id
-from lib import globus
-from lib.decorators import require_data_admin, require_valid_token
+from jobs import JobQueue, create_queue_id
+from lib.decorators import require_valid_token
+from lib.jobs import job_to_response
 
 jobs_blueprint = Blueprint("jobs", __name__)
 logger = logging.getLogger(__name__)
@@ -55,8 +55,8 @@ def delete_job(job_id: UUID, user_id: str):
 
 
 @jobs_blueprint.route("/jobs", methods=["GET"])
-@require_valid_token(user_id_param="user_id", is_data_admin_param="is_data_admin")
-def get_jobs(user_id: str, is_data_admin: bool):
+@require_valid_token(user_id_param="user_id")
+def get_jobs(user_id: str):
     if JobQueue.is_initialized() is False:
         logger.error("Job queue has not been initialized")
         abort_internal_err("Unable to retrieve job information")
@@ -65,19 +65,7 @@ def get_jobs(user_id: str, is_data_admin: bool):
     redis = job_queue.redis
 
     prefix = "rq:job:"
-    if is_data_admin is True and request.args.get("email") is None:
-        # Admin able to get all jobs
-        scan_query = f"{prefix}*"
-    elif is_data_admin is True and request.args.get("email") is not None:
-        # Admins can also query jobs by a user's email
-        email = request.args.get("email")
-        user_id = globus.get_user_id(email)
-        if user_id is None:
-            abort_not_found("User with email not found")
-        scan_query = f"{prefix}{user_id}:*"
-    else:
-        # Non-admin only able to get their own jobs
-        scan_query = f"{prefix}{user_id}:*"
+    scan_query = f"{prefix}{user_id}:*"
 
     # this returns a list of byte objects
     queue_ids = [
@@ -87,30 +75,6 @@ def get_jobs(user_id: str, is_data_admin: bool):
     jobs = Job.fetch_many(queue_ids, connection=redis)
     res = [job_to_response(job) for job in jobs]
     return jsonify(res), 200
-
-
-@jobs_blueprint.route("/jobs/flush", methods=["DELETE"])
-@require_data_admin()
-def flush_jobs():
-    if JobQueue.is_initialized() is False:
-        logger.error("Job queue has not been initialized")
-        abort_internal_err("Unable to retrieve job information")
-
-    job_queue = JobQueue.instance()
-
-    finished_jobs = job_queue.queue.finished_job_registry
-    for job_id in finished_jobs.get_job_ids():
-        finished_jobs.remove(job_id, delete_job=True)
-
-    failed_jobs = job_queue.queue.failed_job_registry
-    for job_id in failed_jobs.get_job_ids():
-        failed_jobs.remove(job_id, delete_job=True)
-
-    canceled_jobs = job_queue.queue.canceled_job_registry
-    for job_id in canceled_jobs.get_job_ids():
-        canceled_jobs.remove(job_id, delete_job=True)
-
-    return {"status": "success", "message": "All jobs have been deleted"}, 200
 
 
 @jobs_blueprint.route("/jobs/<uuid:job_id>/cancel", methods=["PUT"])
@@ -138,31 +102,3 @@ def cancel_job(job_id: UUID, user_id: str):
         abort_bad_req("Job has already been canceled")
 
     return {}, 200
-
-
-def job_to_response(job: Job) -> dict:
-    _, job_id = split_queue_id(job.id)
-    status = job.get_status()
-    results = None
-    errors = None
-    if status == JobStatus.FINISHED:
-        result: JobResult = job.result
-        status = "complete" if result.success else "error"
-        results = result.results if result.success else None
-        errors = result.results if not result.success else None
-
-    return {
-        "job_id": job_id,
-        "referrer": job.meta.get("referrer", {}),
-        "description": job.description,
-        "status": status.title(),
-        "user": job.meta.get("user", {}),
-        "started_timestamp": (
-            int(job.started_at.timestamp() * 1000) if job.started_at else None
-        ),
-        "ended_timestamp": (
-            int(job.ended_at.timestamp() * 1000) if job.ended_at else None
-        ),
-        "results": results,
-        "errors": errors,
-    }
