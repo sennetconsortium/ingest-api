@@ -15,19 +15,23 @@ from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
+import submodules
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
 from routes.entity_CRUD import entity_CRUD_blueprint
-from routes.validation import validation_blueprint
+from routes.metadata import metadata_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
 from routes.vitessce import vitessce_blueprint
+from routes.jobs import jobs_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
+from jobs import JobQueue
+
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -49,14 +53,18 @@ else:
     MEMCACHED_MODE = False
     MEMCACHED_PREFIX = 'NONE'
 
+if app.config.get("REDIS_MODE", False):
+    JobQueue.create(app.config['REDIS_SERVER'], "default")
+
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
-app.register_blueprint(validation_blueprint)
+app.register_blueprint(metadata_blueprint)
 app.register_blueprint(file_blueprint)
 app.register_blueprint(assayclassifier_blueprint)
 app.register_blueprint(vitessce_blueprint)
+app.register_blueprint(jobs_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)

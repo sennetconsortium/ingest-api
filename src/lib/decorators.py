@@ -7,6 +7,7 @@ from typing import Optional
 from atlas_consortia_commons.rest import (
     abort_bad_req,
     abort_forbidden,
+    abort_internal_err,
     abort_unauthorized,
 )
 from flask import current_app, request
@@ -52,6 +53,69 @@ def require_json(param: str = "body"):
 
             if param and param in signature(f).parameters:
                 kwargs[param] = request.json
+
+            return f(*args, **kwargs)
+
+        return decorated_function
+
+    return decorator
+
+
+def require_multipart_form(
+    form_param: str = "form", files_param: str = "files", combined_param: str = "data"
+):
+    """A decorator that checks if the request content type is multipart/form-data.
+
+    If the decorated function has a parameter with the same name as `form_param`, the
+    form body will be passed as that parameter.
+
+    If the decorated function has a parameter with the same name as `files_param`, the
+    files will be passed as that parameter.
+
+    If the decorated function has a parameter with the same name as `combined_param`,
+    the form and files will be passed as that parameter.
+
+    Parameters
+    ----------
+    form_param : str
+        The name of the parameter to pass the form body.
+        Defaults to "form".
+    files_param : str
+        The name of the parameter to pass the files.
+        Defaults to "files".
+    combined_param : str
+        The name of the parameter to pass the form and files.
+        Defaults to "data".
+
+    Notes
+    -----
+    This decorator does not do any validation on the form request body.
+
+    Example
+    -------
+        @app.route("/foo", methods=["POST"])
+        @require_multipart_form(combined_param="foo_data")
+        def foo(foo_data: dict):
+            name = foo_data.get("name")
+            return jsonify({"name": name})
+    """
+
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            if not request.content_type.startswith("multipart/form-data"):
+                abort_bad_req(
+                    "A form data body and appropriate Content-Type header are required"
+                )
+
+            if form_param and form_param in signature(f).parameters:
+                kwargs[form_param] = request.form
+
+            if files_param and files_param in signature(f).parameters:
+                kwargs[files_param] = request.files
+
+            if combined_param and combined_param in signature(f).parameters:
+                kwargs[combined_param] = request.values
 
             return f(*args, **kwargs)
 
@@ -111,12 +175,21 @@ def require_data_admin(param: str = "token"):
     return decorator
 
 
-def require_valid_token(param: str = "token", groups_param: Optional[str] = None):
+def require_valid_token(
+    param: str = "token",
+    user_id_param: Optional[str] = None,
+    email_param: Optional[str] = None,
+    groups_param: Optional[str] = None,
+    is_data_admin_param: Optional[str] = None,
+):
     """A decorator that checks if the provided token is valid.
 
     If the decorated function has a parameter with the same name as `param`, the
     user's token will be passed as that parameter. If the request has no token or an
     invalid token, a 401 Unauthorized response will be returned.
+
+    If the decorated function has a parameter with the same name as `user_id_param`, the
+    user's id will be passed as that parameter.
 
     If the decorated function has a parameter with the same name as `groups_param`, the
     user's group ids will be passed as that parameter.
@@ -125,6 +198,10 @@ def require_valid_token(param: str = "token", groups_param: Optional[str] = None
     ----------
     param : str
         The name of the parameter to pass the user's token to. Defaults to "token".
+    user_id_param : Optional[str]
+        The name of the parameter to pass the user's id to. Defaults to None.
+    email_param : Optional[str]
+        The name of the parameter to pass the user's email to. Defaults to None.
     groups_param : Optional[str]
         The name of the parameter to pass the user's group ids to. Defaults to None.
 
@@ -158,15 +235,31 @@ def require_valid_token(param: str = "token", groups_param: Optional[str] = None
             if not isinstance(token, str):
                 abort_unauthorized("User must be a member of the SenNet Consortium")
 
+            user_info = auth_helper.getUserInfo(token, getGroups=True)
+            if not isinstance(user_info, dict):
+                abort_unauthorized("User must be a member of the SenNet Consortium")
+
             if param in signature(f).parameters:
                 kwargs[param] = token
 
-            if groups_param is not None and groups_param in signature(f).parameters:
-                user_info = auth_helper.getUserInfo(token, getGroups=True)
-                if isinstance(user_info, dict):
-                    kwargs[groups_param] = user_info.get("hmgroupids", [])
-                else:
-                    kwargs[groups_param] = []
+            if user_id_param and user_id_param in signature(f).parameters:
+                user_id = user_info.get("sub")
+                if not user_id:
+                    abort_internal_err("User id not found for token")
+                kwargs[user_id_param] = user_id
+
+            if email_param and email_param in signature(f).parameters:
+                email = user_info.get("email")
+                if not email:
+                    abort_internal_err("Email not found for token")
+                kwargs[email_param] = email
+
+            if groups_param and groups_param in signature(f).parameters:
+                kwargs[groups_param] = user_info.get("hmgroupids", [])
+
+            if is_data_admin_param and is_data_admin_param in signature(f).parameters:
+                is_admin = auth_helper.has_data_admin_privs(token)
+                kwargs[is_data_admin_param] = isinstance(is_admin, bool) and is_admin
 
             return f(*args, **kwargs)
 

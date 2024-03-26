@@ -168,7 +168,6 @@ def reindex_entities(entity_ids: list, token: str) -> None:
         msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
         raise SDKException(msg)
 
-
 def bulk_update_entities(
     entity_updates: dict,
     token: str,

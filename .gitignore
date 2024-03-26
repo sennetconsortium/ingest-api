@@ -1,5 +1,5 @@
 # Ignore config file
-src/instance/app.cfg
+src/instance/*.cfg
 *~
 
 ingest-venv
