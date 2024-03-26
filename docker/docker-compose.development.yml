@@ -22,10 +22,6 @@ services:
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
-    networks:
-      - sennet_docker_network
-    depends_on:
-      - ingest-api-redis-server
 
   ingest-api-rq-worker:
     build:
@@ -36,14 +32,3 @@ services:
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
-    networks:
-      - sennet_docker_network
-    depends_on:
-      - ingest-api-redis-server
-
-  ingest-api-redis-server:
-    image: redis:alpine
-    networks:
-      - sennet_docker_network
-    ports:
-      - 6379:6379
