@@ -1,6 +1,10 @@
 import os
 import logging
+
+import apscheduler
 import requests
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
@@ -19,7 +23,7 @@ import submodules
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
-from routes.entity_CRUD import entity_CRUD_blueprint
+from routes.entity_CRUD import entity_CRUD_blueprint, update_datasets_datastatus, update_uploads_datastatus
 from routes.metadata import metadata_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
@@ -44,6 +48,7 @@ logger = logging.getLogger(__name__)
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
+app.app_context().push()
 
 app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
@@ -203,6 +208,30 @@ def close_neo4j_driver(error):
 @app.route('/', methods=['GET'])
 def index():
     return "Hello! This is SenNet Ingest API service :)"
+
+
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+with app.app_context():
+    scheduler.add_job(
+        func=update_datasets_datastatus,
+        trigger=IntervalTrigger(hours=1),
+        args=[app.app_context()],
+        id='update_dataset_data_status',
+        name="Update Dataset Data Status Job"
+    )
+
+    scheduler.add_job(
+        func=update_uploads_datastatus,
+        trigger=IntervalTrigger(hours=1),
+        args=[app.app_context()],
+        id='update_upload_data_status',
+        name="Update Upload Data Status Job"
+    )
+
+    update_datasets_datastatus(app.app_context())
+    update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':
