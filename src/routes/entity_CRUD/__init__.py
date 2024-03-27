@@ -1,3 +1,5 @@
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from flask import Blueprint, jsonify, request, Response, current_app, json
 import logging
 import requests
@@ -8,6 +10,7 @@ from hubmap_sdk import Entity, EntitySdk
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
+from redis import Redis, from_url
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
@@ -592,6 +595,21 @@ def run_query(query, results, i):
 
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
+    redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    try:
+        cached_data = redis_connection.get("datasets_data_status_key")
+        if cached_data:
+            cached_data_json = json.loads(cached_data.decode('utf-8'))
+            return jsonify(cached_data_json)
+        else:
+            raise Exception
+    except Exception:
+        logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
+        combined_results = update_datasets_datastatus()
+        return jsonify(combined_results)
+
+
+def update_datasets_datastatus():
     organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
     all_datasets_query = (
         "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
@@ -714,10 +732,82 @@ def dataset_data_status():
         if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
             dataset['organ'] = organ_types_dict[dataset['organ']]
 
-    return jsonify(combined_results)
+    try:
+        combined_results_string = json.dumps(combined_results)
+    except json.JSONDecodeError as e:
+        abort_bad_req(e)
+    redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    cache_key = "datasets_data_status_key"
+    redis_connection.set(cache_key, combined_results_string)
+    return combined_results
 
 
-@entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods = ['PUT'])
+@entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
+def upload_data_status():
+    redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    try:
+        cached_data = redis_connection.get("uploads_data_status_key")
+        if cached_data:
+            cached_data_json = json.loads(cached_data.decode('utf-8'))
+            return jsonify(cached_data_json)
+        else:
+            raise Exception
+    except Exception:
+        logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
+        results = update_uploads_datastatus()
+        return jsonify(results)
+
+
+def update_uploads_datastatus():
+    all_uploads_query = (
+        "MATCH (up:Upload) "
+        "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
+        "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
+        "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
+        "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
+    )
+
+    displayed_fields = [
+        "uuid", "group_name", "sennet_id", "status", "title", "datasets",
+        "assigned_to_group_name", "ingest_task"
+    ]
+
+    with Neo4jHelper.get_instance().session() as session:
+        results = session.run(all_uploads_query).data()
+        for upload in results:
+            globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
+            upload['globus_url'] = globus_url
+            for prop in upload:
+                if isinstance(upload[prop], list):
+                    upload[prop] = ", ".join(upload[prop])
+                if isinstance(upload[prop], (bool, int)):
+                    upload[prop] = str(upload[prop])
+                if isinstance(upload[prop], str) and \
+                        len(upload[prop]) >= 2 and \
+                        upload[prop][0] == "[" and upload[prop][-1] == "]":
+                    prop_as_list = string_helper.convert_str_literal(upload[prop])
+                    if len(prop_as_list) > 0:
+                        upload[prop] = prop_as_list
+                    else:
+                        upload[prop] = ""
+                if upload[prop] is None:
+                    upload[prop] = ""
+            for field in displayed_fields:
+                if upload.get(field) is None:
+                    upload[field] = ""
+    # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
+    # TODO: link to the datasets page only displaying datasets belonging to a given upload.
+    try:
+        results_string = json.dumps(results)
+    except json.JSONDecodeError as e:
+        abort_bad_req(e)
+    redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    cache_key = "uploads_data_status_key"
+    redis_connection.set(cache_key, results_string)
+    return results
+
+
+@entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods=['PUT'])
 def publish_datastage(identifier):
     try:
         auth_helper = AuthHelper.instance()
@@ -1155,49 +1245,6 @@ def reorganize_upload(upload_uuid):
         return Response(resp2.text, resp2.status_code)
 
     return Response(resp.text, resp.status_code)
-
-
-@entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
-def upload_data_status():
-    all_uploads_query = (
-        "MATCH (up:Upload) "
-        "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
-        "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
-        "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
-        "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
-    )
-
-    displayed_fields = [
-        "uuid", "group_name", "sennet_id", "status", "title", "datasets",
-        "assigned_to_group_name", "ingest_task"
-    ]
-
-    with Neo4jHelper.get_instance().session() as session:
-        results = session.run(all_uploads_query).data()
-        for upload in results:
-            globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
-            upload['globus_url'] = globus_url
-            for prop in upload:
-                if isinstance(upload[prop], list):
-                    upload[prop] = ", ".join(upload[prop])
-                if isinstance(upload[prop], (bool, int)):
-                    upload[prop] = str(upload[prop])
-                if isinstance(upload[prop], str) and \
-                        len(upload[prop]) >= 2 and \
-                        upload[prop][0] == "[" and upload[prop][-1] == "]":
-                    prop_as_list = string_helper.convert_str_literal(upload[prop])
-                    if len(prop_as_list) > 0:
-                        upload[prop] = prop_as_list
-                    else:
-                        upload[prop] = ""
-                if upload[prop] is None:
-                    upload[prop] = ""
-            for field in displayed_fields:
-                if upload.get(field) is None:
-                    upload[field] = ""
-    # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
-    # TODO: link to the datasets page only displaying datasets belonging to a given upload.
-    return jsonify(results)
 
 
 @entity_CRUD_blueprint.route('/collections/attributes', methods=['POST'])
