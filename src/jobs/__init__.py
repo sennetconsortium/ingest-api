@@ -174,6 +174,14 @@ def job_to_response(job: Job) -> dict:
         results = result.results if result.success else None
         errors = result.results if not result.success else None
 
+    if status == JobStatus.FAILED:
+        errors = {
+            "message": (
+                "Something went wrong while processing the job. Please resubmit. "
+                "If the problem persists, contact support."
+            )
+        }
+
     return {
         "job_id": job_id,
         "referrer": job.meta.get("referrer", {}),
