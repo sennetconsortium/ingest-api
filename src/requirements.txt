@@ -23,6 +23,8 @@ rule_engine==4.1.0
 redis==5.0.3
 rq==1.16.1
 
+APScheduler==3.10.4
+
 # For vitessce config generation
 https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.2.0.zip
 
