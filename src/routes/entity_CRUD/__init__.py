@@ -638,7 +638,7 @@ def update_datasets_datastatus():
 
     processed_datasets_query = (
         "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT s) AS processed_datasets"
+        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
     )
 
     has_rui_query = (
@@ -724,6 +724,9 @@ def update_datasets_datastatus():
                     dataset[prop] = ""
             if dataset[prop] is None:
                 dataset[prop] = ""
+            if prop == 'processed_datasets':
+                for processed in dataset['processed_datasets']:
+                    processed['globus_url'] = get_globus_url(processed.get('data_access_level'), processed.get('group_name'), processed.get('uuid'))
         for field in displayed_fields:
             if dataset.get(field) is None:
                 dataset[field] = ""
@@ -1050,7 +1053,7 @@ def publish_datastage(identifier):
 
 def dataset_is_primary(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE NOT toLower(a.creation_action) ENDS WITH 'process' RETURN ds.uuid")
+        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
             return False
