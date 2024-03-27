@@ -1,5 +1,7 @@
 import os
 import logging
+
+import apscheduler
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -46,6 +48,7 @@ logger = logging.getLogger(__name__)
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
+app.app_context().push()
 
 app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
@@ -210,23 +213,25 @@ def index():
 scheduler = BackgroundScheduler()
 scheduler.start()
 
-scheduler.add_job(
-    func=update_datasets_datastatus,
-    trigger=IntervalTrigger(hours=1),
-    id='update_dataset_data_status',
-    name="Update Dataset Data Status Job"
-)
-
-scheduler.add_job(
-    func=update_uploads_datastatus,
-    trigger=IntervalTrigger(hours=1),
-    id='update_upload_data_status',
-    name="Update Upload Data Status Job"
-)
-
 with app.app_context():
-    update_datasets_datastatus()
-    update_uploads_datastatus()
+    scheduler.add_job(
+        func=update_datasets_datastatus,
+        trigger=IntervalTrigger(hours=1),
+        args=[app.app_context()],
+        id='update_dataset_data_status',
+        name="Update Dataset Data Status Job"
+    )
+
+    scheduler.add_job(
+        func=update_uploads_datastatus,
+        trigger=IntervalTrigger(hours=1),
+        args=[app.app_context()],
+        id='update_upload_data_status',
+        name="Update Upload Data Status Job"
+    )
+
+    update_datasets_datastatus(app.app_context())
+    update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':
