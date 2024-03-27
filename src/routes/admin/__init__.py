@@ -9,10 +9,9 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify, request
 from rq.job import InvalidJobOperation, JobStatus, NoSuchJobError
 
-from jobs import JOBS_PREFIX, JobQueue
+from jobs import JOBS_PREFIX, JobQueue, TooManyJobsFoundError, job_to_response
 from lib import globus
 from lib.decorators import require_data_admin
-from lib.jobs import TooManyJobsFoundError, job_to_response, query_job, query_jobs
 
 admin_blueprint = Blueprint("admin", __name__)
 logger = logging.getLogger(__name__)
@@ -26,7 +25,6 @@ def get_admin_jobs():
         abort_internal_err("Unable to retrieve job information")
 
     job_queue = JobQueue.instance()
-    redis = job_queue.redis
 
     if request.args.get("email") is not None:
         # Support querying by email
@@ -38,7 +36,7 @@ def get_admin_jobs():
     else:
         scan_query = f"{JOBS_PREFIX}*"
 
-    jobs = query_jobs(scan_query, redis)
+    jobs = job_queue.query_jobs(scan_query)
     res = [job_to_response(job) for job in jobs]
     return jsonify(res), 200
 
@@ -51,11 +49,10 @@ def get_admin_job(job_id: UUID):
         abort_internal_err("Unable to retrieve job information")
 
     job_queue = JobQueue.instance()
-    redis = job_queue.redis
 
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = query_job(scan_query, redis)
+        job = job_queue.query_job(scan_query)
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
@@ -74,11 +71,10 @@ def delete_admin_job(job_id: UUID):
         abort_internal_err("Unable to retrieve job information")
 
     job_queue = JobQueue.instance()
-    redis = job_queue.redis
 
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = query_job(scan_query, redis)
+        job = job_queue.query_job(scan_query)
         job.delete()
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
@@ -98,11 +94,10 @@ def cancel_admin_job(job_id: UUID):
         abort_internal_err("Unable to retrieve job information")
 
     job_queue = JobQueue.instance()
-    redis = job_queue.redis
 
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
-        job = query_job(scan_query, redis)
+        job = job_queue.query_job(scan_query)
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
