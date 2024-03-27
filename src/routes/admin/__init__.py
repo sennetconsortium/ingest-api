@@ -90,7 +90,7 @@ def delete_admin_job(job_id: UUID):
     return {"status": "success", "message": "Job deleted successfully"}, 200
 
 
-@admin_blueprint.route("/admin/jobs/<uuid:job_id>", methods=["PUT"])
+@admin_blueprint.route("/admin/jobs/<uuid:job_id>/cancel", methods=["PUT"])
 @require_data_admin()
 def cancel_admin_job(job_id: UUID):
     if JobQueue.is_initialized() is False:
