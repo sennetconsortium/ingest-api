@@ -210,28 +210,29 @@ def index():
     return "Hello! This is SenNet Ingest API service :)"
 
 
-scheduler = BackgroundScheduler()
-scheduler.start()
+if app.config.get("REDIS_MODE", False):
+    scheduler = BackgroundScheduler()
+    scheduler.start()
 
-with app.app_context():
-    scheduler.add_job(
-        func=update_datasets_datastatus,
-        trigger=IntervalTrigger(hours=1),
-        args=[app.app_context()],
-        id='update_dataset_data_status',
-        name="Update Dataset Data Status Job"
-    )
+    with app.app_context():
+        scheduler.add_job(
+            func=update_datasets_datastatus,
+            trigger=IntervalTrigger(hours=1),
+            args=[app.app_context()],
+            id='update_dataset_data_status',
+            name="Update Dataset Data Status Job"
+        )
 
-    scheduler.add_job(
-        func=update_uploads_datastatus,
-        trigger=IntervalTrigger(hours=1),
-        args=[app.app_context()],
-        id='update_upload_data_status',
-        name="Update Upload Data Status Job"
-    )
+        scheduler.add_job(
+            func=update_uploads_datastatus,
+            trigger=IntervalTrigger(hours=1),
+            args=[app.app_context()],
+            id='update_upload_data_status',
+            name="Update Upload Data Status Job"
+        )
 
-    update_datasets_datastatus(app.app_context())
-    update_uploads_datastatus(app.app_context())
+        update_datasets_datastatus(app.app_context())
+        update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':

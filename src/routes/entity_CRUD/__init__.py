@@ -596,16 +596,20 @@ def run_query(query, results, i):
 
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
-    redis_connection = from_url(current_app.config['REDIS_SERVER'])
-    try:
-        cached_data = redis_connection.get("datasets_data_status_key")
-        if cached_data:
-            cached_data_json = json.loads(cached_data.decode('utf-8'))
-            return jsonify(cached_data_json)
-        else:
-            raise Exception
-    except Exception:
-        logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
+    if current_app.config.get("REDIS_MODE"):
+        redis_connection = from_url(current_app.config['REDIS_SERVER'])
+        try:
+            cached_data = redis_connection.get("datasets_data_status_key")
+            if cached_data:
+                cached_data_json = json.loads(cached_data.decode('utf-8'))
+                return jsonify(cached_data_json)
+            else:
+                raise Exception
+        except Exception:
+            logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
+            combined_results = update_datasets_datastatus(current_app.app_context())
+            return jsonify(combined_results)
+    else:
         combined_results = update_datasets_datastatus(current_app.app_context())
         return jsonify(combined_results)
 
@@ -741,24 +745,29 @@ def update_datasets_datastatus(app_context):
             combined_results_string = json.dumps(combined_results)
         except json.JSONDecodeError as e:
             abort_bad_req(e)
-        redis_connection = from_url(current_app.config['REDIS_SERVER'])
-        cache_key = "datasets_data_status_key"
-        redis_connection.set(cache_key, combined_results_string)
+        if current_app.config.get("REDIS_MODE"):
+            redis_connection = from_url(current_app.config['REDIS_SERVER'])
+            cache_key = "datasets_data_status_key"
+            redis_connection.set(cache_key, combined_results_string)
         return combined_results
 
 
 @entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
 def upload_data_status():
-    redis_connection = from_url(current_app.config['REDIS_SERVER'])
-    try:
-        cached_data = redis_connection.get("uploads_data_status_key")
-        if cached_data:
-            cached_data_json = json.loads(cached_data.decode('utf-8'))
-            return jsonify(cached_data_json)
-        else:
-            raise Exception
-    except Exception:
-        logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
+    if current_app.config.get("REDIS_MODE"):
+        redis_connection = from_url(current_app.config['REDIS_SERVER'])
+        try:
+            cached_data = redis_connection.get("uploads_data_status_key")
+            if cached_data:
+                cached_data_json = json.loads(cached_data.decode('utf-8'))
+                return jsonify(cached_data_json)
+            else:
+                raise Exception
+        except Exception:
+            logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
+            results = update_uploads_datastatus(current_app.app_context())
+            return jsonify(results)
+    else:
         results = update_uploads_datastatus(current_app.app_context())
         return jsonify(results)
 
@@ -807,9 +816,11 @@ def update_uploads_datastatus(app_context):
             results_string = json.dumps(results)
         except json.JSONDecodeError as e:
             abort_bad_req(e)
-        redis_connection = from_url(current_app.config['REDIS_SERVER'])
-        cache_key = "uploads_data_status_key"
-        redis_connection.set(cache_key, results_string)
+
+        if current_app.config.get("REDIS_MODE"):
+            redis_connection = from_url(current_app.config['REDIS_SERVER'])
+            cache_key = "uploads_data_status_key"
+            redis_connection.set(cache_key, results_string)
         return results
 
 
