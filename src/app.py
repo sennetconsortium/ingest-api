@@ -210,7 +210,7 @@ def index():
     return "Hello! This is SenNet Ingest API service :)"
 
 
-if app.config.get("REDIS_MODE", False):
+if app.config.get("REDIS_MODE"):
     scheduler = BackgroundScheduler()
     scheduler.start()
 
