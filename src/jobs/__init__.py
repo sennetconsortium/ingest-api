@@ -23,9 +23,20 @@ class JobResult:
     results: dict
 
 
+class JobSubject(str, Enum):
+    ENTITY = "entity"
+    METADATA = "metadata"
+
+
 class JobType(str, Enum):
     VALIDATE = "validate"
     REGISTER = "register"
+
+    @property
+    def noun(self) -> str:
+        if self == JobType.VALIDATE:
+            return "validation"
+        return "registration"
 
 
 class TooManyJobsFoundError(Exception):
@@ -197,3 +208,40 @@ def job_to_response(job: Job) -> dict:
         "results": results,
         "errors": errors,
     }
+
+
+def create_job_description(
+    subject: JobSubject,
+    job_type: JobType,
+    entity_type: str,
+    subtype: str,
+    filename: Optional[str],
+) -> str:
+    """Create a job description for a job.
+
+    Parameters
+    ----------
+    subject : JobSubject
+        The subject of the job.
+    job_type : JobType
+        The type of job.
+    entity_type : str
+        The entity type ("Source", "Sample").
+    subtype : str
+        The subtype ("Mouse", "Block", "Section", "Suspension").
+    filename : Optional[str]
+        The optional filename.
+
+    Returns
+    -------
+    str
+        The job description.
+    """
+
+    subject = subject.title()
+    job_type = job_type.noun.lower()
+    entity_type = entity_type.title()
+    subtype = subtype.title()
+    filename_suffix = f" from file {filename}" if filename else ""
+
+    return f"{subject} {job_type} for {entity_type} {subtype}{filename_suffix}"

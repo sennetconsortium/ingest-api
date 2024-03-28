@@ -14,14 +14,23 @@ from atlas_consortia_commons.rest import (
     full_response,
     rest_server_err,
 )
+from atlas_consortia_commons.string import equals
 from flask import Blueprint, jsonify
 from rq.job import Job, JobStatus, NoSuchJobError
 
-from jobs import JobQueue, JobResult, JobType, create_queue_id
+from jobs import (
+    JobQueue,
+    JobResult,
+    JobSubject,
+    JobType,
+    create_job_description,
+    create_queue_id,
+)
 from jobs.registration import register_uploaded_metadata
 from jobs.validation import validate_uploaded_metadata
 from lib.decorators import require_json, require_multipart_form, require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
+from lib.ontology import Ontology
 
 metadata_blueprint = Blueprint("metadata", __name__)
 logger = logging.getLogger(__name__)
@@ -31,6 +40,12 @@ logger = logging.getLogger(__name__)
 @require_valid_token(param="token", user_id_param="user_id", email_param="email")
 @require_multipart_form(combined_param="data")
 def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
+    try:
+        entity_type, sub_type = validate_entity_type(data)
+    except ValueError as e:
+        logger.error(f"Invalid entity type: {e}")
+        abort_bad_req(str(e))
+
     try:
         referrer = validate_referrer(data, JobType.VALIDATE)
     except ValueError as e:
@@ -54,6 +69,13 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
     job_queue = JobQueue.instance()
     job_id = uuid4()
     queue_id = create_queue_id(user_id, job_id)
+    desc = create_job_description(
+        JobSubject.METADATA,
+        JobType.VALIDATE,
+        entity_type,
+        sub_type,
+        upload.get("filename"),
+    )
 
     job = job_queue.queue.enqueue(
         validate_uploaded_metadata,
@@ -68,7 +90,7 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
         ttl=604800,  # 1 week
         result_ttl=604800,
         error_ttl=604800,
-        description=f"Metadata {upload.get('filename')} validation",
+        description=desc,
     )
 
     # Add metadata to the job
@@ -118,6 +140,9 @@ def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
     metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
     queue_id = create_queue_id(user_id, job_id)
+    desc = validation_job.description.replace(
+        JobType.VALIDATE.noun, JobType.REGISTER.noun
+    )
 
     job = job_queue.queue.enqueue(
         register_uploaded_metadata,
@@ -131,7 +156,7 @@ def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
         ttl=604800,  # 1 week
         result_ttl=604800,
         error_ttl=604800,
-        description=f"Metadata {validation_job_id} registration",
+        description=desc,
     )
 
     # Add metadata to the job
@@ -223,3 +248,25 @@ def validate_referrer(data: dict, job_type: JobType) -> dict:
         "type": job_type.value,
         "path": f"{parsed.path}{query}",
     }
+
+
+def validate_entity_type(data: dict) -> str:
+    entity_type = data.get("entity_type")
+    sub_type = data.get("sub_type")
+
+    e = Ontology.ops().entities()
+    allowed_entity_types = [e.SOURCE, e.SAMPLE]
+    if entity_type not in allowed_entity_types:
+        raise ValueError(f"Invalid entity type {entity_type}")
+
+    if equals(entity_type, e.SOURCE):
+        s = Ontology.ops().source_types()
+        if sub_type not in [s.MOUSE]:
+            raise ValueError(f"Invalid source sub-type {sub_type}")
+
+    if equals(entity_type, e.SAMPLE):
+        s = Ontology.ops().specimen_categories()
+        if sub_type not in [s.BLOCK, s.SECTION, s.SUSPENSION]:
+            raise ValueError(f"Invalid sample sub-type {sub_type}")
+
+    return entity_type, sub_type
