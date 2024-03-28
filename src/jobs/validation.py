@@ -13,6 +13,7 @@ from atlas_consortia_commons.rest import (
     rest_ok,
     rest_response,
     rest_server_err,
+    rest_not_found,
 )
 from atlas_consortia_commons.string import equals, to_title_case
 from flask import current_app
@@ -23,6 +24,7 @@ from ingest_validation_tools import validation_utils as iv_utils
 from jobs import JobResult
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
+from routes.auth import get_auth_header_dict
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +285,24 @@ def _get_response(
 
     return response
 
+def get_related_col_id_by_entity_type(entity_type: str) -> str:
+    """Returns an additional tsv id column name for the given entity type.
+
+    Parameters
+    ----------
+    entity_type : str
+        The entity type.
+
+    Returns
+    -------
+    str
+        The name of the column in the tsv.
+    """
+
+    if equals(entity_type, Ontology.ops().entities().SAMPLE):
+        return "source_id"
+
+
 
 def get_col_id_name_by_entity_type(entity_type: str) -> str:
     """Returns the tsv id column name for the given entity type.
@@ -321,6 +341,27 @@ def supported_metadata_sub_types(entity_type):
             Ontology.ops().specimen_categories().SUSPENSION,
         ]
 
+def fetch_entity(token, entity_id, id_col, idx, errors):
+    url = (
+            ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+            + "entities/"
+            + entity_id
+    )
+    try:
+        resp = requests.get(url, headers=get_auth_header_dict(token))
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error validating metadata: {e}")
+    if resp.status_code < 300:
+        return resp.json()
+    else:
+        ln = ln_err(f"invalid `{id_col}`: `{entity_id}`", idx, id_col)
+        err = rest_response(
+            resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
+        )
+        errors.append(err)
+        return False
+
+
 
 def validate_records_uuids(
     records: list, entity_type: str, sub_type: str, pathname: str, token: str
@@ -351,83 +392,69 @@ def validate_records_uuids(
     """
     errors = []
     passing = []
-    header = {"Authorization": f"Bearer {token}"}
-    ok = True
     idx = 1
+
+    fail_response = rest_response(
+        StatusCodes.UNACCEPTABLE,
+        "There are invalid `uuids` and/or unmatched entity sub types",
+        errors,
+        dict_only=True,
+    )
+
     for r in records:
+        ok = True
         # First get the id column name, in order to get SenNet id in the record
         id_col = get_col_id_name_by_entity_type(entity_type)
         entity_id = r.get(id_col)
-        # Use the SenNet id to find the stored entity
-        url = (
-            ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "entities/"
-            + entity_id
-        )
-        try:
-            resp = requests.get(url, headers=header)
-        except requests.exceptions.RequestException as e:
-            logger.error(f"Error validating metadata: {e}")
-        if resp.status_code < 300:
-            entity = resp.json()
-            if sub_type is not None:
-                sub_type_col = get_sub_type_name_by_entity_type(entity_type)
-                _sub_type = entity.get(sub_type_col)
-                # Check that the stored entity _sub_type is actually supported for validation
-                if _sub_type not in supported_metadata_sub_types(entity_type):
-                    ok = False
-                    errors.append(
-                        rest_response(
-                            StatusCodes.UNACCEPTABLE,
-                            StatusMsgs.UNACCEPTABLE,
-                            ln_err(
-                                f"of `{to_title_case(_sub_type)}` unsupported "
-                                f"on check of given `{entity_id}`. "
-                                f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
-                                idx,
-                                sub_type_col,
-                            ),
-                            dict_only=True,
-                        )
-                    )
-                # Check that the stored entity _sub_type matches what is expected (the type being bulk uploaded)
-                elif not equals(sub_type, _sub_type):
-                    ok = False
-                    ln = ln_err(
-                        f"got `{to_title_case(_sub_type)}` on check of given `{entity_id}`, "
+        entity = fetch_entity(token, entity_id, id_col, idx, errors)
+
+        if entity is False:
+            return fail_response
+
+        result_entity = {'uuid': entity['uuid']}
+
+        # Check that any additional entities mentioned in tsv exists; currently only relevant for Samples
+        if get_related_col_id_by_entity_type(entity_type) is not None:
+            related_id_col = get_related_col_id_by_entity_type(entity_type)
+            related_entity_id = r.get(related_id_col)
+            related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
+            if related_entity is False:
+                ok = False
+
+        if sub_type is not None:
+            sub_type_col = get_sub_type_name_by_entity_type(entity_type)
+            _sub_type = entity.get(sub_type_col)
+            # Check that the stored entity _sub_type is actually supported for validation
+            if _sub_type not in supported_metadata_sub_types(entity_type):
+                ok = False
+                errors.append(
+                    rest_bad_req(ln_err(
+                        f"of `{_sub_type}` unsupported "
+                        f"on check of given `{entity_id}`. "
+                        f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
+                        idx,
+                        sub_type_col,
+                    ), dict_only=True)
+                )
+            # Check that the stored entity _sub_type matches what is expected (the type being bulk uploaded)
+            if not equals(sub_type, _sub_type):
+                ok = False
+                errors.append(
+                    rest_bad_req(ln_err(
+                        f"got `{_sub_type}` on check of given `{entity_id}`, "
                         f"expected `{sub_type}` for `{sub_type_col}`.",
                         idx,
                         id_col,
-                    )
-                    err = rest_response(
-                        StatusCodes.UNACCEPTABLE,
-                        StatusMsgs.UNACCEPTABLE,
-                        ln,
-                        dict_only=True,
-                    )
-                    errors.append(err)
-                else:
-                    entity["metadata"] = r
-                    passing.append(rest_ok(entity, True))
-            else:
-                entity["metadata"] = r
-                passing.append(rest_ok(entity, True))
-        else:
-            ok = False
-            ln = ln_err(f"invalid `{id_col}`: '{entity_id}'", idx, id_col)
-            err = rest_response(
-                resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
-            )
-            errors.append(err)
+                    ), dict_only=True)
+                )
+
+        if ok is True:
+            result_entity["metadata"] = r
+            passing.append(rest_ok(result_entity, True))
 
         idx += 1
 
-    if ok is True:
+    if len(errors) == 0:
         return rest_ok({"data": passing, "pathname": pathname}, dict_only=True)
     else:
-        return rest_response(
-            StatusCodes.UNACCEPTABLE,
-            "There are invalid `uuids` and/or unmatched entity sub types",
-            errors,
-            dict_only=True,
-        )
+        return fail_response
