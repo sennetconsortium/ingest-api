@@ -36,6 +36,16 @@ components:
     file_uuid:
       type: string
 
+    Referrer:
+      type: object
+      properties:
+        type:
+          type: string
+          description: The type of job
+        path:
+          type: string
+          description: The URL path in the portal
+
     Sources:
       type: object
       properties:
@@ -451,6 +461,133 @@ paths:
           description: The user's token has expired or the user did not supply a valid token
         "500":
           description: Internal error
+
+  /metadata/validate:
+    post:
+      tags:
+        - metadata
+      summary: Validate a metadata file.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                entity_type:
+                  type: string
+                  enum:
+                    - Source
+                    - Sample
+                    - Dataset
+                  description: The type of Entity the metadata is for.
+                sub_type:
+                  type: string
+                  enum:
+                    - Block
+                    - Organ
+                    - Section
+                    - Suspension
+                  description: The sub type of the Sample.
+                validate_uuids:
+                  type: integer
+                  description: Whether to validate UUIDs in the metadata, 0 or 1.
+                referrer:
+                  type: string
+                  description: 'The type of job and the URL path in the portal. Json formatted string {"type": "job_type", "path": "portal/url/path"}.'
+                metadata:
+                  type: string
+                  format: binary
+                  description: The metadata TSV file.
+      responses:
+        "202":
+          description: The validation job was added to the queue and will be processed.
+          content:
+            application/json:
+              schema:
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+        "400":
+          description: One or more required fields are missing or invalid.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
+        "401":
+          description: User's token is not valid or missing.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: An unexpected internal error occured.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
+
+  /metadata/register:
+    post:
+      tags:
+        - metadata
+      summary: Register metadata from a previously completed metadata validation job.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                job_id:
+                  type: string
+                  description: The job_id of the completed validation job.
+                referrer:
+                  $ref: "#/components/schemas/Referrer"
+
+      responses:
+        "202":
+          description: The registration job was added to the queue and will be processed.
+          content:
+            application/json:
+              schema:
+                properties:
+                  job_id:
+                    type: string
+                  status:
+                    type: string
+        "400":
+          description: One or more required fields are missing or invalid.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
+        "401":
+          description: User's token is not valid or missing.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
+        "500":
+          description: An unexpected internal error occured.
+          content:
+            application/json:
+              schema:
+                properties:
+                  error:
+                    type: string
 
   /sources/bulk/validate:
     post:
