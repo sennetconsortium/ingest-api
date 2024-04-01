@@ -49,7 +49,11 @@ def validate_uploaded_entities(
             file_details = save_validation_records(records, entity_type, upload, job_id)
             return JobResult(
                 success=True,
-                results={"job_id": job_id, "file": file_details.get("pathname")},
+                results={
+                    "job_id": job_id,
+                    "entity_type": entity_type,
+                    "file": file_details.get("pathname"),
+                },
             )
         elif type(valid_file) is list:
             return JobResult(success=False, results=valid_file)

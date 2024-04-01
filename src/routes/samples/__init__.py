@@ -1,30 +1,89 @@
+import json
 import logging
 import os
 from operator import itemgetter
+from urllib.parse import urlparse
+from uuid import uuid4
 
 import requests
 from atlas_consortia_commons.rest import (
     StatusCodes,
+    abort_bad_req,
+    abort_internal_err,
     rest_bad_req,
     rest_ok,
     rest_response,
 )
-from flask import Blueprint, Response, current_app, request
+from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.file_helper import ensureTrailingSlashURL
+from rq.job import JobStatus
+from werkzeug.utils import secure_filename
 
+from jobs import JobQueue, JobSubject, JobType, create_job_description, create_queue_id
+from jobs.validation.entities import validate_uploaded_entities
 from lib.decorators import require_valid_token
-from lib.entities.validation import bulk_upload_and_validate, validate_samples
-from lib.file import get_csv_records
-from lib.ontology import Ontology
+from lib.entities.validation import validate_samples
+from lib.file import check_upload, get_csv_records, set_file_details
 
 samples_blueprint = Blueprint("samples", __name__)
 logger = logging.getLogger(__name__)
 
 
 @samples_blueprint.route("/samples/bulk/validate", methods=["POST"])
-@require_valid_token(param="token")
-def bulk_samples_upload_and_validate(token: str):
-    return bulk_upload_and_validate(Ontology.ops().entities().SAMPLE, token)
+@require_valid_token(param="token", user_id_param="user_id", email_param="email")
+def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
+    try:
+        referrer = validate_referrer(request.form, JobType.VALIDATE)
+    except ValueError as e:
+        logger.error(f"Invalid referrer: {e}")
+        abort_bad_req("Invalid referrer")
+
+    # save uploaded file to temp directory
+    file_upload = check_upload()
+    temp_id, file = itemgetter("id", "file")(file_upload.get("description"))
+
+    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
+    file.filename = secure_filename(file.filename)
+    pathname = os.path.join(temp_id, file.filename)
+    upload = set_file_details(pathname)
+
+    job_queue = JobQueue.instance()
+    job_id = uuid4()
+    queue_id = create_queue_id(user_id, job_id)
+    desc = create_job_description(
+        JobSubject.ENTITY,
+        JobType.VALIDATE,
+        "Sample",
+        None,
+        upload.get("filename"),
+    )
+
+    job = job_queue.queue.enqueue(
+        validate_uploaded_entities,
+        kwargs={
+            "job_id": job_id,
+            "entity_type": "Sample",
+            "upload": upload,
+            "token": token,
+        },
+        job_id=queue_id,
+        job_timeout=18000,  # 5 hours
+        ttl=604800,  # 1 week
+        result_ttl=604800,
+        error_ttl=604800,
+        description=desc,
+    )
+
+    # Add metadata to the job
+    job.meta["referrer"] = referrer
+    job.meta["user"] = {"id": user_id, "email": email}
+    job.save()
+
+    status = job.get_status()
+    if status == JobStatus.FAILED:
+        abort_internal_err("Validation job failed to start")
+
+    return jsonify({"job_id": job_id, "status": status}), 202
 
 
 @samples_blueprint.route("/samples/bulk/register", methods=["POST"])
@@ -144,3 +203,26 @@ def _get_status_code_by_priority(codes):
         return StatusCodes.UNACCEPTABLE
     else:
         return codes[0]
+
+
+def validate_referrer(data: dict, job_type: JobType) -> dict:
+    referrer = data.get("referrer", "{}")
+    if isinstance(referrer, str):
+        referrer = json.loads(referrer)
+
+    if "type" not in referrer or referrer["type"] != job_type.value:
+        raise ValueError(f"Invalid referrer {referrer}")
+
+    if "path" not in referrer:
+        raise ValueError("Missing referrer URL")
+
+    path = referrer["path"].replace(" ", "")
+    parsed = urlparse(path)
+    if parsed.scheme != "" or parsed.netloc != "" or len(parsed.path) < 1:
+        raise ValueError(f"Invalid referrer URL {path}")
+
+    query = f"?{parsed.query}" if parsed.query else ""
+    return {
+        "type": job_type.value,
+        "path": f"{parsed.path}{query}",
+    }
