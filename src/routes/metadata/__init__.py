@@ -27,7 +27,7 @@ from jobs import (
     create_queue_id,
 )
 from jobs.registration import register_uploaded_metadata
-from jobs.validation import validate_uploaded_metadata
+from jobs.validation.metadata import validate_uploaded_metadata
 from lib.decorators import require_json, require_multipart_form, require_valid_token
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 from lib.ontology import Ontology

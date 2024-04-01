@@ -214,7 +214,7 @@ def create_job_description(
     subject: JobSubject,
     job_type: JobType,
     entity_type: str,
-    subtype: str,
+    subtype: Optional[str],
     filename: Optional[str],
 ) -> str:
     """Create a job description for a job.
@@ -227,8 +227,8 @@ def create_job_description(
         The type of job.
     entity_type : str
         The entity type ("Source", "Sample").
-    subtype : str
-        The subtype ("Mouse", "Block", "Section", "Suspension").
+    subtype : Optional[str]
+        The optional subtype ("Mouse", "Block", "Section", "Suspension").
     filename : Optional[str]
         The optional filename.
 
@@ -241,7 +241,7 @@ def create_job_description(
     subject = subject.title()
     job_type = job_type.noun.lower()
     entity_type = entity_type.title()
-    subtype = subtype.title()
+    formatted_subtype = f" {subtype.title()}" if subtype else ""
     filename_suffix = f" from file {filename}" if filename else ""
 
-    return f"{subject} {job_type} for {entity_type} {subtype}{filename_suffix}"
+    return f"{subject} {job_type} for {entity_type}{formatted_subtype}{filename_suffix}"
