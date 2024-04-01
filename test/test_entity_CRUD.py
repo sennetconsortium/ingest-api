@@ -1,7 +1,7 @@
 import json
 import os
 import test.utils as test_utils
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -31,6 +31,22 @@ def ontology_mock():
     """Automatically add ontology mock functions to all tests"""
     with patch(
         "atlas_consortia_commons.ubkg.ubkg_sdk.UbkgSDK", new=test_utils.MockOntology
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def auth_helper_mock():
+    mock = MagicMock()
+    mock.getUserTokenFromRequest.return_value = "test_token"
+    mock.getUserInfo.return_value = {
+        "sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
+        "email": "TESTUSER@example.com",
+        "hmgroupids": ["60b692ac-8f6d-485f-b965-36886ecc5a26"],
+    }
+
+    with patch(
+        "hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=mock
     ):
         yield
 
