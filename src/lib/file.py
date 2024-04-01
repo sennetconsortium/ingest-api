@@ -78,7 +78,7 @@ def check_upload(key: str = "file"):
             return rest_server_err(e, True)
 
 
-def ln_err(error: str, row: int = None, column: str = None):
+def ln_err(error: str, row: int = None, column: str = None) -> dict:
     return {"column": column, "error": error, "row": row}
 
 
