@@ -105,9 +105,6 @@ def bulk_sources_upload_and_validate(token: str, user_id: str, email: str):
 def create_sources_from_bulk(
     body: dict, token: str, user_id: str, email: str, group_ids: list, is_admin: bool
 ):
-    if not isinstance(body, dict):
-        abort_bad_req("Invalid request body")
-
     try:
         validation_job_id = get_validated_job_id(body)
         group_uuid = get_validated_group_uuid(body, group_ids, is_admin)

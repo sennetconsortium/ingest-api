@@ -14,8 +14,14 @@ from flask import current_app, request
 from hubmap_commons.hm_auth import AuthHelper
 
 
-def require_json(param: str = "body"):
+def require_json(
+    param: str = "body",
+):
     """A decorator that checks if the request content type is json.
+
+    If a type hint is provided for the parameter, the basic request body type (dict or
+    list) will be checked against the type hint. The content of the request body will
+    not be validated further.
 
     If the decorated function has a parameter with the same name as `param`, the
     request body will be passed as that parameter.
@@ -25,10 +31,6 @@ def require_json(param: str = "body"):
     param : str
         The name of the parameter to pass the request body to required.
         Defaults to "body".
-
-    Notes
-    -----
-    This decorator does not do any validation on the json request body.
 
     Example
     -------
@@ -52,6 +54,11 @@ def require_json(param: str = "body"):
                 )
 
             if param and param in signature(f).parameters:
+                # Check if the parameter has a type annotation
+                p = signature(f).parameters[param]
+                body = request.json
+                if p.annotation is not p.empty and not isinstance(body, p.annotation):
+                    abort_bad_req("Invalid json request body type")
                 kwargs[param] = request.json
 
             return f(*args, **kwargs)

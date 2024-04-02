@@ -102,9 +102,6 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
 @require_valid_token(param="token", user_id_param="user_id", email_param="email")
 @require_json(param="body")
 def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
-    if not isinstance(body, dict):
-        abort_bad_req("Invalid request body")
-
     try:
         validation_job_id = get_validated_job_id(body)
         referrer = get_validated_referrer(body, JobType.REGISTER)
