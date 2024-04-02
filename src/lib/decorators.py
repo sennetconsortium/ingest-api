@@ -153,6 +153,9 @@ def require_data_admin(param: str = "token"):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            if request.headers.get("Authorization") is None:
+                abort_unauthorized("User must supply a token")
+
             auth_helper = AuthHelper.configured_instance(
                 current_app.config["APP_CLIENT_ID"],
                 current_app.config["APP_CLIENT_SECRET"],
@@ -226,6 +229,9 @@ def require_valid_token(
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            if request.headers.get("Authorization") is None:
+                abort_unauthorized("User must supply a token")
+
             auth_helper = AuthHelper.configured_instance(
                 current_app.config["APP_CLIENT_ID"],
                 current_app.config["APP_CLIENT_SECRET"],
