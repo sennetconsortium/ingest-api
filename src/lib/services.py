@@ -146,7 +146,7 @@ def bulk_update_entities(
     total_tries: int = 3,
     throttle: float = 5,
     entity_api_url: Optional[str] = None,
-) -> None:
+) -> dict:
     """Bulk update the entities in the entity-api.
 
     This function supports request throttling and retries.
@@ -209,6 +209,87 @@ def bulk_update_entities(
                 results[uuid] = {"success": False, "data": str(e)}
 
             if idx < len(entity_updates) - 1:
+                time.sleep(throttle)
+
+    return results
+
+
+def bulk_create_entities(
+    entity_type: str,
+    entities: list,
+    token: str,
+    total_tries: int = 3,
+    throttle: float = 5,
+    entity_api_url: Optional[str] = None,
+) -> list:
+    """Bulk create the entities in the entity-api.
+
+    This function supports request throttling and retries.
+
+    Parameters
+    ----------
+    entity_type : str
+        The type of the entity to be created. Cooresponds to the entity-api endpoint.
+    entities : list
+        The list of dictionaries representing the entities. Each dictionary is the
+        create entity payload.
+    token : str
+        The groups token for the request.
+    total_tries : int, optional
+        The number of total requests to be made for each update, by default 3.
+    throttle : float, optional
+        The time to wait between requests and retries, by default 5.
+    entity_api_url : str, optional
+        The url of the entity-api, by default None. If None, the url is taken from the
+        current_app.config. Parameter is used for separate threads where current_app
+        is not available.
+
+    Returns
+    -------
+    list
+        The results of the bulk create. If successful, the value is a list of
+        dictionaries with "success" as True and "data" as the entity data. If failed,
+        the value is a list of dictionaries with "success" as False and "data" as the
+        error message.
+    """
+    if entity_api_url is None:
+        entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
+    entity_api_url = removeTrailingSlashURL(entity_api_url)
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "X-SenNet-Application": "ingest-api",
+    }
+    # create a session with retries
+    session = requests.Session()
+    session.headers = headers
+    retries = Retry(
+        total=total_tries,
+        backoff_factor=throttle,
+        status_forcelist=[500, 502, 503, 504],
+    )
+    session.mount(entity_api_url, HTTPAdapter(max_retries=retries))
+
+    results = []
+    with session as s:
+        for idx, payload in enumerate(entities):
+            try:
+                res = s.post(
+                    f"{entity_api_url}/entities/{entity_type.lower()}",
+                    json=payload,
+                    timeout=15,
+                )
+                results.append(
+                    {
+                        "success": res.ok,
+                        "data": res.json() if res.ok else res.json().get("error"),
+                    }
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to create entity: {e}")
+                results.append({"success": False, "data": str(e)})
+
+            if idx < len(entities) - 1:
                 time.sleep(throttle)
 
     return results
