@@ -1,8 +1,6 @@
-import json
 import logging
 import os
 from operator import itemgetter
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from atlas_consortia_commons.rest import (
@@ -28,6 +26,11 @@ from jobs.validation.entities import validate_uploaded_entities
 from lib.decorators import require_json, require_valid_token
 from lib.file import check_upload, set_file_details
 from lib.ontology import Ontology
+from lib.request_validation import (
+    get_validated_group_uuid,
+    get_validated_job_id,
+    get_validated_referrer,
+)
 
 samples_blueprint = Blueprint("samples", __name__)
 logger = logging.getLogger(__name__)
@@ -37,7 +40,7 @@ logger = logging.getLogger(__name__)
 @require_valid_token(param="token", user_id_param="user_id", email_param="email")
 def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
     try:
-        referrer = validate_referrer(request.form, JobType.VALIDATE)
+        referrer = get_validated_referrer(request.form, JobType.VALIDATE)
     except ValueError as e:
         logger.error(f"Invalid referrer: {e}")
         abort_bad_req("Invalid referrer")
@@ -104,21 +107,13 @@ def create_samples_from_bulk(
 ):
     if not isinstance(body, dict):
         abort_bad_req("Invalid request body")
-    if "group_uuid" not in body:
-        abort_bad_req("Missing group_uuid in request body")
-    if body["group_uuid"] not in group_ids and not is_admin:
-        abort_bad_req("Samples can only be registered to groups you are a member of")
-    group_uuid = body["group_uuid"]
 
     try:
-        referrer = validate_referrer(body, JobType.REGISTER)
+        validation_job_id = get_validated_job_id(body)
+        group_uuid = get_validated_group_uuid(body, group_ids, is_admin)
+        referrer = get_validated_referrer(body, JobType.REGISTER)
     except ValueError as e:
-        logger.error(f"Invalid referrer: {e}")
-        abort_bad_req("Invalid referrer")
-
-    validation_job_id = body.get("job_id")
-    if validation_job_id is None:
-        abort_bad_req("Missing job_id in request body")
+        abort_bad_req(str(e))
 
     job_queue = JobQueue.instance()
     validation_queue_id = create_queue_id(user_id, validation_job_id)
@@ -173,26 +168,3 @@ def create_samples_from_bulk(
         abort_internal_err("Validation job failed to start")
 
     return jsonify({"job_id": job_id, "status": status}), 202
-
-
-def validate_referrer(data: dict, job_type: JobType) -> dict:
-    referrer = data.get("referrer", "{}")
-    if isinstance(referrer, str):
-        referrer = json.loads(referrer)
-
-    if "type" not in referrer or referrer["type"] != job_type.value:
-        raise ValueError(f"Invalid referrer {referrer}")
-
-    if "path" not in referrer:
-        raise ValueError("Missing referrer URL")
-
-    path = referrer["path"].replace(" ", "")
-    parsed = urlparse(path)
-    if parsed.scheme != "" or parsed.netloc != "" or len(parsed.path) < 1:
-        raise ValueError(f"Invalid referrer URL {path}")
-
-    query = f"?{parsed.query}" if parsed.query else ""
-    return {
-        "type": job_type.value,
-        "path": f"{parsed.path}{query}",
-    }
