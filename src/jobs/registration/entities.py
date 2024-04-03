@@ -30,6 +30,7 @@ def register_uploaded_entities(
     results = [
         {
             "uuid": v["data"].get("uuid") if v["success"] else None,
+            "sennet_id": v["data"].get("sennet_id") if v["success"] else None,
             "index": idx + 1,  # this should correspond to the row number in the TSV
             "success": v["success"],
             "message": v["data"] if not v["success"] else "Success",
