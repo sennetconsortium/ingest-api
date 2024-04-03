@@ -224,7 +224,7 @@ def split_queue_id(queue_id: str) -> tuple:
     return user_id, job_id
 
 
-def job_to_response(job: Job) -> dict:
+def job_to_response(job: Job, admin: bool = False) -> dict:
     _, job_id = split_queue_id(job.id)
     status = job.get_status()
     results = None
@@ -236,12 +236,16 @@ def job_to_response(job: Job) -> dict:
         errors = result.results if not result.success else None
 
     if status == JobStatus.FAILED:
-        errors = {
-            "message": (
-                "Something went wrong while processing the job. Please resubmit. "
-                "If the problem persists, contact support."
-            )
-        }
+        if admin:
+            # Give admins the stack trace
+            errors = {"message": str(job.exc_info)}
+        else:
+            errors = {
+                "message": (
+                    "Something went wrong while processing the job. Please resubmit. "
+                    "If the problem persists, contact support."
+                )
+            }
 
     return {
         "job_id": job_id,

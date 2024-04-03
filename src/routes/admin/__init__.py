@@ -37,7 +37,7 @@ def get_admin_jobs():
         scan_query = f"{JOBS_PREFIX}*"
 
     jobs = job_queue.query_jobs(scan_query)
-    res = [job_to_response(job) for job in jobs]
+    res = [job_to_response(job, admin=True) for job in jobs]
     return jsonify(res), 200
 
 
@@ -60,7 +60,7 @@ def get_admin_job(job_id: UUID):
         logger.error(f"Multiple jobs found with id {job_id}: {e}")
         abort_internal_err("Multiple jobs found with job id")
 
-    return job_to_response(job), 200
+    return job_to_response(job, admin=True), 200
 
 
 @admin_blueprint.route("/admin/jobs/<uuid:job_id>", methods=["DELETE"])
