@@ -38,6 +38,20 @@ def validate_uploaded_metadata(
         validate_uuids = data.get("validate_uuids")
         tsv_row = data.get("tsv_row")
 
+        if spec_supported(entity_type, upload) is False:
+            logger.error(
+                f"Unsupported spec: {entity_type} {sub_type}"
+            )
+            return JobResult(
+                success=False,
+                results={
+                    "message": (
+                        f'Unsupported uploaded TSV spec for "{entity_type} {sub_type}". CEDAR formatting is required for `{entity_type}`. '
+                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+                    )
+                },
+            )
+
         if check_cedar(entity_type, sub_type, upload) is False:
             logger.error(
                 f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
@@ -242,6 +256,16 @@ def get_cedar_schema_ids() -> dict:
     }
 
 
+def spec_supported(entity_type, upload):
+    records = get_metadata(upload.get("fullpath"))
+    if len(records) > 0:
+        if equals(entity_type, Ontology.ops().entities().SAMPLE):
+            return "metadata_schema_id" in records[0]
+        return True
+
+    return True
+
+
 def check_cedar(entity_type, sub_type, upload):
     records = get_metadata(upload.get("fullpath"))
     if len(records) > 0:
@@ -249,9 +273,6 @@ def check_cedar(entity_type, sub_type, upload):
             equals(entity_type, Ontology.ops().entities().SAMPLE)
             and "metadata_schema_id" in records[0]
         ):
-            # TODO: check type of value schema for subtype
-            # schema = iv_utils.get_schema_version(upload.get('fullpath'), encoding='ascii', globus_token=get_groups_token())
-            # return equals(schema, f"{entity_type}-{sub_type}")
             cedar_sample_sub_type_ids = get_cedar_schema_ids()
             return equals(
                 records[0]["metadata_schema_id"], cedar_sample_sub_type_ids[sub_type]
@@ -417,9 +438,15 @@ def validate_records_uuids(
         if get_related_col_id_by_entity_type(entity_type) is not None:
             related_id_col = get_related_col_id_by_entity_type(entity_type)
             related_entity_id = r.get(related_id_col)
-            related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
-            if related_entity is False:
-                ok = False
+            if related_entity_id is not None:
+                related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
+                if related_entity is False:
+                    ok = False
+            else:
+                return rest_bad_req((
+                    f'Unsupported uploaded TSV spec for "{entity_type} {sub_type}". Missing `{related_id_col}` column. '
+                    "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+                ), dict_only=True)
 
         if sub_type is not None:
             sub_type_col = get_sub_type_name_by_entity_type(entity_type)
