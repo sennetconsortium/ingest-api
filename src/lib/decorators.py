@@ -138,7 +138,7 @@ def require_multipart_form(
     return decorator
 
 
-def require_data_admin(param: str = "token"):
+def require_data_admin(param: str = "token", user_param: str = "user"):
     """A decorator that checks if the user is a member of the SenNet Data Admin group.
 
     If the decorated function has a parameter with the same name as `param`, the
@@ -146,10 +146,15 @@ def require_data_admin(param: str = "token"):
     invalid token, a 401 Unauthorized response will be returned. If the user is not a
     member of the SenNet Data Admin group, a 403 Forbidden response will be returned.
 
+    If the decorated function has a parameter with the same name as `user`, the
+    user will be passed as that parameter. The `user` is of type `lib.decorators.User`.
+
     Parameters
     ----------
     param : str
         The name of the parameter to pass the user's token to. Defaults to "token".
+    user_param : str
+        The name of the parameter to pass the user's information to. Defaults to "user".
 
     Example
     -------
@@ -160,7 +165,7 @@ def require_data_admin(param: str = "token"):
 
         @app.route("/bar", methods=["PUT"])
         @require_data_admin()
-        def bar(token: str):
+        def bar(token: str, user: User):
             return jsonify({"message": f"You are a data admin with token {token}!"})
     """
 
@@ -184,6 +189,18 @@ def require_data_admin(param: str = "token"):
 
             if param and param in signature(f).parameters:
                 kwargs[param] = token
+
+            if user_param in signature(f).parameters:
+                user_info = auth_helper.getUserInfo(token, getGroups=True)
+                if not isinstance(user_info, dict):
+                    abort_unauthorized("User must be a member of the SenNet Consortium")
+
+                kwargs[user_param] = User(
+                    uuid=user_info.get("sub"),
+                    email=user_info.get("email"),
+                    group_uuids=user_info.get("hmgroupids", []),
+                    is_data_admin=is_data_admin is True,
+                )
 
             return f(*args, **kwargs)
 
