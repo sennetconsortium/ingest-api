@@ -1,45 +1,48 @@
-from dataclasses import dataclass, fields
 import json
+from dataclasses import dataclass, fields
 
 from atlas_consortia_commons.object import enum_val_lower
-from lib.ontology import Ontology
 from requests import Response
+
+from lib.ontology import Ontology
 
 
 @dataclass
 class SpecimenCategories:
-    BLOCK: str = 'Block'
-    ORGAN: str = 'Organ'
-    SECTION: str = 'Section'
-    SUSPENSION: str = 'Suspension'
+    BLOCK: str = "Block"
+    ORGAN: str = "Organ"
+    SECTION: str = "Section"
+    SUSPENSION: str = "Suspension"
 
 
 @dataclass
 class Entities:
-    DATASET: str = 'Dataset'
-    PUBLICATION_ENTITY: str = 'Publication Entity'
-    SAMPLE: str = 'Sample'
-    SOURCE: str = 'Source'
+    DATASET: str = "Dataset"
+    PUBLICATION_ENTITY: str = "Publication Entity"
+    SAMPLE: str = "Sample"
+    SOURCE: str = "Source"
 
 
 @dataclass
 class SourceTypes:
-    MOUSE: str = 'Mouse'
-    HUMAN: str = 'Human'
-    HUMAN_ORGANOID: str = 'Human Organoid'
-    MOUSE_ORGANOID: str = 'Mouse Organoid'
+    MOUSE: str = "Mouse"
+    HUMAN: str = "Human"
+    HUMAN_ORGANOID: str = "Human Organoid"
+    MOUSE_ORGANOID: str = "Mouse Organoid"
 
 
 @dataclass
 class AssayTypes:
-    BULKRNA: str = "bulk-RNA" 
+    BULKRNA: str = "bulk-RNA"
     CITESEQ: str = "CITE-Seq"
     CODEX: str = "CODEX"
     CODEXCYTOKIT: str = "codex_cytokit"
     CODEXCYTOKITV1: str = "codex_cytokit_v1"
     COSMX_RNA: str = "CosMX(RNA)"
     DBITSEQ: str = "DBiT-seq"
-    FACS__FLUORESCENCEACTIVATED_CELL_SORTING: str = "FACS-Fluorescence-activatedCellSorting"
+    FACS__FLUORESCENCEACTIVATED_CELL_SORTING: str = (
+        "FACS-Fluorescence-activatedCellSorting"
+    )
     GEOMX_RNA: str = "GeoMX(RNA)"
     IMAGEPYRAMID: str = "image_pyramid"
     LCMS: str = "LC-MS"
@@ -78,7 +81,9 @@ class DatasetTypes:
     CONFOCAL: str = "Confocal"
     THICK_SECTION_MULTIPHOTON_MXIF: str = "Thick section Multiphoton MxIF"
     SECOND_HARMONIC_GENERATION_SHG: str = "Second Harmonic Generation (SHG)"
-    ENHANCED_STIMULATED_RAMAN_SPECTROSCOPY_SRS: str = "Enhanced Stimulated Raman Spectroscopy (SRS)"
+    ENHANCED_STIMULATED_RAMAN_SPECTROSCOPY_SRS: str = (
+        "Enhanced Stimulated Raman Spectroscopy (SRS)"
+    )
     SIMS: str = "SIMS"
     CELL_DIVE: str = "Cell DIVE"
     CODEX: str = "CODEX"
@@ -92,21 +97,21 @@ class DatasetTypes:
 
 @dataclass
 class OrganTypes:
-    AD: str = 'Adipose Tissue'
-    BD: str = 'Blood'
-    BR: str = 'Brain'
-    BS: str = 'Breast'
-    LK: str = 'Kidney (Left)'
-    RK: str = 'Kidney (Right)'
-    LI: str = 'Large Intestine'
-    LV: str = 'Liver'
-    LL: str = 'Lung (Left)'
-    RL: str = 'Lung (Right)'
-    LN: str = 'Lymph Node'
-    MU: str = 'Muscle'
-    LO: str = 'Ovary (Left)'
-    RO: str = 'Ovary (Right)'
-    SK: str = 'Skin'
+    AD: str = "Adipose Tissue"
+    BD: str = "Blood"
+    BR: str = "Brain"
+    BS: str = "Breast"
+    LK: str = "Kidney (Left)"
+    RK: str = "Kidney (Right)"
+    LI: str = "Large Intestine"
+    LV: str = "Liver"
+    LL: str = "Lung (Left)"
+    RL: str = "Lung (Right)"
+    LN: str = "Lymph Node"
+    MU: str = "Muscle"
+    LO: str = "Ovary (Left)"
+    RO: str = "Ovary (Right)"
+    SK: str = "Skin"
 
 
 class MockOntology(Ontology):
@@ -120,7 +125,7 @@ class MockOntology(Ontology):
             return {e.name: e.default for e in fields(Entities)}
         return Entities
 
-    @staticmethod     
+    @staticmethod
     def specimen_categories():
         if MockOntology.Ops.as_arr and MockOntology.Ops.cb == enum_val_lower:
             return [e.default.lower() for e in fields(SpecimenCategories)]
@@ -129,7 +134,7 @@ class MockOntology(Ontology):
         if MockOntology.Ops.as_data_dict:
             return {e.name: e.default for e in fields(SpecimenCategories)}
         return SpecimenCategories
-    
+
     @staticmethod
     def source_types():
         if MockOntology.Ops.as_arr and MockOntology.Ops.cb == enum_val_lower:
@@ -139,14 +144,14 @@ class MockOntology(Ontology):
         if Ontology.Ops.as_data_dict:
             return {e.name: e.default for e in fields(SourceTypes)}
         return SourceTypes
-    
+
     @staticmethod
     def assay_types():
         if Ontology.Ops.as_arr and Ontology.Ops.cb == enum_val_lower:
             return [e.default.lower() for e in fields(AssayTypes)]
         if Ontology.Ops.as_arr and Ontology.Ops.cb == str:
             return [e.default for e in fields(AssayTypes)]
-        if Ontology.Ops.as_data_dict and Ontology.Ops.prop_callback == None:
+        if Ontology.Ops.as_data_dict and Ontology.Ops.prop_callback is None:
             return {e.default: e.default for e in fields(AssayTypes)}
         if Ontology.Ops.as_data_dict:
             return {e.name: e.default for e in fields(AssayTypes)}
@@ -173,5 +178,5 @@ def create_response(status_code, content=None):
     res = Response()
     res.status_code = status_code
     if content:
-        res._content = json.dumps(content).encode('utf-8')
+        res._content = json.dumps(content).encode("utf-8")
     return res

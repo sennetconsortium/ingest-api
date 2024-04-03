@@ -1,0 +1,1 @@
+docker run --name sennet-redis -p 6379:6379 -d -it redis:alpine

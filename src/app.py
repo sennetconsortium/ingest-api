@@ -1,6 +1,10 @@
 import os
 import logging
+
+import apscheduler
 import requests
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
@@ -15,19 +19,24 @@ from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
+import submodules
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
-from routes.entity_CRUD import entity_CRUD_blueprint
-from routes.validation import validation_blueprint
+from routes.entity_CRUD import entity_CRUD_blueprint, update_datasets_datastatus, update_uploads_datastatus
+from routes.metadata import metadata_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
 from routes.vitessce import vitessce_blueprint
+from routes.jobs import jobs_blueprint
+from routes.admin import admin_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
+from jobs import JobQueue
+
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -39,6 +48,7 @@ logger = logging.getLogger(__name__)
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
+app.app_context().push()
 
 app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
@@ -49,14 +59,19 @@ else:
     MEMCACHED_MODE = False
     MEMCACHED_PREFIX = 'NONE'
 
+if app.config.get("REDIS_MODE", False):
+    JobQueue.create(app.config['REDIS_SERVER'], "default")
+
 app.register_blueprint(auth_blueprint)
 app.register_blueprint(status_blueprint)
 app.register_blueprint(privs_blueprint)
 app.register_blueprint(entity_CRUD_blueprint)
-app.register_blueprint(validation_blueprint)
+app.register_blueprint(metadata_blueprint)
 app.register_blueprint(file_blueprint)
 app.register_blueprint(assayclassifier_blueprint)
 app.register_blueprint(vitessce_blueprint)
+app.register_blueprint(jobs_blueprint)
+app.register_blueprint(admin_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -193,6 +208,31 @@ def close_neo4j_driver(error):
 @app.route('/', methods=['GET'])
 def index():
     return "Hello! This is SenNet Ingest API service :)"
+
+
+if app.config.get("REDIS_MODE"):
+    scheduler = BackgroundScheduler()
+    scheduler.start()
+
+    with app.app_context():
+        scheduler.add_job(
+            func=update_datasets_datastatus,
+            trigger=IntervalTrigger(hours=1),
+            args=[app.app_context()],
+            id='update_dataset_data_status',
+            name="Update Dataset Data Status Job"
+        )
+
+        scheduler.add_job(
+            func=update_uploads_datastatus,
+            trigger=IntervalTrigger(hours=1),
+            args=[app.app_context()],
+            id='update_upload_data_status',
+            name="Update Upload Data Status Job"
+        )
+
+        update_datasets_datastatus(app.app_context())
+        update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':

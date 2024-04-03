@@ -22,3 +22,15 @@ services:
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
+
+  ingest-api-rq-worker:
+    build:
+      context: ./ingest-api
+      dockerfile: ./rq/Dockerfile
+    image: sennet/ingest-api-rq-server:${INGEST_API_VERSION:?err}
+    volumes:
+      - "../src:/usr/src/app/src"
+      # Mount data directory for Globus transfer
+      - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
+    networks:
+      - sennet_docker_network
