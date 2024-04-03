@@ -81,6 +81,56 @@ class JobQueue:
             return False
         return True
 
+    def enqueue_job(
+        self,
+        user: dict,
+        description: str,
+        metadata: Optional[dict],
+        job_id: str,
+        job_func,
+        job_kwargs,
+    ) -> Job:
+        """Enqueue a job in the queue.
+
+        Parameters
+        ----------
+        user : dict
+            The user's 'id' and 'email' that is enqueuing the job.
+        description : str
+            The description of the job.
+        metadata : Optional[dict]
+            Additional metadata to store with the job.
+        job_id : str
+            The job id.
+        job_func : func
+            Job function to execute.
+        job_kwargs : dict
+            Job function keyword arguments.
+
+        Returns
+        -------
+        Job
+            The RQ Job object.
+        """
+        queue_id = create_queue_id(user["id"], job_id)
+        job = self.queue.enqueue(
+            job_func,
+            kwargs=job_kwargs,
+            job_id=queue_id,
+            job_timeout=18000,  # 5 hours
+            ttl=604800,  # 1 week
+            result_ttl=604800,
+            error_ttl=604800,
+            description=description,
+        )
+
+        job.meta["user"] = user
+        if metadata and len(metadata) > 0:
+            job.meta.update(metadata)
+        job.save()
+
+        return job
+
     def query_job(self, query: str) -> Job:
         """Get a RQ Job from Redis using a scan query.
 

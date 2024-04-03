@@ -56,7 +56,6 @@ def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
 
     job_queue = JobQueue.instance()
     job_id = uuid4()
-    queue_id = create_queue_id(user_id, job_id)
     desc = create_job_description(
         JobSubject.ENTITY,
         JobType.VALIDATE,
@@ -65,26 +64,19 @@ def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
         upload.get("filename"),
     )
 
-    job = job_queue.queue.enqueue(
-        validate_uploaded_entities,
-        kwargs={
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=validate_uploaded_entities,
+        job_kwargs={
             "job_id": job_id,
             "entity_type": "Sample",
             "upload": upload,
             "token": token,
         },
-        job_id=queue_id,
-        job_timeout=18000,  # 5 hours
-        ttl=604800,  # 1 week
-        result_ttl=604800,
-        error_ttl=604800,
+        user={"id": user_id, "email": email},
         description=desc,
+        metadata={"referrer": referrer},
     )
-
-    # Add metadata to the job
-    job.meta["referrer"] = referrer
-    job.meta["user"] = {"id": user_id, "email": email}
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
@@ -133,32 +125,24 @@ def create_samples_from_bulk(
 
     validation_filepath = validation_result.results.get("file")
     job_id = uuid4()
-    queue_id = create_queue_id(user_id, job_id)
     desc = validation_job.description.replace(
         JobType.VALIDATE.noun, JobType.REGISTER.noun
     )
 
-    job = job_queue.queue.enqueue(
-        register_uploaded_entities,
-        kwargs={
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=register_uploaded_entities,
+        job_kwargs={
             "job_id": job_id,
             "entity_type": "Sample",
             "validation_file": validation_filepath,
             "token": token,
             "group_uuid": group_uuid,
         },
-        job_id=queue_id,
-        job_timeout=18000,  # 5 hours
-        ttl=604800,  # 1 week
-        result_ttl=604800,
-        error_ttl=604800,
+        user={"id": user_id, "email": email},
         description=desc,
+        metadata={"referrer": referrer},
     )
-
-    # Add metadata to the job
-    job.meta["referrer"] = referrer
-    job.meta["user"] = {"id": user_id, "email": email}
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:

@@ -37,16 +37,17 @@ def ontology_mock():
 
 @pytest.fixture(scope="session", autouse=True)
 def auth_helper_mock():
-    mock = MagicMock()
-    mock.getUserTokenFromRequest.return_value = "test_token"
-    mock.getUserInfo.return_value = {
+    auth_mock = MagicMock()
+    auth_mock.getUserTokenFromRequest.return_value = "test_token"
+    auth_mock.getUserInfo.return_value = {
         "sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
         "email": "TESTUSER@example.com",
         "hmgroupids": ["60b692ac-8f6d-485f-b965-36886ecc5a26"],
     }
+    auth_mock.has_data_admin_privs.return_value = False
 
     with patch(
-        "hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=mock
+        "hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=auth_mock
     ):
         yield
 
@@ -56,11 +57,8 @@ def job_queue_mock():
     job_mock = MagicMock()
     job_mock.get_status.return_value = "queued"
 
-    queue_mock = MagicMock()
-    queue_mock.enqueue.return_value = job_mock
-
     job_queue_mock = MagicMock()
-    job_queue_mock.queue = queue_mock
+    job_queue_mock.enqueue_job.return_value = job_mock
 
     with (
         patch("jobs.JobQueue.instance", return_value=job_queue_mock),
