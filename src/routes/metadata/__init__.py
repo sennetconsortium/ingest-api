@@ -23,6 +23,7 @@ from jobs import (
     JobType,
     create_job_description,
     create_queue_id,
+    get_display_job_status,
 )
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
@@ -92,7 +93,8 @@ def validate_metadata_upload(data: dict, token: str, user: User):
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202
 
 
 @metadata_blueprint.route("/metadata/register", methods=["POST"])
@@ -143,7 +145,8 @@ def register_metadata_upload(body: dict, token: str, user: User):
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202
 
 
 def check_metadata_upload():

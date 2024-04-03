@@ -20,6 +20,7 @@ from jobs import (
     JobType,
     create_job_description,
     create_queue_id,
+    get_display_job_status,
 )
 from jobs.registration.entities import register_uploaded_entities
 from jobs.validation.entities import validate_uploaded_entities
@@ -82,7 +83,8 @@ def bulk_samples_upload_and_validate(token: str, user: User):
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202
 
 
 @samples_blueprint.route("/samples/bulk/register", methods=["POST"])
@@ -142,4 +144,5 @@ def create_samples_from_bulk(body: dict, token: str, user: User):
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202

@@ -260,6 +260,27 @@ def job_to_response(job: Job) -> dict:
     }
 
 
+def get_display_job_status(job: Job) -> str:
+    """Get the job status that is displayed to the user.
+
+    Parameters
+    ----------
+    job : Job
+        The RQ Job object.
+
+    Returns
+    -------
+    str
+        The formatted job status.
+    """
+    status = job.get_status()
+    if status == JobStatus.FINISHED:
+        result: JobResult = job.result
+        status = "complete" if result.success else "error"
+
+    return status.title()
+
+
 def create_job_description(
     subject: JobSubject,
     job_type: JobType,
