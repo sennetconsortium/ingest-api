@@ -81,6 +81,56 @@ class JobQueue:
             return False
         return True
 
+    def enqueue_job(
+        self,
+        user: dict,
+        description: str,
+        metadata: Optional[dict],
+        job_id: str,
+        job_func,
+        job_kwargs,
+    ) -> Job:
+        """Enqueue a job in the queue.
+
+        Parameters
+        ----------
+        user : dict
+            The user's 'id' and 'email' that is enqueuing the job.
+        description : str
+            The description of the job.
+        metadata : Optional[dict]
+            Additional metadata to store with the job.
+        job_id : str
+            The job id.
+        job_func : func
+            Job function to execute.
+        job_kwargs : dict
+            Job function keyword arguments.
+
+        Returns
+        -------
+        Job
+            The RQ Job object.
+        """
+        queue_id = create_queue_id(user["id"], job_id)
+        job = self.queue.enqueue(
+            job_func,
+            kwargs=job_kwargs,
+            job_id=queue_id,
+            job_timeout=18000,  # 5 hours
+            ttl=604800,  # 1 week
+            result_ttl=604800,
+            error_ttl=604800,
+            description=description,
+        )
+
+        job.meta["user"] = user
+        if metadata and len(metadata) > 0:
+            job.meta.update(metadata)
+        job.save()
+
+        return job
+
     def query_job(self, query: str) -> Job:
         """Get a RQ Job from Redis using a scan query.
 
@@ -174,7 +224,7 @@ def split_queue_id(queue_id: str) -> tuple:
     return user_id, job_id
 
 
-def job_to_response(job: Job) -> dict:
+def job_to_response(job: Job, admin: bool = False) -> dict:
     _, job_id = split_queue_id(job.id)
     status = job.get_status()
     results = None
@@ -186,12 +236,16 @@ def job_to_response(job: Job) -> dict:
         errors = result.results if not result.success else None
 
     if status == JobStatus.FAILED:
-        errors = {
-            "message": (
-                "Something went wrong while processing the job. Please resubmit. "
-                "If the problem persists, contact support."
-            )
-        }
+        if admin:
+            # Give admins the stack trace
+            errors = {"message": str(job.exc_info)}
+        else:
+            errors = {
+                "message": (
+                    "Something went wrong while processing the job. Please resubmit. "
+                    "If the problem persists, contact support."
+                )
+            }
 
     return {
         "job_id": job_id,
@@ -210,11 +264,32 @@ def job_to_response(job: Job) -> dict:
     }
 
 
+def get_display_job_status(job: Job) -> str:
+    """Get the job status that is displayed to the user.
+
+    Parameters
+    ----------
+    job : Job
+        The RQ Job object.
+
+    Returns
+    -------
+    str
+        The formatted job status.
+    """
+    status = job.get_status()
+    if status == JobStatus.FINISHED:
+        result: JobResult = job.result
+        status = "complete" if result.success else "error"
+
+    return status.title()
+
+
 def create_job_description(
     subject: JobSubject,
     job_type: JobType,
     entity_type: str,
-    subtype: str,
+    subtype: Optional[str],
     filename: Optional[str],
 ) -> str:
     """Create a job description for a job.
@@ -227,8 +302,8 @@ def create_job_description(
         The type of job.
     entity_type : str
         The entity type ("Source", "Sample").
-    subtype : str
-        The subtype ("Mouse", "Block", "Section", "Suspension").
+    subtype : Optional[str]
+        The optional subtype ("Mouse", "Block", "Section", "Suspension").
     filename : Optional[str]
         The optional filename.
 
@@ -241,7 +316,7 @@ def create_job_description(
     subject = subject.title()
     job_type = job_type.noun.lower()
     entity_type = entity_type.title()
-    subtype = subtype.title()
+    formatted_subtype = f" {subtype.title()}" if subtype else ""
     filename_suffix = f" from file {filename}" if filename else ""
 
-    return f"{subject} {job_type} for {entity_type} {subtype}{filename_suffix}"
+    return f"{subject} {job_type} for {entity_type}{formatted_subtype}{filename_suffix}"

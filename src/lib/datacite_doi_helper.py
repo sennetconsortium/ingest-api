@@ -1,15 +1,18 @@
+import ast
+import logging
 import os
+import re
 import sys
 import time
-import requests
 from datetime import datetime
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
-import logging
+
+import requests
 from flask import Flask
-from api.datacite_api import DataCiteApi
-from hubmap_sdk import Entity, EntitySdk
 from hubmap_commons.exceptions import HTTPException
-import ast
+from hubmap_sdk import Entity, EntitySdk
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+
+from api.datacite_api import DataCiteApi
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
@@ -273,6 +276,11 @@ class DataCiteDoiHelper:
 
             # Also bubble up the error message from entity-api
             raise requests.exceptions.RequestException(e.description)
+
+    def is_invalid_doi(self, protocol):
+        selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+        selection_protocol_pattern2 = re.match('^dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
+        return selection_protocol_pattern2 is None and selection_protocol_pattern1 is None
 
 
 # Running this python file as a script

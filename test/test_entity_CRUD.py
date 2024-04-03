@@ -1,7 +1,7 @@
 import json
 import os
 import test.utils as test_utils
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -35,18 +35,50 @@ def ontology_mock():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def auth_helper_mock():
+    auth_mock = MagicMock()
+    auth_mock.getUserTokenFromRequest.return_value = "test_token"
+    auth_mock.getUserInfo.return_value = {
+        "sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
+        "email": "TESTUSER@example.com",
+        "hmgroupids": ["60b692ac-8f6d-485f-b965-36886ecc5a26"],
+    }
+    auth_mock.has_data_admin_privs.return_value = False
+
+    with patch(
+        "hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=auth_mock
+    ):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=False)
+def job_queue_mock():
+    job_mock = MagicMock()
+    job_mock.get_status.return_value = "queued"
+
+    job_queue_mock = MagicMock()
+    job_queue_mock.enqueue_job.return_value = job_mock
+
+    with (
+        patch("jobs.JobQueue.instance", return_value=job_queue_mock),
+        patch("jobs.JobQueue.is_initialized", return_value=True),
+    ):
+        yield
+
+
 # Validate Sources
 
 
 @pytest.mark.parametrize(
     "entity_type, status_code",
     [
-        ("source", 200),
-        ("sample", 400),
-        ("dataset", 400),
+        ("source", 202),
+        ("sample", 202),
+        ("dataset", 202),
     ],
 )
-def test_validate_sources(app, entity_type, status_code):
+def test_validate_sources(app, job_queue_mock, entity_type, status_code):
     """Test validate sources correctly validates sources only"""
 
     with open(os.path.join(test_data_dir, f"{entity_type}.json"), "r") as f:
@@ -55,8 +87,10 @@ def test_validate_sources(app, entity_type, status_code):
     tsv_filename = os.path.join(test_data_dir, f"test_{entity_type}.tsv")
 
     with open(tsv_filename, "rb") as tsv_file, app.test_client() as client:
-
-        test_file = {"file": (tsv_file, tsv_filename)}
+        test_file = {
+            "file": tsv_file,
+            "referrer": '{"type": "validate", "path": "edit/bulk/source"}',
+        }
 
         res = client.post(
             "/sources/bulk/validate",
@@ -75,12 +109,12 @@ def test_validate_sources(app, entity_type, status_code):
 @pytest.mark.parametrize(
     "entity_type, status_code",
     [
-        ("source", 400),
-        ("sample", 200),
-        ("dataset", 400),
+        ("source", 202),
+        ("sample", 202),
+        ("dataset", 202),
     ],
 )
-def test_validate_samples(app, entity_type, status_code):
+def test_validate_samples(app, job_queue_mock, entity_type, status_code):
     """Test validate samples correctly validates samples only"""
 
     with open(os.path.join(test_data_dir, f"{entity_type}.json"), "r") as f:
@@ -101,8 +135,10 @@ def test_validate_samples(app, entity_type, status_code):
         patch("requests.get", side_effect=get_responses()),
         patch("requests.post", return_value=test_utils.create_response(200)),
     ):
-
-        test_file = {"file": (tsv_file, tsv_filename)}
+        test_file = {
+            "file": tsv_file,
+            "referrer": '{"type": "validate", "path": "edit/bulk/sample"}',
+        }
 
         res = client.post(
             "/samples/bulk/validate",

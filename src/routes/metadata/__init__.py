@@ -1,9 +1,7 @@
 import csv
-import json
 import logging
 import os
 import time
-from urllib.parse import urlparse
 from uuid import uuid4
 
 from atlas_consortia_commons.rest import (
@@ -25,32 +23,33 @@ from jobs import (
     JobType,
     create_job_description,
     create_queue_id,
+    get_display_job_status,
 )
-from jobs.registration import register_uploaded_metadata
-from jobs.validation import validate_uploaded_metadata
-from lib.decorators import require_json, require_multipart_form, require_valid_token
+from jobs.registration.metadata import register_uploaded_metadata
+from jobs.validation.metadata import validate_uploaded_metadata
+from lib.decorators import (
+    User,
+    require_json,
+    require_multipart_form,
+    require_valid_token,
+)
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 from lib.ontology import Ontology
+from lib.request_validation import get_validated_job_id, get_validated_referrer
 
 metadata_blueprint = Blueprint("metadata", __name__)
 logger = logging.getLogger(__name__)
 
 
 @metadata_blueprint.route("/metadata/validate", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id", email_param="email")
+@require_valid_token()
 @require_multipart_form(combined_param="data")
-def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
+def validate_metadata_upload(data: dict, token: str, user: User):
     try:
-        entity_type, sub_type = validate_entity_type(data)
+        entity_type, sub_type = get_validated_entity_type(data)
+        referrer = get_validated_referrer(data, JobType.VALIDATE)
     except ValueError as e:
-        logger.error(f"Invalid entity type: {e}")
         abort_bad_req(str(e))
-
-    try:
-        referrer = validate_referrer(data, JobType.VALIDATE)
-    except ValueError as e:
-        logger.error(f"Invalid referrer: {e}")
-        abort_bad_req("Invalid referrer")
 
     pathname = data.get("pathname")
     tsv_row = data.get("tsv_row")
@@ -68,7 +67,6 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
 
     job_queue = JobQueue.instance()
     job_id = uuid4()
-    queue_id = create_queue_id(user_id, job_id)
     desc = create_job_description(
         JobSubject.METADATA,
         JobType.VALIDATE,
@@ -77,53 +75,40 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
         upload.get("filename"),
     )
 
-    job = job_queue.queue.enqueue(
-        validate_uploaded_metadata,
-        kwargs={
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=validate_uploaded_metadata,
+        job_kwargs={
             "job_id": job_id,
             "upload": upload,
             "data": dict(data),
             "token": token,
         },
-        job_id=queue_id,
-        job_timeout=18000,  # 5 hours
-        ttl=604800,  # 1 week
-        result_ttl=604800,
-        error_ttl=604800,
+        user={"id": user.uuid, "email": user.email},
         description=desc,
+        metadata={"referrer": referrer},
     )
-
-    # Add metadata to the job
-    job.meta["referrer"] = referrer
-    job.meta["user"] = {"id": user_id, "email": email}
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202
 
 
 @metadata_blueprint.route("/metadata/register", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id", email_param="email")
+@require_valid_token()
 @require_json(param="body")
-def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
-    if not isinstance(body, dict):
-        abort_bad_req("Invalid request body")
-
+def register_metadata_upload(body: dict, token: str, user: User):
     try:
-        referrer = validate_referrer(body, JobType.REGISTER)
+        validation_job_id = get_validated_job_id(body)
+        referrer = get_validated_referrer(body, JobType.REGISTER)
     except ValueError as e:
-        logger.error(f"Invalid referrer: {e}")
-        abort_bad_req("Invalid referrer")
-
-    validation_job_id = body.get("job_id")
-    if validation_job_id is None:
-        abort_bad_req("Missing job_id in request body")
+        abort_bad_req(str(e))
 
     job_queue = JobQueue.instance()
-    validation_queue_id = create_queue_id(user_id, validation_job_id)
+    validation_queue_id = create_queue_id(user.uuid, validation_job_id)
     try:
         validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
     except NoSuchJobError as e:
@@ -139,36 +124,29 @@ def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
 
     metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
-    queue_id = create_queue_id(user_id, job_id)
     desc = validation_job.description.replace(
         JobType.VALIDATE.noun, JobType.REGISTER.noun
     )
 
-    job = job_queue.queue.enqueue(
-        register_uploaded_metadata,
-        kwargs={
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=register_uploaded_metadata,
+        job_kwargs={
             "job_id": job_id,
             "metadata_file": metadata_filepath,
             "token": token,
         },
-        job_id=queue_id,
-        job_timeout=18000,  # 5 hours
-        ttl=604800,  # 1 week
-        result_ttl=604800,
-        error_ttl=604800,
+        user={"id": user.uuid, "email": user.email},
         description=desc,
+        metadata={"referrer": referrer},
     )
-
-    # Add metadata to the job
-    job.meta["referrer"] = referrer
-    job.meta["user"] = {"id": user_id, "email": email}
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
 
-    return jsonify({"job_id": job_id, "status": status}), 202
+    display_status = get_display_job_status(job)
+    return jsonify({"job_id": job_id, "status": display_status}), 202
 
 
 def check_metadata_upload():
@@ -227,30 +205,7 @@ def create_tsv_from_path(path, row):
     return result
 
 
-def validate_referrer(data: dict, job_type: JobType) -> dict:
-    referrer = data.get("referrer", "{}")
-    if isinstance(referrer, str):
-        referrer = json.loads(referrer)
-
-    if "type" not in referrer or referrer["type"] != job_type.value:
-        raise ValueError(f"Invalid referrer {referrer}")
-
-    if "path" not in referrer:
-        raise ValueError("Missing referrer URL")
-
-    path = referrer["path"].replace(" ", "")
-    parsed = urlparse(path)
-    if parsed.scheme != "" or parsed.netloc != "" or len(parsed.path) < 1:
-        raise ValueError(f"Invalid referrer URL {path}")
-
-    query = f"?{parsed.query}" if parsed.query else ""
-    return {
-        "type": job_type.value,
-        "path": f"{parsed.path}{query}",
-    }
-
-
-def validate_entity_type(data: dict) -> str:
+def get_validated_entity_type(data: dict) -> str:
     entity_type = data.get("entity_type")
     sub_type = data.get("sub_type")
 

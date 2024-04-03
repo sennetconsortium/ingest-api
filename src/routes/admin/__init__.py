@@ -37,7 +37,7 @@ def get_admin_jobs():
         scan_query = f"{JOBS_PREFIX}*"
 
     jobs = job_queue.query_jobs(scan_query)
-    res = [job_to_response(job) for job in jobs]
+    res = [job_to_response(job, admin=True) for job in jobs]
     return jsonify(res), 200
 
 
@@ -60,7 +60,7 @@ def get_admin_job(job_id: UUID):
         logger.error(f"Multiple jobs found with id {job_id}: {e}")
         abort_internal_err("Multiple jobs found with job id")
 
-    return job_to_response(job), 200
+    return job_to_response(job, admin=True), 200
 
 
 @admin_blueprint.route("/admin/jobs/<uuid:job_id>", methods=["DELETE"])
@@ -128,14 +128,23 @@ def flush_admin_jobs():
 
     finished_jobs = job_queue.queue.finished_job_registry
     for job_id in finished_jobs.get_job_ids():
-        finished_jobs.remove(job_id, delete_job=True)
+        try:
+            finished_jobs.remove(job_id, delete_job=True)
+        except NoSuchJobError:
+            logger.error(f"Job not found: {job_id}")
 
     failed_jobs = job_queue.queue.failed_job_registry
     for job_id in failed_jobs.get_job_ids():
-        failed_jobs.remove(job_id, delete_job=True)
+        try:
+            failed_jobs.remove(job_id, delete_job=True)
+        except NoSuchJobError:
+            logger.error(f"Job not found: {job_id}")
 
     canceled_jobs = job_queue.queue.canceled_job_registry
     for job_id in canceled_jobs.get_job_ids():
-        canceled_jobs.remove(job_id, delete_job=True)
+        try:
+            canceled_jobs.remove(job_id, delete_job=True)
+        except NoSuchJobError:
+            logger.error(f"Job not found: {job_id}")
 
     return {"status": "success", "message": "All jobs have been deleted"}, 200
