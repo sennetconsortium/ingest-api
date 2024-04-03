@@ -83,4 +83,4 @@ def privs_has_data_admin_privs():
 
 
 def get_groups_token() -> str:
-    return request.headers.get('authorization')[7:]
+    return request.headers.get('authorization')[7:] if request.headers.get('authorization') is not None else ''
