@@ -23,7 +23,7 @@ from jobs import (
 )
 from jobs.registration.entities import register_uploaded_entities
 from jobs.validation.entities import validate_uploaded_entities
-from lib.decorators import require_json, require_valid_token
+from lib.decorators import User, require_json, require_valid_token
 from lib.file import check_upload, set_file_details
 from lib.ontology import Ontology
 from lib.request_validation import (
@@ -37,8 +37,8 @@ logger = logging.getLogger(__name__)
 
 
 @samples_blueprint.route("/samples/bulk/validate", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id", email_param="email")
-def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
+@require_valid_token()
+def bulk_samples_upload_and_validate(token: str, user: User):
     try:
         referrer = get_validated_referrer(request.form, JobType.VALIDATE)
     except ValueError as e:
@@ -73,7 +73,7 @@ def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
             "upload": upload,
             "token": token,
         },
-        user={"id": user_id, "email": email},
+        user={"id": user.uuid, "email": user.email},
         description=desc,
         metadata={"referrer": referrer},
     )
@@ -86,26 +86,20 @@ def bulk_samples_upload_and_validate(token: str, user_id: str, email: str):
 
 
 @samples_blueprint.route("/samples/bulk/register", methods=["POST"])
-@require_valid_token(
-    param="token",
-    user_id_param="user_id",
-    email_param="email",
-    groups_param="group_ids",
-    is_data_admin_param="is_admin",
-)
+@require_valid_token()
 @require_json(param="body")
-def create_samples_from_bulk(
-    body: dict, token: str, user_id: str, email: str, group_ids: list, is_admin: bool
-):
+def create_samples_from_bulk(body: dict, token: str, user: User):
     try:
         validation_job_id = get_validated_job_id(body)
-        group_uuid = get_validated_group_uuid(body, group_ids, is_admin)
+        group_uuid = get_validated_group_uuid(
+            body, user.group_uuids, user.is_data_admin
+        )
         referrer = get_validated_referrer(body, JobType.REGISTER)
     except ValueError as e:
         abort_bad_req(str(e))
 
     job_queue = JobQueue.instance()
-    validation_queue_id = create_queue_id(user_id, validation_job_id)
+    validation_queue_id = create_queue_id(user.uuid, validation_job_id)
     try:
         validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
     except NoSuchJobError as e:
@@ -139,7 +133,7 @@ def create_samples_from_bulk(
             "token": token,
             "group_uuid": group_uuid,
         },
-        user={"id": user_id, "email": email},
+        user={"id": user.uuid, "email": user.email},
         description=desc,
         metadata={"referrer": referrer},
     )

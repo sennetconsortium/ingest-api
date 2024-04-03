@@ -26,7 +26,12 @@ from jobs import (
 )
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
-from lib.decorators import require_json, require_multipart_form, require_valid_token
+from lib.decorators import (
+    User,
+    require_json,
+    require_multipart_form,
+    require_valid_token,
+)
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
@@ -36,9 +41,9 @@ logger = logging.getLogger(__name__)
 
 
 @metadata_blueprint.route("/metadata/validate", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id", email_param="email")
+@require_valid_token()
 @require_multipart_form(combined_param="data")
-def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
+def validate_metadata_upload(data: dict, token: str, user: User):
     try:
         entity_type, sub_type = get_validated_entity_type(data)
         referrer = get_validated_referrer(data, JobType.VALIDATE)
@@ -78,7 +83,7 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
             "data": dict(data),
             "token": token,
         },
-        user={"id": user_id, "email": email},
+        user={"id": user.uuid, "email": user.email},
         description=desc,
         metadata={"referrer": referrer},
     )
@@ -91,9 +96,9 @@ def validate_metadata_upload(data: dict, token: str, user_id: str, email: str):
 
 
 @metadata_blueprint.route("/metadata/register", methods=["POST"])
-@require_valid_token(param="token", user_id_param="user_id", email_param="email")
+@require_valid_token()
 @require_json(param="body")
-def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
+def register_metadata_upload(body: dict, token: str, user: User):
     try:
         validation_job_id = get_validated_job_id(body)
         referrer = get_validated_referrer(body, JobType.REGISTER)
@@ -101,7 +106,7 @@ def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
         abort_bad_req(str(e))
 
     job_queue = JobQueue.instance()
-    validation_queue_id = create_queue_id(user_id, validation_job_id)
+    validation_queue_id = create_queue_id(user.uuid, validation_job_id)
     try:
         validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
     except NoSuchJobError as e:
@@ -129,7 +134,7 @@ def register_metadata_upload(body: dict, token: str, user_id: str, email: str):
             "metadata_file": metadata_filepath,
             "token": token,
         },
-        user={"id": user_id, "email": email},
+        user={"id": user.uuid, "email": user.email},
         description=desc,
         metadata={"referrer": referrer},
     )

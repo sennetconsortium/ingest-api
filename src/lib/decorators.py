@@ -1,17 +1,24 @@
 import contextlib
 import os
+from dataclasses import dataclass
 from functools import wraps
 from inspect import signature
-from typing import Optional
 
 from atlas_consortia_commons.rest import (
     abort_bad_req,
     abort_forbidden,
-    abort_internal_err,
     abort_unauthorized,
 )
 from flask import current_app, request
 from hubmap_commons.hm_auth import AuthHelper
+
+
+@dataclass(frozen=True)
+class User:
+    uuid: str
+    email: str
+    group_uuids: list
+    is_data_admin: bool
 
 
 def require_json(
@@ -185,45 +192,32 @@ def require_data_admin(param: str = "token"):
     return decorator
 
 
-def require_valid_token(
-    param: str = "token",
-    user_id_param: Optional[str] = None,
-    email_param: Optional[str] = None,
-    groups_param: Optional[str] = None,
-    is_data_admin_param: Optional[str] = None,
-):
+def require_valid_token(param: str = "token", user_param: str = "user"):
     """A decorator that checks if the provided token is valid.
 
     If the decorated function has a parameter with the same name as `param`, the
     user's token will be passed as that parameter. If the request has no token or an
     invalid token, a 401 Unauthorized response will be returned.
 
-    If the decorated function has a parameter with the same name as `user_id_param`, the
-    user's id will be passed as that parameter.
-
-    If the decorated function has a parameter with the same name as `groups_param`, the
-    user's group ids will be passed as that parameter.
+    If the decorated function has a parameter with the same name as `user`, the
+    user will be passed as that parameter. The `user` is of type `lib.decorators.User`.
 
     Parameters
     ----------
     param : str
         The name of the parameter to pass the user's token to. Defaults to "token".
-    user_id_param : Optional[str]
-        The name of the parameter to pass the user's id to. Defaults to None.
-    email_param : Optional[str]
-        The name of the parameter to pass the user's email to. Defaults to None.
-    groups_param : Optional[str]
-        The name of the parameter to pass the user's group ids to. Defaults to None.
+    user_param : str
+        The name of the parameter to pass the user's information to. Defaults to "user".
 
     Example
     -------
         @app.route("/foo", methods=["POST"])
-        @require_valid_token(param="foo_token", groups_param="foo_groups")
-        def foo(foo_token: str, foo_groups: list):
+        @require_valid_token(param="foo_token", user_param="foo_user")
+        def foo(foo_token: str, foo_user: User):
             return jsonify({
                 "message": (
                     f"You are a valid user with token {foo_token} "
-                    f"and groups {foo_groups}!"
+                    f"and groups {user.group_uuids}!"
                 )
             })
 
@@ -255,24 +249,14 @@ def require_valid_token(
             if param in signature(f).parameters:
                 kwargs[param] = token
 
-            if user_id_param and user_id_param in signature(f).parameters:
-                user_id = user_info.get("sub")
-                if not user_id:
-                    abort_internal_err("User id not found for token")
-                kwargs[user_id_param] = user_id
-
-            if email_param and email_param in signature(f).parameters:
-                email = user_info.get("email")
-                if not email:
-                    abort_internal_err("Email not found for token")
-                kwargs[email_param] = email
-
-            if groups_param and groups_param in signature(f).parameters:
-                kwargs[groups_param] = user_info.get("hmgroupids", [])
-
-            if is_data_admin_param and is_data_admin_param in signature(f).parameters:
+            if user_param in signature(f).parameters:
                 is_admin = auth_helper.has_data_admin_privs(token)
-                kwargs[is_data_admin_param] = isinstance(is_admin, bool) and is_admin
+                kwargs[user_param] = User(
+                    uuid=user_info.get("sub"),
+                    email=user_info.get("email"),
+                    group_uuids=user_info.get("hmgroupids", []),
+                    is_data_admin=isinstance(is_admin, bool) and is_admin is True,
+                )
 
             return f(*args, **kwargs)
 
