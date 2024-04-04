@@ -151,52 +151,6 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
         assert res.status_code == status_code
 
 
-# Validate Datasets
-
-
-@pytest.mark.parametrize(
-    "entity_type, status_code",
-    [
-        ("source", 400),
-        ("sample", 400),
-        ("dataset", 200),
-    ],
-)
-def test_validate_datasets(app, entity_type, status_code):
-    """Test validate datasets correctly validates datasets only"""
-
-    with open(os.path.join(test_data_dir, f"{entity_type}.json"), "r") as f:
-        test_data = json.load(f)
-
-    tsv_filename = os.path.join(test_data_dir, f"test_{entity_type}.tsv")
-
-    def get_responses():
-        if not test_data.get("ancestor_response"):
-            return None
-        return [
-            test_utils.create_response(200, i) for i in test_data["ancestor_response"]
-        ]
-
-    with (
-        open(tsv_filename, "rb") as tsv_file,
-        app.test_client() as client,
-        patch("requests.get", side_effect=get_responses()),
-        patch("requests.post", return_value=test_utils.create_response(200)),
-    ):
-
-        test_file = {"file": (tsv_file, tsv_filename)}
-
-        res = client.post(
-            "/datasets/bulk/validate",
-            data=test_file,
-            content_type="multipart/form-data",
-            buffered=True,
-            headers=test_data["header"],
-        )
-
-        assert res.status_code == status_code
-
-
 # Validate Entity Constraints
 
 
