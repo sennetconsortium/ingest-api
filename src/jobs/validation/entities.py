@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 def validate_uploaded_entities(
-    job_id: str, entity_type: str, upload: dict, token: str
+    job_id: str, entity_type: str, upload: dict, token: str, group_uuid: str
 ) -> JobResult:
     try:
         csv_records = get_csv_records(upload.get("fullpath"))
@@ -53,6 +53,7 @@ def validate_uploaded_entities(
                     "job_id": job_id,
                     "entity_type": entity_type,
                     "file": file_details.get("pathname"),
+                    "group_uuid": group_uuid,
                 },
             )
         elif type(valid_file) is list:

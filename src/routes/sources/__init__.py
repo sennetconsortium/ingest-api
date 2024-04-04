@@ -42,6 +42,9 @@ logger = logging.getLogger(__name__)
 def bulk_sources_upload_and_validate(token: str, user: User):
     try:
         referrer = get_validated_referrer(request.form, JobType.VALIDATE)
+        group_uuid = get_validated_group_uuid(
+            request.form, user.group_uuids, user.is_data_admin
+        )
     except ValueError as e:
         logger.error(f"Invalid referrer: {e}")
         abort_bad_req("Invalid referrer")
@@ -73,6 +76,7 @@ def bulk_sources_upload_and_validate(token: str, user: User):
             "entity_type": "Source",
             "upload": upload,
             "token": token,
+            "group_uuid": group_uuid,
         },
         user={"id": user.uuid, "email": user.email},
         description=desc,
@@ -93,9 +97,6 @@ def bulk_sources_upload_and_validate(token: str, user: User):
 def create_sources_from_bulk(body: dict, token: str, user: User):
     try:
         validation_job_id = get_validated_job_id(body)
-        group_uuid = get_validated_group_uuid(
-            body, user.group_uuids, user.is_data_admin
-        )
         referrer = get_validated_referrer(body, JobType.REGISTER)
     except ValueError as e:
         abort_bad_req(str(e))
@@ -118,6 +119,10 @@ def create_sources_from_bulk(body: dict, token: str, user: User):
     entity_type = validation_result.results.get("entity_type")
     if not equals(entity_type, Ontology.ops().entities().SOURCE):
         abort_bad_req("Validation job was not for Source entities")
+
+    group_uuid = validation_result.results.get("group_uuid")
+    if group_uuid is None:
+        abort_internal_err("Group UUID was not found in validation job")
 
     validation_filepath = validation_result.results.get("file")
     job_id = uuid4()
