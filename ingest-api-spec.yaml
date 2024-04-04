@@ -769,94 +769,6 @@ paths:
         "500":
           description: Internal error
 
-  /datasets/bulk/validate:
-    post:
-      tags:
-        - datasets
-      summary: "Upload a tsv file containing multiple Dataset records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Dataset and all necessary fields are included. The temporary ID is only provided if all Dataset records in the tsv are valid."
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-      responses:
-        "200":
-          description: File uploaded, temporary directory and temporary ID created
-          content:
-            application/json:
-              schema:
-                properties:
-                  temp_id:
-                    type: string
-                    example: abcdefghij0123456789
-        "400":
-          description: File not upload, failed, or file contains invalid Datasets
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        "401":
-          description: The user's token has expired or the user did not have authorization
-        "500":
-          description: Internal error
-
-  /datasets/bulk/register:
-    post:
-      tags:
-        - datasets
-      summary: "Confirm that you want to create Datasets from the previously uploaded tsv file. Datasets are validated once more and, if valid, new Datasets are created via the Entity API"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                temp_id:
-                  type: string
-                  example: abcdefghij0123456789
-                group_uuid:
-                  type: string
-                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
-      responses:
-        "200":
-          description: The Datasets in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is the Datasets object.
-          content:
-            application/json:
-              schema:
-                properties:
-                  description:
-                    type: object
-                    description: An object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is a Dataset object
-                    $ref: '#/components/schemas/Datasets'
-                  code:
-                    type: integer
-                    description: The status code of the response
-                  name:
-                    type: string
-                    description: Status message. OK for a successful response
-        "400":
-          description: File not found for given temporary ID
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        "401":
-          description: The user's token has expired or the user did not have authorization
-        "500":
-          description: Internal error
-
   /datasets/bulk/submit:
     put:
       tags:
@@ -866,9 +778,9 @@ paths:
         content:
           application/json:
             schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/entity_uuid'
+              type: array
+              items:
+                $ref: '#/components/schemas/entity_uuid'
       responses:
         "202":
           description: The Datasets were successfully submitted for processing
