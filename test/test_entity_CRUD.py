@@ -90,6 +90,7 @@ def test_validate_sources(app, job_queue_mock, entity_type, status_code):
         test_file = {
             "file": tsv_file,
             "referrer": '{"type": "validate", "path": "edit/bulk/source"}',
+            "group_uuid": "60b692ac-8f6d-485f-b965-36886ecc5a26",
         }
 
         res = client.post(
@@ -138,6 +139,7 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
         test_file = {
             "file": tsv_file,
             "referrer": '{"type": "validate", "path": "edit/bulk/sample"}',
+            "group_uuid": "60b692ac-8f6d-485f-b965-36886ecc5a26",
         }
 
         res = client.post(
