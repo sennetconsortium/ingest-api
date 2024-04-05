@@ -46,8 +46,7 @@ def bulk_samples_upload_and_validate(token: str, user: User):
             request.form, user.group_uuids, user.is_data_admin
         )
     except ValueError as e:
-        logger.error(f"Invalid referrer: {e}")
-        abort_bad_req("Invalid referrer")
+        abort_bad_req(str(e))
 
     # save uploaded file to temp directory
     file_upload = check_upload()

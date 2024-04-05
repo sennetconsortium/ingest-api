@@ -9,7 +9,7 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
-from jobs import JOBS_PREFIX, JobQueue, create_queue_id, job_to_response
+from jobs import JOBS_PREFIX, JobQueue, JobVisibility, create_queue_id, job_to_response
 from lib.decorators import User, require_valid_token
 
 jobs_blueprint = Blueprint("jobs", __name__)
@@ -27,7 +27,11 @@ def get_jobs(user: User):
 
     query = f"{JOBS_PREFIX}{user.uuid}:*"
     jobs = job_queue.query_jobs(query)
-    res = [job_to_response(job) for job in jobs]
+    res = [
+        job_to_response(job)
+        for job in jobs
+        if job.meta.get("visibility", JobVisibility.PUBLIC) == JobVisibility.PUBLIC
+    ]
     return jsonify(res), 200
 
 
@@ -42,6 +46,8 @@ def get_job(job_id: UUID, user: User):
     queue_id = create_queue_id(user.uuid, job_id)
     try:
         job = Job.fetch(queue_id, connection=job_queue.redis)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
@@ -60,6 +66,8 @@ def delete_job(job_id: UUID, user: User):
     queue_id = create_queue_id(user.uuid, job_id)
     try:
         job = Job.fetch(queue_id, connection=job_queue.redis)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
         job.delete()
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
@@ -79,6 +87,8 @@ def cancel_job(job_id: UUID, user: User):
     queue_id = create_queue_id(user.uuid, job_id)
     try:
         job = Job.fetch(queue_id, connection=job_queue.redis)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
