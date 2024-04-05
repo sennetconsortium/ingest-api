@@ -1,6 +1,4 @@
-import flask
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+from uuid import uuid4
 from flask import Blueprint, jsonify, request, Response, current_app, json
 import logging
 import requests
@@ -11,7 +9,7 @@ from hubmap_sdk import Entity, EntitySdk
 from werkzeug import utils
 from operator import itemgetter
 from threading import Thread
-from redis import Redis, from_url
+from redis import from_url
 
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
@@ -21,8 +19,14 @@ from atlas_consortia_commons.rest import *
 from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found, abort_internal_err
 from atlas_consortia_commons.string import equals
 from atlas_consortia_commons.object import enum_val_lower
-from lib.decorators import require_data_admin, require_json
+from rq.job import JobStatus
 
+from lib.decorators import User, require_data_admin, require_json
+
+from jobs import JobQueue, JobVisibility
+from jobs.submission.datasets import submit_datasets
+from lib.dataset_helper import DatasetHelper
+from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
 from lib.file import set_file_details
 from lib.file_upload_helper import UploadFileHelper
@@ -34,10 +38,7 @@ entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
 
 # Local modules
-from routes.entity_CRUD.ingest_file_helper import IngestFileHelper
-from routes.entity_CRUD.dataset_helper import DatasetHelper
 from routes.entity_CRUD.constraints_helper import *
-from routes.entity_CRUD.tasks import submit_datasets
 from routes.auth import get_auth_header, get_auth_header_dict
 
 from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
@@ -219,8 +220,8 @@ def create_datasets_from_bulk():
 @entity_CRUD_blueprint.route('/datasets/bulk/submit', methods=['PUT'])
 @require_data_admin(param='token')
 @require_json(param='uuids')
-def submit_datasets_from_bulk(uuids: list, token: str):
-    if not isinstance(uuids, list) or len(uuids) == 0:
+def submit_datasets_from_bulk(uuids: list, token: str, user: User):
+    if len(uuids) == 0:
         abort_bad_req('A list of dataset uuids is required')
 
     dataset_helper = DatasetHelper(current_app.config)
@@ -239,14 +240,25 @@ def submit_datasets_from_bulk(uuids: list, token: str):
     if len(diff) > 0:
         abort_not_found(f"No datasets found with the following uuids: {', '.join(diff)}")
 
-    try:
-        Thread(target=submit_datasets, args=[uuids, token, current_app.config]).start()
-        logger.info(
-            f'Started to submit datasets for processing with uuids: {uuids}'
-        )
-    except Exception as e:
-        logger.error(f'Error while submitting datasets: {str(e)}')
-        abort_internal_err(str(e))
+    job_queue = JobQueue.instance()
+    job_id = uuid4()
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=submit_datasets,
+        job_kwargs={
+            "job_id": job_id,
+            "dataset_uuids": list(uuids),
+            "token": token,
+        },
+        user={"id": user.uuid, "email": user.email},
+        description="Bulk dataset submission",
+        metadata={},
+        visibility=JobVisibility.PRIVATE
+    )
+
+    status = job.get_status()
+    if status == JobStatus.FAILED:
+        abort_internal_err("Validation job failed to start")
 
     # return a 202 reponse with the accepted dataset uuids
     return jsonify(list(uuids)), 202
