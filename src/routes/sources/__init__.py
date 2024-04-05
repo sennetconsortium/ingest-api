@@ -43,8 +43,7 @@ def bulk_sources_upload_and_validate(token: str, user: User):
     try:
         referrer = get_validated_referrer(request.form, JobType.VALIDATE)
     except ValueError as e:
-        logger.error(f"Invalid referrer: {e}")
-        abort_bad_req("Invalid referrer")
+        abort_bad_req(str(e))
 
     # save uploaded file to temp directory
     file_upload = check_upload()
