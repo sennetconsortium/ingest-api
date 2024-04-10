@@ -1,13 +1,12 @@
-import os
 import logging
+import os
 import shutil
 import subprocess
 import threading
 
-from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import file_helper
-
 from hubmap_commons.exceptions import HTTPException
+from hubmap_commons.hm_auth import AuthHelper
 
 
 class IngestFileHelper:

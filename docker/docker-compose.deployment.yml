@@ -12,3 +12,18 @@ services:
       # Mount data directory for Globus transfer PROD
       - "/codcc/data:/codcc/data"
 
+  ingest-api-rq-worker:
+    build:
+      context: ./ingest-api
+      dockerfile: ./rq/Dockerfile
+    image: sennet/ingest-api-rq-server:${INGEST_API_VERSION:?err}
+    volumes:
+      # Mount the VERSION file and BUILD file 
+      - "../VERSION:/usr/src/app/VERSION" 
+      - "../BUILD:/usr/src/app/BUILD" 
+      # Mount data directory for Globus transfer PROD
+      - "/codcc/data:/codcc/data"
+    deploy:
+      replicas: 4
+    networks:
+      - sennet_docker_network

@@ -1,16 +1,18 @@
 import logging
 
 import requests
+from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
+from jobs import JobResult
+from lib.dataset_helper import DatasetHelper
 from lib.services import bulk_update_entities
-from routes.entity_CRUD.dataset_helper import DatasetHelper
 
 logger = logging.getLogger(__name__)
 
 
-def submit_datasets(dataset_uuids: list, token: str, config: dict):
-    entity_api_url = config["ENTITY_WEBSERVICE_URL"]
+def submit_datasets(job_id: str, dataset_uuids: list, token: str):
+    config = current_app.config
 
     # change the status of the datasets to Processing using entity-api
     update_payload = {
@@ -22,9 +24,7 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
         }
         for uuid in dataset_uuids
     }
-    update_status_res = bulk_update_entities(
-        update_payload, token, entity_api_url=entity_api_url
-    )
+    update_status_res = bulk_update_entities(update_payload, token)
 
     # get the datasets that were successfully updated, log the ones that failed
     processing_datasets = [
@@ -117,9 +117,7 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
             }
             update_payload.update(error_payload)
 
-        update_res = bulk_update_entities(
-            update_payload, token, entity_api_url=entity_api_url
-        )
+        update_res = bulk_update_entities(update_payload, token)
 
         # log the datasets that failed to update
         for uuid, res in update_res.items():
@@ -128,6 +126,18 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
                     f"Failed to set dataset ingest info or pipeline message {uuid}: "
                     f"{res['data']}"
                 )
+
+        all_completed = all(res["success"] for res in update_res.values())
+        job_results = [
+            {
+                "uuid": uuid,
+                "success": res["success"],
+                "message": res["data"] if not res["success"] else "Success",
+            }
+            for uuid, res in update_res.items()
+        ]
+
+        return JobResult(success=all_completed, results=job_results)
 
     else:
         # request failed, update the datasets to error
@@ -138,9 +148,7 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
             }
             for dataset in processing_datasets
         }
-        update_errored_res = bulk_update_entities(
-            update_payload, token, entity_api_url=entity_api_url
-        )
+        update_errored_res = bulk_update_entities(update_payload, token)
 
         # log the datasets that failed to update
         for uuid, res in update_errored_res.items():
@@ -148,3 +156,18 @@ def submit_datasets(dataset_uuids: list, token: str, config: dict):
                 logger.error(
                     f"Failed to set status and pipeline message {uuid}: {res['data']}"
                 )
+
+        job_results = [
+            {
+                "uuid": uuid,
+                "success": False,
+                "message": (
+                    f"Failed to set 'status' to 'Error': {res['data']}"
+                    if not res["success"]
+                    else "Set 'status' to 'Error'"
+                ),
+            }
+            for uuid, res in update_errored_res.items()
+        ]
+
+        return JobResult(success=False, results=job_results)

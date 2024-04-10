@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
@@ -37,6 +38,16 @@ class JobType(str, Enum):
         if self == JobType.VALIDATE:
             return "validation"
         return "registration"
+
+
+class JobVisibility(str, Enum):
+    """Enum that represents whether a job is returned to the end user or not. Public
+    jobs are returned to the end user, while private jobs are not. Results of private
+    jobs also have a shorter lifetime in the queue.
+    """
+
+    PUBLIC = "public"
+    PRIVATE = "private"
 
 
 class TooManyJobsFoundError(Exception):
@@ -89,6 +100,7 @@ class JobQueue:
         job_id: str,
         job_func,
         job_kwargs,
+        visibility: JobVisibility = JobVisibility.PUBLIC,
     ) -> Job:
         """Enqueue a job in the queue.
 
@@ -106,25 +118,33 @@ class JobQueue:
             Job function to execute.
         job_kwargs : dict
             Job function keyword arguments.
+        visibility : JobVisibility
+            The visibility of the job. Defaults to JobVisibility.PUBLIC.
 
         Returns
         -------
         Job
             The RQ Job object.
         """
+        if visibility == JobVisibility.PRIVATE:
+            lifetime = timedelta(days=1).total_seconds()
+        else:
+            lifetime = timedelta(days=7).total_seconds()
+
         queue_id = create_queue_id(user["id"], job_id)
         job = self.queue.enqueue(
             job_func,
             kwargs=job_kwargs,
             job_id=queue_id,
-            job_timeout=18000,  # 5 hours
-            ttl=604800,  # 1 week
-            result_ttl=604800,
-            error_ttl=604800,
+            job_timeout=18000,
+            ttl=lifetime,
+            result_ttl=lifetime,
+            error_ttl=lifetime,
             description=description,
         )
 
         job.meta["user"] = user
+        job.meta["visibility"] = visibility
         if metadata and len(metadata) > 0:
             job.meta.update(metadata)
         job.save()

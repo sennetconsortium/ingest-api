@@ -9,7 +9,13 @@ from atlas_consortia_commons.rest import (
 from flask import Blueprint, jsonify, request
 from rq.job import InvalidJobOperation, JobStatus, NoSuchJobError
 
-from jobs import JOBS_PREFIX, JobQueue, TooManyJobsFoundError, job_to_response
+from jobs import (
+    JOBS_PREFIX,
+    JobQueue,
+    JobVisibility,
+    TooManyJobsFoundError,
+    job_to_response,
+)
 from lib import globus
 from lib.decorators import require_data_admin
 
@@ -37,7 +43,11 @@ def get_admin_jobs():
         scan_query = f"{JOBS_PREFIX}*"
 
     jobs = job_queue.query_jobs(scan_query)
-    res = [job_to_response(job, admin=True) for job in jobs]
+    res = [
+        job_to_response(job, admin=True)
+        for job in jobs
+        if job.meta.get("visibility", JobVisibility.PUBLIC) == JobVisibility.PUBLIC
+    ]
     return jsonify(res), 200
 
 
@@ -53,6 +63,8 @@ def get_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
@@ -75,6 +87,8 @@ def delete_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
         job.delete()
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
@@ -98,6 +112,8 @@ def cancel_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
+        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+            raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")

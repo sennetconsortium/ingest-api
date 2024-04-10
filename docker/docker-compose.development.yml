@@ -32,5 +32,7 @@ services:
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
+    deploy:
+      replicas: 4
     networks:
       - sennet_docker_network
