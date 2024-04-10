@@ -74,7 +74,7 @@ def validate_uploaded_metadata(
         )
         if len(validation_results) > 0:
             logger.error(f"Error validating metadata: {validation_results}")
-            return JobResult(success=False, results=[validation_results])
+            return JobResult(success=False, results=validation_results)
         else:
             records = get_metadata(upload.get("fullpath"))
             response = _get_response(
