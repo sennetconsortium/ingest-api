@@ -40,8 +40,18 @@ components:
       type: string
       pattern: '^[a-f0-9]{32}$'
 
+    JobCreated:
+      type: object
+      properties:
+        job_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+
     Referrer:
       type: object
+      description: The type of job and the URL path in the portal
       properties:
         type:
           type: string
@@ -470,7 +480,7 @@ paths:
     post:
       tags:
         - metadata
-      summary: Validate a metadata file.
+      summary: Validate an uploaded metadata TSV file using the backend Job Queue.
       requestBody:
         required: true
         content:
@@ -509,11 +519,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  job_id:
-                    type: string
-                  status:
-                    type: string
+                  $ref: "#/components/schemas/JobCreated"
         "400":
           description: One or more required fields are missing or invalid.
           content:
@@ -563,11 +569,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  job_id:
-                    type: string
-                  status:
-                    type: string
+                  $ref: "#/components/schemas/JobCreated"
         "400":
           description: One or more required fields are missing or invalid.
           content:
@@ -597,7 +599,8 @@ paths:
     post:
       tags:
         - sources
-      summary: "Upload a tsv file containing multiple Source records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Source and all necessary fields are included. The temporary ID is only provided if all Source records in the tsv are valid."
+      summary: >
+        Validate an uploaded TSV file containing multiple Source records using the backend Job Queue.
       requestBody:
         content:
           multipart/form-data:
@@ -607,25 +610,27 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: The TSV file containing the Source records
+                group_uuid:
+                  type: string
+                  description: The UUID of the group the Sources should belong to
+                referrer:
+                  type: string
+                  description: 'The type of job and the URL path in the portal. Json formatted string {"type": "job_type", "path": "portal/url/path"}.'
       responses:
-        "200":
-          description: File uploaded, temporary directory and temporary ID created
+        "202":
+          description: File uploaded and validation job successfully created in the backend Job Queue
           content:
             application/json:
               schema:
-                properties:
-                  temp_id:
-                    type: string
-                    example: abcdefghij0123456789
+                $ref: "#/components/schemas/JobCreated"
         "400":
-          description: File not upload, failed, or file contains invalid Sources
+          description: One or more required fields are missing or invalid.
           content:
             application/json:
               schema:
                 properties:
-                  status:
-                    type: string
-                  message:
+                  error:
                     type: string
         "401":
           description: The user's token has expired or the user did not have authorization
@@ -636,45 +641,31 @@ paths:
     post:
       tags:
         - sources
-      summary: "Confirm that you want to create Sources from the previously uploaded tsv file. Sources are validated once more and, if valid, new Sources are created via the Entity API"
+      summary: Register the previously validated Source records using the backend Job Queue.
       requestBody:
         content:
           application/json:
             schema:
-              type: object
               properties:
-                temp_id:
+                job_id:
                   type: string
-                  example: abcdefghij0123456789
-                group_uuid:
-                  type: string
-                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
+                  description: The job ID of the previously created validation job
+                referrer:
+                  $ref: "#/components/schemas/Referrer"
       responses:
-        "200":
-          description: The Sources in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Sources where the property name is the order in the file ("1", "2", etc...) and the value is the Source object.
+        "202":
+          description: Registration job successfully created in the backend Job Queue
           content:
             application/json:
               schema:
-                properties:
-                  description:
-                    type: object
-                    description: An object of created Sources where the property name is the order in the file ("1", "2", etc...) and the value is a Source object
-                    $ref: '#/components/schemas/Sources'
-                  code:
-                    type: integer
-                    description: The status code of the response
-                  name:
-                    type: string
-                    description: Status message. OK for a successful response
+                $ref: "#/components/schemas/JobCreated"
         "400":
-          description: File not found for given temporary ID
+          description: One or more required fields are missing or invalid.
           content:
             application/json:
               schema:
                 properties:
-                  status:
-                    type: string
-                  message:
+                  error:
                     type: string
         "401":
           description: The user's token has expired or the user did not have authorization
@@ -685,7 +676,8 @@ paths:
     post:
       tags:
         - samples
-      summary: "Upload a tsv file containing multiple Sample records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Sample and all necessary fields are included. The temporary ID is only provided if all Sample records in the tsv are valid."
+      summary: >
+        Validate an uploaded TSV file containing multiple Sample records using the backend Job Queue.
       requestBody:
         content:
           multipart/form-data:
@@ -695,25 +687,27 @@ paths:
                 file:
                   type: string
                   format: binary
+                  description: The TSV file containing the Sample records
+                group_uuid:
+                  type: string
+                  description: The UUID of the group the Samples should belong to
+                referrer:
+                  type: string
+                  description: 'The type of job and the URL path in the portal. Json formatted string {"type": "job_type", "path": "portal/url/path"}.'
       responses:
-        "200":
-          description: File uploaded, temporary directory and temporary ID created
+        "202":
+          description: File uploaded and validation job successfully created in the backend Job Queue
           content:
             application/json:
               schema:
-                properties:
-                  temp_id:
-                    type: string
-                    example: abcdefghij0123456789
+                $ref: "#/components/schemas/JobCreated"
         "400":
-          description: File not upload, failed, or file contains invalid Samples
+          description: One or more required fields are missing or invalid.
           content:
             application/json:
               schema:
                 properties:
-                  status:
-                    type: string
-                  message:
+                  error:
                     type: string
         "401":
           description: The user's token has expired or the user did not have authorization
@@ -724,133 +718,31 @@ paths:
     post:
       tags:
         - samples
-      summary: "Confirm that you want to create Samples from the previously uploaded tsv file. Samples are validated once more and, if valid, new Samples are created via the Entity API"
+      summary: Register the previously validated Sample records using the backend Job Queue.
       requestBody:
         content:
           application/json:
             schema:
-              type: object
               properties:
-                temp_id:
+                job_id:
                   type: string
-                  example: abcdefghij0123456789
-                group_uuid:
-                  type: string
-                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
+                  description: The job ID of the previously created validation job
+                referrer:
+                  $ref: "#/components/schemas/Referrer"
       responses:
-        "200":
-          description: The Samples in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Samples where the property name is the order in the file ("1", "2", etc...) and the value is the Sample object.
+        "202":
+          description: Registration job successfully created in the backend Job Queue
           content:
             application/json:
               schema:
-                properties:
-                  description:
-                    type: object
-                    description: An object of created Samples where the property name is the order in the file ("1", "2", etc...) and the value is a Sample object
-                    $ref: '#/components/schemas/Samples'
-                  code:
-                    type: integer
-                    description: The status code of the response
-                  name:
-                    type: string
-                    description: Status message. OK for a successful response
+                $ref: "#/components/schemas/JobCreated"
         "400":
-          description: File not found for given temporary ID
+          description: One or more required fields are missing or invalid.
           content:
             application/json:
               schema:
                 properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        "401":
-          description: The user's token has expired or the user did not have authorization
-        "500":
-          description: Internal error
-
-  /datasets/bulk/validate:
-    post:
-      tags:
-        - datasets
-      summary: "Upload a tsv file containing multiple Dataset records. On success, the file will be staged and a temporary ID will be returned to reference the staged file. Each record in the tsv is validated to verify that it contains acceptable values for a Dataset and all necessary fields are included. The temporary ID is only provided if all Dataset records in the tsv are valid."
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-      responses:
-        "200":
-          description: File uploaded, temporary directory and temporary ID created
-          content:
-            application/json:
-              schema:
-                properties:
-                  temp_id:
-                    type: string
-                    example: abcdefghij0123456789
-        "400":
-          description: File not upload, failed, or file contains invalid Datasets
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
-                    type: string
-        "401":
-          description: The user's token has expired or the user did not have authorization
-        "500":
-          description: Internal error
-
-  /datasets/bulk/register:
-    post:
-      tags:
-        - datasets
-      summary: "Confirm that you want to create Datasets from the previously uploaded tsv file. Datasets are validated once more and, if valid, new Datasets are created via the Entity API"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                temp_id:
-                  type: string
-                  example: abcdefghij0123456789
-                group_uuid:
-                  type: string
-                  example: a1b2c3d4-e5f6-g7h8-i9j0-k1l2m3n4o5p6
-      responses:
-        "200":
-          description: The Datasets in the tsv file were successfully created. This response contains a property named `description`. Description is an object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is the Datasets object.
-          content:
-            application/json:
-              schema:
-                properties:
-                  description:
-                    type: object
-                    description: An object of created Datasets where the property name is the order in the file ("1", "2", etc...) and the value is a Dataset object
-                    $ref: '#/components/schemas/Datasets'
-                  code:
-                    type: integer
-                    description: The status code of the response
-                  name:
-                    type: string
-                    description: Status message. OK for a successful response
-        "400":
-          description: File not found for given temporary ID
-          content:
-            application/json:
-              schema:
-                properties:
-                  status:
-                    type: string
-                  message:
+                  error:
                     type: string
         "401":
           description: The user's token has expired or the user did not have authorization
@@ -866,9 +758,9 @@ paths:
         content:
           application/json:
             schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/entity_uuid'
+              type: array
+              items:
+                $ref: '#/components/schemas/entity_uuid'
       responses:
         "202":
           description: The Datasets were successfully submitted for processing
