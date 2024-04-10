@@ -73,6 +73,9 @@ def validate_uploaded_metadata(
             token=token, path=upload.get("fullpath"), schema=schema
         )
         if len(validation_results) > 0:
+            if not isinstance(validation_results, list):
+                validation_results = [validation_results]
+
             logger.error(f"Error validating metadata: {validation_results}")
             return JobResult(success=False, results=validation_results)
         else:
