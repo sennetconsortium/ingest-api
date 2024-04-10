@@ -188,6 +188,7 @@ def validate_tsv(
         try:
             app_context = {
                 "request_header": {"X-SenNet-Application": "ingest-api"},
+                'ingest_url': ensureTrailingSlashURL(current_app.config['INGEST_URL']),
                 "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
             }
             result = iv_utils.get_tsv_errors(
@@ -199,9 +200,14 @@ def validate_tsv(
             )
             if "CEDAR Validation Errors" in result:
                 if path in result["CEDAR Validation Errors"]:
-                    result = result["CEDAR Validation Errors"][path]
+                    result = result['CEDAR Validation Errors'][path]['URL Errors']
                 else:
                     result = result["CEDAR Validation Errors"]
+            if 'Local Validation Errors' in result:
+                if len(result['Local Validation Errors'].keys()) > 0:
+                    result = result['Local Validation Errors'][list(result['Local Validation Errors'].keys())[0]]
+                else:
+                    result = result['Local Validation Errors']
         except Exception as e:
             result = rest_server_err(e, True)
 
