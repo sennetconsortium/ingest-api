@@ -38,7 +38,9 @@ def privs_has_write_on_group_uuid(group_uuid):
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
     try:
-        has_write_privs: bool = auth_helper_instance.check_write_privs(groups_token, group_uuid)
+        has_write_privs: bool = auth_helper_instance.has_write_privs(groups_token)
+        if isinstance(has_write_privs, Response):
+            return has_write_privs
     except HTTPException as e:
         return make_response(e.description, e.status_code)
     headers: dict = {
