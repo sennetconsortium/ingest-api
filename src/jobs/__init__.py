@@ -274,6 +274,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         "description": job.description,
         "status": status.title(),
         "user": job.meta.get("user", {}),
+        "progress": job.meta.get("progress", 100),
         "started_timestamp": (
             int(job.started_at.timestamp() * 1000) if job.started_at else None
         ),
