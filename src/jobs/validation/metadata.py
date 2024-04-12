@@ -373,7 +373,7 @@ def supported_metadata_sub_types(entity_type):
 
 def fetch_entity(token, entity_id, id_col, idx, errors):
     if entity_id is None:
-        err = rest_bad_req(ln_err('Must supply a valid `entity_id`', idx, id_col), dict_only=True)
+        err = rest_bad_req(ln_err(f'Must supply `{id_col}` and valid value', idx, id_col), dict_only=True)
         errors.append(err)
         return False
     try:
@@ -388,7 +388,7 @@ def fetch_entity(token, entity_id, id_col, idx, errors):
     if resp.status_code < 300:
         return resp.json()
     else:
-        ln = ln_err(f"invalid `{id_col}`: `{entity_id}`", idx, id_col)
+        ln = ln_err(f"Invalid `{id_col}`: `{entity_id}`", idx, id_col)
         err = rest_response(
             resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
         )
