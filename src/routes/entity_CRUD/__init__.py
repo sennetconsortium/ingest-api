@@ -3,11 +3,8 @@ from flask import Blueprint, jsonify, request, Response, current_app, json
 import logging
 import requests
 import os
-import re
 import time
 from hubmap_sdk import Entity, EntitySdk
-from werkzeug import utils
-from operator import itemgetter
 from threading import Thread
 from redis import from_url
 
@@ -15,10 +12,7 @@ from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
-from atlas_consortia_commons.rest import *
-from atlas_consortia_commons.rest import abort_bad_req, abort_forbidden, abort_not_found, abort_internal_err
-from atlas_consortia_commons.string import equals
-from atlas_consortia_commons.object import enum_val_lower
+from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, abort_not_found, rest_response
 from rq.job import JobStatus
 
 from lib.decorators import User, require_data_admin, require_json
@@ -34,30 +28,30 @@ from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
 
+# Local modules
+# from routes.entity_CRUD.constraints_helper import *
+from routes.auth import get_auth_header_dict
+
+from lib.ontology import Ontology
+from lib.file import get_csv_records, check_upload, files_exist
+from lib.services import get_associated_sources_from_dataset
+
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
-
-# Local modules
-from routes.entity_CRUD.constraints_helper import *
-from routes.auth import get_auth_header, get_auth_header_dict
-
-from lib.ontology import Ontology, get_dataset_types_ep, get_organ_types_ep
-from lib.file import get_csv_records, get_base_path, check_upload, ln_err, files_exist
-from lib.services import get_associated_sources_from_dataset
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
 def create_dataset():
-
     if not request.is_json:
         return Response("json request required", 400)
+
     try:
         dataset_request = request.json
         # Get the single Globus groups token for authorization
         auth_helper_instance = AuthHelper.instance()
         auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
         if isinstance(auth_token, Response):
-            return(auth_token)
+            return auth_token
         elif isinstance(auth_token, str):
             token = auth_token
         else:
@@ -71,7 +65,7 @@ def create_dataset():
         requested_group_uuid = auth_helper_instance.get_write_group_uuid(token, requested_group_uuid)
         dataset_request['group_uuid'] = requested_group_uuid
         post_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset'
-        response = requests.post(post_url, json = dataset_request, headers = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }, verify = False)
+        response = requests.post(post_url, json=dataset_request, headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'}, verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
         new_dataset = response.json()
@@ -95,13 +89,13 @@ def multiple_components():
         auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
         auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
         if isinstance(auth_tokens, Response):
-            return(auth_tokens)
+            return auth_tokens
         elif isinstance(auth_tokens, str):
             token = auth_tokens
         elif 'nexus_token' in auth_tokens:
             token = auth_tokens['nexus_token']
         else:
-            return(Response("Valid nexus auth token required", 401))
+            return Response("Valid nexus auth token required", 401)
 
         # Check that `dataset_link_abs_dir` exists for both datasets and that it is a valid directory
         json_data_dict = request.get_json()
@@ -114,7 +108,7 @@ def multiple_components():
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
-            if not 'contains_human_genetic_sequences' in dataset:
+            if 'contains_human_genetic_sequences' not in dataset:
                 return Response("Missing required keys in request json: datasets.contains_human_genetic_sequences", 400)
 
         requested_group_uuid = None
@@ -125,7 +119,7 @@ def multiple_components():
         requested_group_uuid = auth_helper.get_write_group_uuid(token, requested_group_uuid)
         component_request['group_uuid'] = requested_group_uuid
         post_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'datasets/components'
-        response = requests.post(post_url, json = component_request, headers = {'Authorization': 'Bearer ' + token, 'X-SenNet-Application':'ingest-api' }, verify = False)
+        response = requests.post(post_url, json=component_request, headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'}, verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
         new_datasets_list = response.json()
@@ -269,11 +263,11 @@ def get_file_system_relative_path():
     return jsonify(out_list), 200
 
 
-@entity_CRUD_blueprint.route('/entities/<entity_uuid>', methods = ['GET'])
+@entity_CRUD_blueprint.route('/entities/<entity_uuid>', methods=['GET'])
 def get_entity(entity_uuid):
     try:
-        entity = __get_entity(entity_uuid, auth_header = request.headers.get("AUTHORIZATION"))
-        return jsonify (entity), 200
+        entity = __get_entity(entity_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+        return jsonify(entity), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
@@ -306,8 +300,7 @@ def __get_entity(entity_uuid, auth_header=None):
         headers = None
     else:
         headers = {'Authorization': auth_header, 'Accept': 'application/json', 'Content-Type': 'application/json'}
-    get_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) +\
-              'entities/' + entity_uuid
+    get_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + entity_uuid
 
     response = requests.get(get_url, headers=headers, verify=False)
     if response.status_code != 200:
@@ -361,7 +354,7 @@ def submit_dataset(uuid):
         user_info = auth_helper.getUserInfo(token, getGroups=True)
         if isinstance(user_info, Response):
             return user_info
-        if not 'hmgroupids' in user_info:
+        if 'hmgroupids' not in user_info:
             return Response("user not authorized to submit data, unable to retrieve any group information", 403)
         if not current_app.config['SENNET_DATA_ADMIN_GROUP_UUID'] in user_info['hmgroupids']:
             return Response("user not authorized to submit data, must be a member of the SenNet-Data-Admin group", 403)
@@ -411,7 +404,7 @@ def submit_dataset(uuid):
             r = requests.post(pipeline_url, json=request_ingest_payload,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
-            if r.ok == True:
+            if r.ok:
                 airflow_second_stop = time.time()
                 logger.info('Time to get response from airflow: ' + str(airflow_second_stop-airflow_start))
                 """expect data like this:
@@ -459,10 +452,10 @@ def update_ingest_status():
         dataset_helper = DatasetHelper(current_app.config)
 
         return dataset_helper.update_ingest_status_title_thumbnail(current_app.config,
-                                                                request.json,
-                                                                request.headers,
-                                                                entity_api,
-                                                                file_upload_helper_instance)
+                                                                   request.json,
+                                                                   request.headers,
+                                                                   entity_api,
+                                                                   file_upload_helper_instance)
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
     except ValueError as ve:
@@ -772,9 +765,9 @@ def publish_datastage(identifier):
                         if metadata_dict.get('living_donor_data') is None:
                             organ_donor = False
                         if (organ_donor and living_donor) or (not organ_donor and not living_donor):
-                            return jsonify({"error": f"source.metadata.organ_donor_data or "
-                                                     f"source.metadata.living_donor_data required. "
-                                                     f"Both cannot be None. Both cannot be present. Only one."}), 400
+                            return jsonify({"error": "source.metadata.organ_donor_data or "
+                                                     "source.metadata.living_donor_data required. "
+                                                     "Both cannot be None. Both cannot be present. Only one."}), 400
                     sources_to_reindex.append(uuid)
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
@@ -1005,13 +998,13 @@ def create_uploadstage():
         auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
         auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
         if isinstance(auth_tokens, Response):
-            return(auth_tokens)
+            return auth_tokens
         elif isinstance(auth_tokens, str):
             token = auth_tokens
         elif 'groups_token' in auth_tokens:
             token = auth_tokens['groups_token']
         else:
-            return(Response("Valid nexus auth token required", 401))
+            return Response("Valid nexus auth token required", 401)
 
         requested_group_uuid = None
         if 'group_uuid' in upload_request:
@@ -1034,8 +1027,8 @@ def create_uploadstage():
         return Response("Unexpected error while creating a upload: " + str(e) + "  Check the logs", 500)
 
 
-    #method to change the status of an Upload to "submitted"
-#will also save any changes to title or description that are passed in
+# method to change the status of an Upload to "submitted"
+# will also save any changes to title or description that are passed in
 @entity_CRUD_blueprint.route('/uploads/<upload_uuid>/submit', methods=['PUT'])
 def submit_upload(upload_uuid):
     if not request.is_json:
@@ -1044,31 +1037,31 @@ def submit_upload(upload_uuid):
     upload_changes = request.json
     upload_changes['status'] = 'Submitted'
 
-    #get auth info to use in other calls
-    #add the app specific header info
+    # get auth info to use in other calls
+    # add the app specific header info
     http_headers = {
         'Authorization': request.headers["AUTHORIZATION"],
         'Content-Type': 'application/json',
-        'X-SenNet-Application':'ingest-api'
+        'X-SenNet-Application': 'ingest-api'
     }
 
     update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
     # Disable ssl certificate verification
-    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify = False)
+    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
 
-    #disable validations stuff for now...
-    ##call the AirFlow validation workflow
-    #validate_url = commons_file_helper.ensureTrailingSlashURL(app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
-    ## Disable ssl certificate verification
-    #resp = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
-    #if resp.status_code >= 300:
+    # disable validations stuff for now...
+    # call the AirFlow validation workflow
+    # validate_url = commons_file_helper.ensureTrailingSlashURL(app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
+    # Disable ssl certificate verification
+    # resp = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    # if resp.status_code >= 300:
     #    return Response(resp.text, resp.status_code)
 
     return Response(resp.text, resp.status_code)
 
-#method to validate an Upload
-#saves the upload then calls the validate workflow via
-#AirFlow interface
+# method to validate an Upload
+# saves the upload then calls the validate workflow via
+# AirFlow interface
 @entity_CRUD_blueprint.route('/uploads/<upload_uuid>/validate', methods=['PUT'])
 def validate_upload(upload_uuid):
     start_time = time.time()
@@ -1100,10 +1093,10 @@ def validate_upload(upload_uuid):
     logger.debug("--- %s seconds to update Entity API ---" % (time.time() - start_time))
 
     # disable validations stuff for now...
-    ##call the AirFlow validation workflow
+    # call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(
         current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/validate"
-    ## Disable ssl certificate verification
+    # Disable ssl certificate verification
     resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
@@ -1111,38 +1104,37 @@ def validate_upload(upload_uuid):
 
     return Response(resp.text, resp.status_code)
 
-#method to reorganize an Upload
-#saves the upload then calls the reorganize workflow via
-#AirFlow interface
+# method to reorganize an Upload
+# saves the upload then calls the reorganize workflow via
+# AirFlow interface
 @entity_CRUD_blueprint.route('/uploads/<upload_uuid>/reorganize', methods=['PUT'])
 def reorganize_upload(upload_uuid):
 
-    #get auth info to use in other calls
-    #add the app specific header info
+    # get auth info to use in other calls
+    # add the app specific header info
     http_headers = {
         'Authorization': request.headers["AUTHORIZATION"],
         'Content-Type': 'application/json',
-        'X-SenNet-Application':'ingest-api'
+        'X-SenNet-Application': 'ingest-api'
     }
 
-
-    #update the Upload with any changes from the request
-    #and change the status to "Processing", the validate
-    #pipeline will update the status when finished
+    # update the Upload with any changes from the request
+    # and change the status to "Processing", the validate
+    # pipeline will update the status when finished
     upload_changes = {}
     upload_changes['status'] = 'Processing'
     update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
 
     # Disable ssl certificate verification
-    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify = False)
+    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
     if resp.status_code >= 300:
         return Response(resp.text, resp.status_code)
 
-    #disable validations stuff for now...
-    ##call the AirFlow validation workflow
+    # disable validations stuff for now...
+    # call the AirFlow validation workflow
     validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
-    ## Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify = False)
+    # Disable ssl certificate verification
+    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
         return Response(resp2.text, resp2.status_code)
 
@@ -1154,7 +1146,7 @@ def collections_attributes():
     result: dict = {
         'error': None
     }
-    if is_json_request():
+    if request.is_json:
         data = request.json
     else:
         data = request.values
@@ -1174,516 +1166,6 @@ def collections_attributes():
     else:
         return json.dumps(file_upload)
 
-
-def _get_status_code__by_priority(codes):
-    if StatusCodes.SERVER_ERR in codes:
-        return StatusCodes.SERVER_ERR
-    elif StatusCodes.UNACCEPTABLE in codes:
-        return StatusCodes.UNACCEPTABLE
-    else:
-        return codes[0]
-
-def _bulk_upload_and_validate(entity):
-    header = get_auth_header()
-    upload = check_upload()
-    temp_id, file = itemgetter('id', 'file')(upload.get('description'))
-    # uses csv.DictReader to add functionality to tsv file. Can do operations on rows and headers.
-    file.filename = utils.secure_filename(file.filename)
-    file_location = get_base_path() + temp_id + os.sep + file.filename
-    csv_records = get_csv_records(file_location)
-    if isinstance(csv_records, Response):
-        return csv_records
-    headers, records = itemgetter('headers', 'records')(csv_records)
-
-    if entity == Ontology.ops().entities().SOURCE:
-        valid_file = validate_sources(headers, records)
-    elif entity == Ontology.ops().entities().SAMPLE:
-        valid_file = validate_samples(headers, records, header)
-    elif entity == Ontology.ops().entities().DATASET:
-        records = _format_dataset_records(records)
-        valid_file = validate_datasets(headers, records, header)
-    else:
-        valid_file = False
-
-    if valid_file is True:
-        return rest_ok({'temp_id': temp_id})
-    elif type(valid_file) is list:
-        return rest_bad_req(valid_file)
-    else:
-        message = f'Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}'
-        return rest_server_err(message)
-
-
-def _format_dataset_records(records):
-    # Ancestor_id can contain multiple entries. This must be split by comma before validating
-    for record in records:
-        if record.get('ancestor_id'):
-            ancestor_id_string = record['ancestor_id']
-            ancestor_id_list = ancestor_id_string.split(',')
-            if isinstance(ancestor_id_list, str):
-                ancestor_id_list = [ancestor_id_list]
-            ancestor_stripped = []
-            for ancestor in ancestor_id_list:
-                ancestor_stripped.append(ancestor.strip())
-            record['ancestor_id'] = ancestor_stripped
-        if record.get('human_gene_sequences'):
-            gene_sequences_string = record['human_gene_sequences']
-            if gene_sequences_string.lower() == "true":
-                record['human_gene_sequences'] = True
-            if gene_sequences_string.lower() == "false":
-                record['human_gene_sequences'] = False
-
-    return records
-
-
-def _check_request_for_bulk():
-    request_data = request.get_json()
-    try:
-        temp_id = request_data['temp_id']
-    except KeyError:
-        return rest_bad_req('No key `temp_id` in request body')
-    group_uuid = None
-    if "group_uuid" in request_data:
-        group_uuid = request_data['group_uuid']
-    temp_dir = current_app.config['FILE_UPLOAD_TEMP_DIR']
-    tsv_directory = commons_file_helper.ensureTrailingSlash(temp_dir) + temp_id + os.sep
-    if not os.path.exists(tsv_directory):
-        return rest_bad_req(f"Temporary file with id {temp_id} does not have a temp directory")
-    fcount = 0
-    temp_file_name = None
-    for tfile in os.listdir(tsv_directory):
-        fcount = fcount + 1
-        temp_file_name = tfile
-    if fcount == 0:
-        return rest_bad_req(f"File not found in temporary directory /{temp_id}")
-    if fcount > 1:
-        return rest_bad_req(f"Multiple files found in temporary file path /{temp_id}")
-    file_location = tsv_directory + temp_file_name
-    return {
-        'csv_records': get_csv_records(file_location),
-        'group_uuid': group_uuid
-    }
-
-
-def _send_response_on_file(entity_created: bool, entity_failed_to_create: bool,
-                           entity_response, status_code=StatusCodes.SERVER_ERR):
-    if entity_created and not entity_failed_to_create:
-        return rest_ok(entity_response)
-    elif entity_created and entity_failed_to_create:
-        return rest_response(StatusCodes.OK_PARTIAL, "Partial Success - Some Entities Created Successfully", entity_response)
-    else:
-        return rest_response(status_code, f"entity_created: {entity_created}, entity_failed_to_create: {entity_failed_to_create}", entity_response)
-
-
-def _ln_err(error: str, row: int = None, column: str = None):
-    return ln_err(error, row, column)
-
-
-def _common_ln_errs(err, val):
-    if err == 1:
-        return _ln_err(f" `{val}` is a required field", 1)
-    elif err == 2:
-        return _ln_err(f" `{val}` is not an accepted field", 1)
-    elif err == 3:
-        return _ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
-    elif err == 4:
-        return _ln_err("This row has too few entries. Check file; verify spaces were not used where a tab should be", val)
-    elif err == 5:
-        return _ln_err("Failed to reach UUID Web Service", val)
-    elif err == 6:
-        return _ln_err("This row has too many entries. Check file; verify that there are only as many fields as there are headers", val)
-    elif err == 7:
-        return _ln_err("Unauthorized. Cannot access UUID-api", val)
-    elif err == 8:
-        return _ln_err("Unable to verify `ancestor_id` exists", val)
-
-
-def is_invalid_doi(protocol):
-    selection_protocol_pattern1 = re.match('^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
-    selection_protocol_pattern2 = re.match('^dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$', protocol)
-    return selection_protocol_pattern2 is None and selection_protocol_pattern1 is None
-
-
-def validate_sources(headers, records):
-    error_msg = []
-    file_is_valid = True
-    allowed_source_types = Ontology.ops(as_arr=True, cb=enum_val_lower).source_types()
-
-    required_headers = ['lab_id', 'source_type', 'selection_protocol', 'lab_notes']
-    for field in required_headers:
-        if field not in headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(1, field))
-    required_headers.append(None)
-    for field in headers:
-        if field not in required_headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(2, field))
-    rownum = 0
-    if file_is_valid is True:
-        for data_row in records:
-            # validate that no fields in data_row are none. If they are none, then we cannot verify even if the entry we
-            # are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
-            rownum = rownum + 1
-            none_present = False
-            for each in data_row.keys():
-                if data_row[each] is None:
-                    none_present = True
-            if none_present:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(4, rownum))
-                continue
-
-            # validate that no headers are None. This indicates that there are fields present.
-            if data_row.get(None) is not None:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(6, rownum))
-                continue
-
-            # validate lab_id
-            lab_id = data_row['lab_id']
-            if len(lab_id) > 1024:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
-            if len(lab_id) < 1:
-                file_is_valid = False
-                error_msg.append(_ln_err("must have 1 or more characters", rownum, "lab_id"))
-
-            # validate selection_protocol
-            protocol = data_row['selection_protocol']
-            if is_invalid_doi(protocol):
-                file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "selection_protocol"))
-
-            # validate source_type
-            if data_row['source_type'].lower() not in allowed_source_types:
-                file_is_valid = False
-                error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_source_types)}", rownum, "source_type"))
-
-            # validate description
-            description = data_row['lab_notes']
-            if len(description) > 10000:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be fewer than 10,000 characters", rownum, "lab_notes"))
-
-    if file_is_valid:
-        return file_is_valid
-    if file_is_valid == False:
-        return error_msg
-
-
-def validate_samples(headers, records, header):
-    error_msg = []
-    file_is_valid = True
-
-    required_headers = ['ancestor_id', 'sample_category', 'preparation_protocol', 'lab_id', 'lab_notes', 'organ_type']
-    for field in required_headers:
-        if field not in headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(1, field))
-    required_headers.append(None)
-    for field in headers:
-        if field not in required_headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(2, field))
-
-    allowed_categories = Ontology.ops(as_arr=True, cb=enum_val_lower).specimen_categories()
-    # Get the ontology classes
-    SpecimenCategories = Ontology.ops().specimen_categories()
-    Entities = Ontology.ops().entities()
-
-    organ_types_codes = list(Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types().keys())
-    organ_types_codes.append('OT')
-
-    rownum = 0
-    valid_ancestor_ids = []
-    entity_constraint_list = []
-    if file_is_valid is True:
-        for data_row in records:
-            # validate that no fields in data_row are none. If they are none, then we cannot verify even if the entry we
-            # are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
-            rownum = rownum + 1
-            none_present = False
-            for each in data_row.keys():
-                if data_row[each] is None:
-                    none_present = True
-            if none_present:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(4, rownum))
-                continue
-
-            # validate that no headers are None. This indicates that there are fields present.
-            if data_row.get(None) is not None:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(6, rownum))
-                continue
-
-            # validate description
-            description = data_row['lab_notes']
-            if len(description) > 10000:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be fewer than 10,000 characters", rownum, "lab_notes"))
-
-            # validate preparation_protocol
-            protocol = data_row['preparation_protocol']
-            if is_invalid_doi(protocol):
-                file_is_valid = False
-                error_msg.append(_ln_err("must either be of the format `https://dx.doi.org/##.####/protocols.io.*` or `dx.doi.org/##.####/protocols.io.*`", rownum, "preparation_protocol"))
-            if len(protocol) < 1:
-                file_is_valid = False
-                error_msg.append(_ln_err("is a required filed and cannot be blank", rownum, "preparation_protocol"))
-
-            # validate lab_id
-            lab_id = data_row['lab_id']
-            if len(lab_id) > 1024:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
-            if len(lab_id) < 1:
-                file_is_valid = False
-                error_msg.append(_ln_err("value cannot be blank", rownum, "lab_id"))
-
-            # validate sample_category
-            valid_category = True
-            sample_category = data_row['sample_category']
-            if sample_category.lower() not in allowed_categories:
-                file_is_valid = False
-                valid_category = False
-                error_msg.append(_ln_err(f"can only be one of the following (not case sensitive): {', '.join(allowed_categories)}", rownum, "sample_category"))
-
-            # validate organ_type
-            data_row['organ_type'] = data_row['organ_type'].upper()
-            organ_type = data_row['organ_type']
-            if not equals(sample_category, SpecimenCategories.ORGAN):
-                if len(organ_type) > 0:
-                    file_is_valid = False
-                    error_msg.append(_ln_err("field must be blank if `sample_category` is not `organ`", rownum, "organ_type"))
-            if equals(sample_category, SpecimenCategories.ORGAN):
-                if len(organ_type) < 1:
-                    file_is_valid = False
-                    error_msg.append(_ln_err("field is required if `sample_category` is `organ`", rownum, "organ_type"))
-            if len(organ_type) > 0:
-                if organ_type not in organ_types_codes:
-                    file_is_valid = False
-                    error_msg.append(_ln_err(f"value must be an organ code listed at {get_organ_types_ep()}", rownum, "organ_type"))
-
-            # validate ancestor_id
-            ancestor_id = data_row['ancestor_id']
-            validation_results = validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid)
-
-            file_is_valid, error_msg, ancestor_saved, resp_status_code, ancestor_dict \
-                = itemgetter('file_is_valid', 'error_msg', 'ancestor_saved', 'resp_status_code', 'ancestor_dict')(validation_results)
-
-            if ancestor_saved or resp_status_code:
-                data_row['ancestor_id'] = ancestor_dict['uuid']
-                if equals(sample_category, SpecimenCategories.ORGAN) and not equals(ancestor_dict['type'], Entities.SOURCE):
-                    file_is_valid = False
-                    error_msg.append(_ln_err("If `sample_category` is `organ`, `ancestor_id` must point to a source", rownum))
-
-                if not equals(sample_category, SpecimenCategories.ORGAN) and not equals(ancestor_dict['type'], Entities.SAMPLE):
-                    file_is_valid = False
-                    error_msg.append(_ln_err("If `sample_category` is not `organ`, `ancestor_id` must point to a sample", rownum))
-
-                # prepare entity constraints for validation
-                sub_type = None
-                sub_type_val = None
-                if valid_category:
-                    sub_type = get_as_list(sample_category)
-                if equals(sample_category, SpecimenCategories.ORGAN):
-                    sub_type_val = get_as_list(organ_type)
-
-                entity_to_validate = build_constraint_unit(Entities.SAMPLE, sub_type, sub_type_val)
-                try:
-                    entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
-
-                except Exception as e:
-                    file_is_valid = False
-                    error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
-
-    # validate entity constraints
-    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
-
-
-def validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list):
-    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'constraints?match=true&report_type=ln_err'
-    try:
-        validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
-        if not validate_constraint_result.ok:
-            constraint_errors = validate_constraint_result.json()
-            error_msg.extend(constraint_errors.get('description'))
-            file_is_valid = False
-    except Exception as e:
-        file_is_valid = False
-        error_msg.append(_common_ln_errs(3, e))
-    if file_is_valid:
-        return file_is_valid
-    if file_is_valid == False:
-        return error_msg
-
-
-def validate_datasets(headers, records, header):
-    error_msg = []
-    file_is_valid = True
-
-    required_headers = ['ancestor_id', 'lab_id', 'doi_abstract', 'human_gene_sequences', 'dataset_type']
-    for field in required_headers:
-        if field not in headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(1, field))
-    required_headers.append(None)
-    for field in headers:
-        if field not in required_headers:
-            file_is_valid = False
-            error_msg.append(_common_ln_errs(2, field))
-
-    dataset_types = list(Ontology.ops(as_data_dict=True).dataset_types().values())
-
-    rownum = 0
-    entity_constraint_list = []
-    valid_ancestor_ids = []
-    if file_is_valid is True:
-        for data_row in records:
-            # validate that no fields in data_row are none. If they are none, ,then we cannot verify even if the entry
-            # we are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
-            rownum = rownum + 1
-            none_present = False
-            for each in data_row.keys():
-                if data_row[each] is None:
-                    none_present = True
-            if none_present:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(4, rownum))
-
-                continue
-
-            # validate that no headers are None. This indicates that there are fields present.
-            if data_row.get(None) is not None:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(6, rownum))
-                continue
-
-            # validate description
-            description = data_row['doi_abstract']
-            if len(description) > 10000:
-                file_is_valid = False
-                error_msg.append(_ln_err("DOI Abstract must be fewer than 10,000 characters", rownum, "doi_abstract"))
-
-            # validate lab_id
-            lab_id = data_row['lab_id']
-            if len(lab_id) > 1024:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
-
-            # validate human_gene_sequences
-            has_gene_sequence = data_row['human_gene_sequences']
-            if type(has_gene_sequence) is not bool:
-                file_is_valid = False
-                error_msg.append(_ln_err("must be `true` or `false`", rownum, "has_gene_sequences"))
-
-            # validate dataset_type
-            dataset_type_valid = True
-            dataset_type = data_row['dataset_type']
-            if dataset_type not in dataset_types:
-                file_is_valid = False
-                dataset_type_valid = False
-                error_msg.append(_ln_err(f"value must be a dataset type listed at {get_dataset_types_ep()}", rownum, "dataset_type"))
-
-            # validate ancestor_id
-            ancestor_ids = data_row['ancestor_id']
-            for ancestor_id in ancestor_ids:
-                validation_results = validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid)
-
-                file_is_valid, error_msg, ancestor_saved, resp_status_code, ancestor_dict \
-                    = itemgetter('file_is_valid', 'error_msg', 'ancestor_saved', 'resp_status_code', 'ancestor_dict')(validation_results)
-
-                if ancestor_saved or resp_status_code:
-
-                    # prepare entity constraints for validation
-
-                    sub_type = None
-                    if dataset_type_valid:
-                        sub_type = get_as_list(dataset_type)
-
-                    entity_to_validate = build_constraint_unit(Ontology.ops().entities().DATASET, sub_type)
-
-                    try:
-                        entity_constraint_list = append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id)
-                    except Exception as e:
-                        file_is_valid = False
-                        error_msg.append(_ln_err(f"Unable to access Entity Api during constraint validation. Received response: {e}", rownum))
-
-    # validate entity constraints
-    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
-
-
-def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid):
-    if len(ancestor_id) < 1:
-        file_is_valid = False
-        error_msg.append(_ln_err("cannot be blank", rownum, "ancestor_id"))
-    if len(ancestor_id) > 0:
-        ancestor_dict = {}
-        ancestor_saved = False
-        resp_status_code = False
-        if len(valid_ancestor_ids) > 0:
-            for item in valid_ancestor_ids:
-                if item.get('uuid') or item.get('sennet_id'):
-                    if ancestor_id == item['uuid'] or ancestor_id == item['sennet_id']:
-                        ancestor_dict = item
-                        ancestor_saved = True
-        if ancestor_saved is False:
-            url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + 'uuid/' + ancestor_id
-            try:
-                resp = requests.get(url, headers=header)
-                if resp.status_code == 404:
-                    file_is_valid = False
-                    error_msg.append(_common_ln_errs(8, rownum))
-                if resp.status_code > 499:
-                    file_is_valid = False
-                    error_msg.append(_common_ln_errs(5, rownum))
-                if resp.status_code == 401 or resp.status_code == 403:
-                    file_is_valid = False
-                    error_msg.append(_common_ln_errs(7, rownum))
-                if resp.status_code == 400:
-                    file_is_valid = False
-                    error_msg.append(_ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
-                if resp.status_code < 300:
-                    ancestor_dict = resp.json()
-                    valid_ancestor_ids.append(ancestor_dict)
-                    resp_status_code = True
-            except Exception as e:
-                file_is_valid = False
-                error_msg.append(_common_ln_errs(5, rownum))
-
-    return {
-        'file_is_valid': file_is_valid,
-        'error_msg': error_msg,
-        'ancestor_dict': ancestor_dict,
-        'resp_status_code': resp_status_code,
-        'ancestor_saved': ancestor_saved
-    }
-
-
-def append_constraints_list(entity_to_validate, ancestor_dict, header, entity_constraint_list, ancestor_id):
-    Entities = Ontology.ops().entities()
-    ancestor_entity_type = ancestor_dict['type'].lower()
-    url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + ancestor_id
-
-    ancestor_result = requests.get(url, headers=header).json()
-    sub_type = None
-    sub_type_val = None
-    if equals(ancestor_entity_type, Entities.DATASET):
-        sub_type = get_as_list(ancestor_result['dataset_type'])
-
-    if equals(ancestor_entity_type, Entities.SAMPLE):
-        sub_type = get_as_list(ancestor_result['sample_category'])
-        if equals(ancestor_result['sample_category'], Ontology.ops().specimen_categories().ORGAN):
-            sub_type_val = get_as_list(ancestor_result['organ'])
-
-    ancestor_to_validate = build_constraint_unit(ancestor_entity_type, sub_type, sub_type_val)
-
-    dict_to_validate = build_constraint(ancestor_to_validate, entity_to_validate)
-    entity_constraint_list.append(dict_to_validate)
-
-    return entity_constraint_list
 
 def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
     if type_a is None:

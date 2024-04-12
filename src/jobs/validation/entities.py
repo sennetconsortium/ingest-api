@@ -437,7 +437,7 @@ def validate_entity_constraints(
             url, headers=header, json=entity_constraint_list
         )
         if not validate_constraint_result.ok:
-            constraint_errors = validate_constraint_result.json
+            constraint_errors = validate_constraint_result.json()
             error_msg.extend(constraint_errors.get("description"))
             file_is_valid = False
     except Exception as e:
