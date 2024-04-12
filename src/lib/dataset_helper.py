@@ -87,6 +87,8 @@ class DatasetHelper:
             If fields is not a dict, an iterable, or None.
         """
 
+        if isinstance(uuids, str):
+            uuids = [uuids]
         if not isinstance(uuids, list):
             uuids = list(uuids)
 
