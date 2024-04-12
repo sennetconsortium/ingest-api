@@ -378,19 +378,23 @@ def supported_metadata_sub_types(entity_type):
 
 
 def fetch_entity(token, entity_id, id_col, idx, errors):
-    url = (
-        ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + entity_id
-    )
+    if entity_id is None:
+        err = rest_bad_req(ln_err(f'Must supply `{id_col}` and valid value', idx, id_col), dict_only=True)
+        errors.append(err)
+        return False
     try:
+        url = (
+                ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "entities/"
+                + entity_id
+        )
         resp = requests.get(url, headers=get_auth_header_dict(token))
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating metadata: {e}")
     if resp.status_code < 300:
         return resp.json()
     else:
-        ln = ln_err(f"invalid `{id_col}`: `{entity_id}`", idx, id_col)
+        ln = ln_err(f"Invalid `{id_col}`: `{entity_id}`", idx, id_col)
         err = rest_response(
             resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
         )
