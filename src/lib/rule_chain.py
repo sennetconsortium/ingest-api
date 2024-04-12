@@ -113,6 +113,7 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
         entity = Entity(entity)
 
     metadata = {}
+    dag_prov_list = []
     if hasattr(entity, "ingest_metadata"):
         # This if block should catch primary datasets because primary datasets should
         # their metadata ingested as part of the reorganization.
@@ -122,18 +123,11 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
             # If there is no ingest-metadata, then it must be a derived dataset
             metadata["data_types"] = calculate_data_types(entity)
 
-        if "dag_provenance_list" in entity.ingest_metadata:
-            dag_prov_list = entity.ingest_metadata["dag_provenance_list"]
-        else:
-            dag_prov_list = []
-
-        dag_prov_list = [
-            elt["origin"] + ":" + elt["name"]
-            for elt in dag_prov_list
-            if "origin" in elt and "name" in elt
-        ]
-
-        metadata.update({"dag_provenance_list": dag_prov_list})
+        dag_prov_list = [elt['origin'] + ':' + elt['name']
+                         for elt in entity.ingest_metadata.get('dag_provenance_list',
+                                                               [])
+                         if 'origin' in elt and 'name' in elt
+                         ]
 
         # In the case of Publications, we must also set the data_types.
         # The primary publication will always have metadata,
@@ -146,6 +140,8 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
         metadata["data_types"] = calculate_data_types(entity)
 
     metadata["entity_type"] = entity.entity_type
+    metadata["dag_provenance_list"] = dag_prov_list
+    metadata["creation_action"] = entity.creation_action
 
     return metadata
 
