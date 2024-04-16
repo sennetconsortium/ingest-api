@@ -197,9 +197,9 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
     return jsonify(list(uuids)), 202
 
 
-@entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
-@entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
-def get_file_system_absolute_path(ds_uuid: str):
+@entity_CRUD_blueprint.route('/uploads/<entity_uuid:uuid>/file-system-abs-path', methods=['GET'])
+@entity_CRUD_blueprint.route('/datasets/<entity_uuid:uuid>/file-system-abs-path', methods=['GET'])
+def get_file_system_absolute_path(uuid: str):
     try:
         q = (
             "MATCH (e:Entity) WHERE e.uuid = $uuid AND e.entity_type IN $entity_types "
@@ -208,13 +208,13 @@ def get_file_system_absolute_path(ds_uuid: str):
             "e.data_access_level AS data_sccess_level, e.status AS status LIMIT 1"
         )
         entity_types = ['Dataset', 'Upload']
-        entities = Neo4jHelper.run_query(q, uuid=ds_uuid, entity_types=entity_types)
+        entities = Neo4jHelper.run_query(q, uuid=uuid, entity_types=entity_types)
     except Exception as e:
         logger.error(f"Error while retrieving entities' file system absolute paths: {str(e)}")
         abort_internal_err("Error while retrieving entities' file system absolute paths")
 
     if len(entities) < 1:
-        abort_not_found(f"No dataset found with uuid: {ds_uuid}")
+        abort_not_found(f"No dataset found with uuid: {uuid}")
 
     entity = entities[0]
     uuid = entity['uuid']
