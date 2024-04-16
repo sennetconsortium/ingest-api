@@ -35,7 +35,7 @@ services:
       driver: awslogs
       options:
         awslogs-region: us-east-1
-        awslogs-group: entity-api-docker-logs
+        awslogs-group: ingest-api-docker-logs
         awslogs-stream: ${LOG_STREAM}
 
 networks:
