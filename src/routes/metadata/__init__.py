@@ -86,7 +86,7 @@ def validate_metadata_upload(data: dict, token: str, user: User):
         },
         user={"id": user.uuid, "email": user.email},
         description=desc,
-        metadata={"referrer": referrer},
+        metadata={"referrer": referrer, "register_job_id": None},
     )
 
     status = job.get_status()
@@ -118,6 +118,9 @@ def register_metadata_upload(body: dict, token: str, user: User):
     if validation_job.get_status() != JobStatus.FINISHED:
         abort_bad_req("Validation job has not completed")
 
+    if validation_job.meta.get("register_job_id") is not None:
+        abort_bad_req("Registration job already started")
+
     validation_result: JobResult = validation_job.result
     if validation_result.success is False or "file" not in validation_result.results:
         abort_bad_req("Validation job failed")
@@ -144,6 +147,12 @@ def register_metadata_upload(body: dict, token: str, user: User):
     status = job.get_status()
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
+
+    # Save the register job id to the validation job meta
+    meta = validation_job.get_meta()
+    meta["register_job_id"] = job_id
+    validation_job.meta = meta
+    validation_job.save_meta()
 
     display_status = get_display_job_status(job)
     return jsonify({"job_id": job_id, "status": display_status}), 202

@@ -269,6 +269,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
 
     return {
         "job_id": job_id,
+        "register_job_id": job.meta.get("register_job_id"),
         "referrer": job.meta.get("referrer", {}),
         "description": job.description,
         "status": status.title(),
