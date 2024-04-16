@@ -24,6 +24,7 @@ from jobs import (
     create_job_description,
     create_queue_id,
     get_display_job_status,
+    update_job_metadata,
 )
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
@@ -149,10 +150,7 @@ def register_metadata_upload(body: dict, token: str, user: User):
         abort_internal_err("Validation job failed to start")
 
     # Save the register job id to the validation job meta
-    meta = validation_job.get_meta()
-    meta["register_job_id"] = job_id
-    validation_job.meta = meta
-    validation_job.save_meta()
+    update_job_metadata(validation_job, register_job_id=job_id)
 
     display_status = get_display_job_status(job)
     return jsonify({"job_id": job_id, "status": display_status}), 202

@@ -341,3 +341,19 @@ def create_job_description(
     filename_suffix = f" from file {filename}" if filename else ""
 
     return f"{subject} {job_type} for {entity_type}{formatted_subtype}{filename_suffix}"
+
+
+def update_job_metadata(job: Job, metadata: dict) -> None:
+    """Update the metadata of a given job. This will update metadata, not replace it entirely.
+
+    Parameters
+    ----------
+    job : Job
+        The RQ Job object.
+    metadata : dict
+        The metadata to update.
+    """
+    meta = job.get_meta()
+    meta.update(metadata)
+    job.meta = meta
+    job.save_meta()
