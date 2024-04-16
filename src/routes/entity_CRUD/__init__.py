@@ -200,57 +200,51 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
 @entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
 @entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
 def get_file_system_absolute_path(ds_uuid: str):
-    dataset_helper = DatasetHelper(current_app.config)
     try:
-        fields = {
-            'uuid',
-            'entity_type',
-            'group_uuid',
-            'contains_human_genetic_sequences',
-            'data_access_level',
-            'status'
-        }
-        datasets = dataset_helper.get_datasets_by_uuid(ds_uuid, fields)
+        q = (
+            "MATCH (e:Entity) WHERE e.uuid = $uuid AND e.entity_type IN $entity_types "
+            "RETURN e.uuid AS uuid, e.entity_type AS entity_type, e.group_uuid AS group_uuid, "
+            "e.contains_human_genetic_sequences AS contains_human_genetic_sequences, "
+            "e.data_access_level AS data_sccess_level, e.status AS status LIMIT 1"
+        )
+        entity_types = ['Dataset', 'Upload']
+        entities = Neo4jHelper.run_query(q, uuid=ds_uuid, entity_types=entity_types)
     except Exception as e:
-        logger.error(f'Error while submitting datasets: {str(e)}')
-        abort_internal_err(str(e))
+        logger.error(f"Error while retrieving entities' file system absolute paths: {str(e)}")
+        abort_internal_err("Error while retrieving entities' file system absolute paths")
 
-    if datasets is None:
+    if len(entities) < 1:
         abort_not_found(f"No dataset found with uuid: {ds_uuid}")
 
-    dataset = datasets[0]
-    entity_type = dataset['entity_type']
-    group_uuid = dataset['group_uuid']
-    is_phi = dataset['contains_human_genetic_sequences']
+    entity = entities[0]
+    uuid = entity['uuid']
+    entity_type = entity['entity_type']
+    group_uuid = entity['group_uuid']
+
+    auth_header = request.headers.get("Authorization")
+    ingest_helper = IngestFileHelper(current_app.config)
 
     if entity_type is None or entity_type.strip() == '':
-        abort_bad_req(f"Entity with uuid:{ds_uuid} needs to be a Dataset or Upload")
+        abort_bad_req(f"Entity with uuid {uuid} needs to be a Dataset or Upload")
     if group_uuid is None or group_uuid.strip() == '':
-        abort_bad_req(f"Unable to find group uuid on dataset {ds_uuid}")
-    if is_phi is None:
-        abort_bad_req(f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}")
+        abort_bad_req(f"Unable to find group uuid on dataset {uuid}")
 
-    ingest_helper = IngestFileHelper(current_app.config)
     if equals(entity_type, Ontology.ops().entities().UPLOAD):
-        path = ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=ds_uuid)
+        path = ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=uuid)
         return jsonify({'path': path}), 200
+
+    is_phi = entity['contains_human_genetic_sequences']
+    if is_phi is None:
+        abort_bad_req(f"Contains_human_genetic_sequences is not set on dataset {uuid}")
 
     try:
-        if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=request.headers.get("AUTHORIZATION")):
-            return abort_bad_req(f"Entity with uuid: {ds_uuid} is not a Dataset, Publication or upload")
-
-        path = ingest_helper.get_dataset_directory_absolute_path(dict(dataset), group_uuid, ds_uuid)
-        return jsonify({'path': path}), 200
-
-    except ResponseException as re:
-        return re.response
-
+        if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=auth_header):
+            return abort_bad_req(f"Entity with uuid: {uuid} is not a Dataset, Publication or upload")
     except HTTPException as hte:
-        return Response(f"Error while getting file-system-abs-path for {ds_uuid}: " +
-                        hte.get_description(), hte.get_status_code())
-    except Exception as e:
-        logger.error(e, exc_info=True)
-        return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
+        return Response(f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(), hte.get_status_code())
+
+    path = ingest_helper.get_dataset_directory_absolute_path(dict(entity), group_uuid, uuid)
+    return jsonify({'path': path}), 200
 
 
 @entity_CRUD_blueprint.route('/uploads/file-system-abs-path', methods=['POST'])
