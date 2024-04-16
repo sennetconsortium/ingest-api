@@ -270,6 +270,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
 
     return {
         "job_id": job_id,
+        "register_job_id": job.meta.get("register_job_id"),
         "referrer": job.meta.get("referrer", {}),
         "description": job.description,
         "status": status.title(),
@@ -365,5 +366,21 @@ def update_job_progress(progress: float, job: Optional[Job] = None):
 
     meta = job.get_meta()
     meta["progress"] = progress
+    job.meta = meta
+    job.save_meta()
+
+
+def update_job_metadata(job: Job, metadata: dict) -> None:
+    """Update the metadata of a given job. This will update metadata, not replace it entirely.
+
+    Parameters
+    ----------
+    job : Job
+        The RQ Job object.
+    metadata : dict
+        The metadata to update.
+    """
+    meta = job.get_meta()
+    meta.update(metadata)
     job.meta = meta
     job.save_meta()
