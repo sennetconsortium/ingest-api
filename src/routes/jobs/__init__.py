@@ -7,6 +7,7 @@ from atlas_consortia_commons.rest import (
     abort_not_found,
 )
 from flask import Blueprint, jsonify
+from rq.command import send_stop_job_command
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
 from jobs import JOBS_PREFIX, JobQueue, JobVisibility, create_queue_id, job_to_response
@@ -93,11 +94,20 @@ def cancel_job(job_id: UUID, user: User):
         logger.error(f"Job not found: {e}")
         abort_not_found("Job not found")
 
-    if job.get_status() in [JobStatus.FINISHED, JobStatus.FAILED]:
-        abort_bad_req("Job has already been completed or failed")
+    status = job.get_status()
+    if status in [
+        JobStatus.FINISHED,
+        JobStatus.FAILED,
+        JobStatus.CANCELED,
+        JobStatus.STOPPED,
+    ]:
+        abort_bad_req("Job has already been completed, canceled, or failed")
 
     try:
-        job.cancel()
+        if status == JobStatus.STARTED:
+            send_stop_job_command(job_id=job.id, connection=job_queue.redis)
+        else:
+            job.cancel()
     except InvalidJobOperation as e:
         logger.error(f"Job cannot be canceled: {e}")
         abort_bad_req("Job has already been canceled")
