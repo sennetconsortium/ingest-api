@@ -532,6 +532,11 @@ def update_datasets_datastatus(app_context):
             "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
         )
 
+        upload_query = (
+            "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
+            "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
+        )
+
         has_rui_query = (
             "MATCH (ds:Dataset) "
             "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
@@ -546,7 +551,7 @@ def update_datasets_datastatus(app_context):
             "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
         ]
 
-        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, has_rui_query]
+        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
         results = [None] * len(queries)
         threads = []
         for i, query in enumerate(queries):
@@ -561,7 +566,8 @@ def update_datasets_datastatus(app_context):
         organ_result = results[1]
         source_result = results[2]
         processed_datasets_result = results[3]
-        has_rui_result = results[4]
+        upload_result = results[4]
+        has_rui_result = results[5]
 
         for dataset in all_datasets_result:
             output_dict[dataset['uuid']] = dataset
@@ -580,6 +586,9 @@ def update_datasets_datastatus(app_context):
         for dataset in processed_datasets_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['processed_datasets'] = dataset['processed_datasets']
+        for dataset in upload_result:
+            if output_dict.get(dataset['uuid']):
+                output_dict[dataset['uuid']]['upload'] = dataset['upload']
         for dataset in has_rui_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
