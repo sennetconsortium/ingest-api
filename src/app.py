@@ -51,6 +51,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
 app.app_context().push()
+app.url_map.converters["entity_uuid"] = EntityUUIDConverter
 
 app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
