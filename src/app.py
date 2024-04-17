@@ -34,6 +34,7 @@ from routes.sources import sources_blueprint
 from routes.samples import samples_blueprint
 
 # Local Modules
+from lib.converters import EntityUUIDConverter
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
@@ -54,6 +55,7 @@ logger = logging.getLogger()
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
 app.app_context().push()
+app.url_map.converters["entity_uuid"] = EntityUUIDConverter
 
 app.vitessce_cache = None
 if 'MEMCACHED_MODE' in app.config:
