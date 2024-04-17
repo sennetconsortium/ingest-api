@@ -34,6 +34,7 @@ from routes.sources import sources_blueprint
 from routes.samples import samples_blueprint
 
 # Local Modules
+from lib.converters import EntityUUIDConverter
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
