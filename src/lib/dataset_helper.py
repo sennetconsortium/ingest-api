@@ -22,8 +22,6 @@ from lib.ingest_file_helper import IngestFileHelper
 
 
 class DatasetHelper:
-    confdata = {}
-
     def __init__(self, config):
         self.appconfig = config
         self.logger = logging.getLogger('ingest.service')
@@ -151,7 +149,7 @@ class DatasetHelper:
         # Headers for calling entity-api via PUT to update Dataset.status
         extra_headers = {
             'Content-Type': 'application/json',
-            'X-Hubmap-Application': 'ingest-api'
+            'X-SenNet-Application': 'ingest-api'
         }
 
         # updated_ds is the dict returned by ingest-pipeline, not the complete entity information
@@ -413,7 +411,7 @@ class DatasetHelper:
         f = None
         try:
             # join the incoming file path with the WORKFLOW_SCRATCH location
-            file_path = os.path.join(self.confdata['WORKFLOW_SCRATCH'], orig_file_path)
+            file_path = os.path.join(self.appconfig['WORKFLOW_SCRATCH'], orig_file_path)
             with open(file_path) as f:
                 data = json.load(f)
                 if 'files' in data:
