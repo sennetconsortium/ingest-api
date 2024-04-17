@@ -23,6 +23,7 @@ services:
       - "../BUILD:/usr/src/app/BUILD" 
       # Mount data directory for Globus transfer PROD
       - "/codcc/data:/codcc/data"
+      - "/codcc/scratch:/codcc/scratch"
     deploy:
       replicas: 4
     networks:
