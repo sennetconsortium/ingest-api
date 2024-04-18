@@ -9,7 +9,7 @@ from atlas_consortia_commons.string import equals
 from flask import Response, current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
-from jobs import JobResult
+from jobs import JobResult, update_job_progress
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.entities import (
     append_constraints_list,
@@ -30,6 +30,7 @@ def validate_uploaded_entities(
         csv_records = get_csv_records(upload.get("fullpath"))
         if isinstance(csv_records, Response):
             message = "Unable to read the uploaded file. Please ensure the file is a valid tsv file."
+            update_job_progress(100)
             return JobResult(success=False, results={"message": message})
 
         file_headers, records = itemgetter("headers", "records")(csv_records)
@@ -47,6 +48,7 @@ def validate_uploaded_entities(
 
         if valid_file is True:
             file_details = save_validation_records(records, entity_type, upload, job_id)
+            update_job_progress(100)
             return JobResult(
                 success=True,
                 results={
@@ -57,12 +59,15 @@ def validate_uploaded_entities(
                 },
             )
         elif type(valid_file) is list:
+            update_job_progress(100)
             return JobResult(success=False, results=valid_file)
         else:
+            update_job_progress(100)
             message = f"Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}"
             return JobResult(success=False, results={"message": message})
 
     except Exception as e:
+        update_job_progress(100)
         logger.error(f"Error bulk validating {entity_type}: {e}")
         raise
 
