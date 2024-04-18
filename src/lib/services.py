@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import requests
 from flask import current_app
@@ -175,6 +175,7 @@ def bulk_update_entities(
     total_tries: int = 3,
     throttle: float = 5,
     entity_api_url: Optional[str] = None,
+    after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> dict:
     """Bulk update the entities in the entity-api.
 
@@ -195,6 +196,9 @@ def bulk_update_entities(
         The url of the entity-api, by default None. If None, the url is taken from the
         current_app.config. Parameter is used for separate threads where current_app
         is not available.
+    after_each_callback : Callable[[int], None], optional
+        A callback function to be called after each update, by default None. The index
+        of the update is passed as a parameter to the callback.
 
     Returns
     -------
@@ -237,6 +241,9 @@ def bulk_update_entities(
                 logger.error(f"Failed to update entity {uuid}: {e}")
                 results[uuid] = {"success": False, "data": str(e)}
 
+            if after_each_callback:
+                after_each_callback(idx)
+
             if idx < len(entity_updates) - 1:
                 time.sleep(throttle)
 
@@ -250,6 +257,7 @@ def bulk_create_entities(
     total_tries: int = 3,
     throttle: float = 5,
     entity_api_url: Optional[str] = None,
+    after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> list:
     """Bulk create the entities in the entity-api.
 
@@ -272,6 +280,9 @@ def bulk_create_entities(
         The url of the entity-api, by default None. If None, the url is taken from the
         current_app.config. Parameter is used for separate threads where current_app
         is not available.
+    after_each_callback : Callable[[int], None], optional
+        A callback function to be called after each create, by default None. The index
+        of the create is passed as a parameter to the callback.
 
     Returns
     -------
@@ -317,6 +328,9 @@ def bulk_create_entities(
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to create entity: {e}")
                 results.append({"success": False, "data": str(e)})
+
+            if after_each_callback:
+                after_each_callback(idx)
 
             if idx < len(entities) - 1:
                 time.sleep(throttle)

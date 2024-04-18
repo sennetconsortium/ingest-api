@@ -1,6 +1,6 @@
 import json
 
-from jobs import JobResult
+from jobs import JobResult, update_job_progress
 from lib.file import set_file_details
 from lib.services import bulk_update_entities
 
@@ -15,7 +15,13 @@ def register_uploaded_metadata(
         entities = json.load(f)
 
     update_payload = {e["uuid"]: {"metadata": e["metadata"]} for e in entities}
-    update_results = bulk_update_entities(update_payload, token)
+
+    percent_delta = 100 / len(update_payload)
+    update_results = bulk_update_entities(
+        update_payload,
+        token,
+        after_each_callback=lambda idx: update_job_progress(percent_delta * (idx + 1)),
+    )
 
     all_completed = all(v["success"] for v in update_results.values())
 

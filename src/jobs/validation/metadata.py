@@ -13,15 +13,14 @@ from atlas_consortia_commons.rest import (
     rest_ok,
     rest_response,
     rest_server_err,
-    rest_not_found,
 )
-from atlas_consortia_commons.string import equals, to_title_case
+from atlas_consortia_commons.string import equals
 from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 from ingest_validation_tools import schema_loader, table_validator
 from ingest_validation_tools import validation_utils as iv_utils
 
-from jobs import JobResult
+from jobs import JobResult, update_job_progress
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
 from routes.auth import get_auth_header_dict
@@ -39,9 +38,8 @@ def validate_uploaded_metadata(
         tsv_row = data.get("tsv_row")
 
         if spec_supported(entity_type, upload) is False:
-            logger.error(
-                f"Unsupported spec: {entity_type} {sub_type}"
-            )
+            logger.error(f"Unsupported spec: {entity_type} {sub_type}")
+            update_job_progress(100)
             return JobResult(
                 success=False,
                 results={
@@ -57,6 +55,7 @@ def validate_uploaded_metadata(
                 f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
             )
             id = get_cedar_schema_ids().get(sub_type)
+            update_job_progress(100)
             return JobResult(
                 success=False,
                 results={
@@ -77,6 +76,7 @@ def validate_uploaded_metadata(
                 validation_results = [validation_results]
 
             logger.error(f"Error validating metadata: {validation_results}")
+            update_job_progress(100)
             return JobResult(success=False, results=validation_results)
         else:
             records = get_metadata(upload.get("fullpath"))
@@ -92,15 +92,18 @@ def validate_uploaded_metadata(
                 os.remove(upload.get("fullpath"))
 
             if response.get("code") != StatusCodes.OK:
+                update_job_progress(100)
                 return JobResult(success=False, results=response.get("description"))
 
         metadata_details = save_metadata_results(response, upload, job_id)
+        update_job_progress(100)
         return JobResult(
             success=True,
             results={"job_id": job_id, "file": metadata_details.get("pathname")},
         )
 
     except Exception as e:
+        update_job_progress(100)
         logger.error(f"Error validating metadata: {e}")
         raise
 
@@ -191,7 +194,7 @@ def validate_tsv(
         try:
             app_context = {
                 "request_header": {"X-SenNet-Application": "ingest-api"},
-                'ingest_url': ensureTrailingSlashURL(current_app.config['INGEST_URL']),
+                "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
                 "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
             }
             result = iv_utils.get_tsv_errors(
@@ -203,14 +206,16 @@ def validate_tsv(
             )
             if "CEDAR Validation Errors" in result:
                 if path in result["CEDAR Validation Errors"]:
-                    result = result['CEDAR Validation Errors'][path]['URL Errors']
+                    result = result["CEDAR Validation Errors"][path]["URL Errors"]
                 else:
                     result = result["CEDAR Validation Errors"]
-            if 'Local Validation Errors' in result:
-                if len(result['Local Validation Errors'].keys()) > 0:
-                    result = result['Local Validation Errors'][list(result['Local Validation Errors'].keys())[0]]
+            if "Local Validation Errors" in result:
+                if len(result["Local Validation Errors"].keys()) > 0:
+                    result = result["Local Validation Errors"][
+                        list(result["Local Validation Errors"].keys())[0]
+                    ]
                 else:
-                    result = result['Local Validation Errors']
+                    result = result["Local Validation Errors"]
         except Exception as e:
             result = rest_server_err(e, True)
 
@@ -315,6 +320,7 @@ def _get_response(
 
     return response
 
+
 def get_related_col_id_by_entity_type(entity_type: str) -> str:
     """Returns an additional tsv id column name for the given entity type.
 
@@ -331,7 +337,6 @@ def get_related_col_id_by_entity_type(entity_type: str) -> str:
 
     if equals(entity_type, Ontology.ops().entities().SAMPLE):
         return "source_id"
-
 
 
 def get_col_id_name_by_entity_type(entity_type: str) -> str:
@@ -371,26 +376,30 @@ def supported_metadata_sub_types(entity_type):
             Ontology.ops().specimen_categories().SUSPENSION,
         ]
 
+
 def fetch_entity(token, entity_id, id_col, idx, errors):
-    url = (
-            ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "entities/"
-            + entity_id
-    )
+    if entity_id is None:
+        err = rest_bad_req(ln_err(f'Must supply `{id_col}` and valid value', idx, id_col), dict_only=True)
+        errors.append(err)
+        return False
     try:
+        url = (
+                ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "entities/"
+                + entity_id
+        )
         resp = requests.get(url, headers=get_auth_header_dict(token))
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating metadata: {e}")
     if resp.status_code < 300:
         return resp.json()
     else:
-        ln = ln_err(f"invalid `{id_col}`: `{entity_id}`", idx, id_col)
+        ln = ln_err(f"Invalid `{id_col}`: `{entity_id}`", idx, id_col)
         err = rest_response(
             resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
         )
         errors.append(err)
         return False
-
 
 
 def validate_records_uuids(
@@ -441,21 +450,26 @@ def validate_records_uuids(
         if entity is False:
             return fail_response
 
-        result_entity = {'uuid': entity['uuid']}
+        result_entity = {"uuid": entity["uuid"]}
 
         # Check that any additional entities mentioned in tsv exists; currently only relevant for Samples
         if get_related_col_id_by_entity_type(entity_type) is not None:
             related_id_col = get_related_col_id_by_entity_type(entity_type)
             related_entity_id = r.get(related_id_col)
             if related_entity_id is not None:
-                related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
+                related_entity = fetch_entity(
+                    token, related_entity_id, related_id_col, idx, errors
+                )
                 if related_entity is False:
                     ok = False
             else:
-                return rest_bad_req((
-                    f'Unsupported uploaded TSV spec for "{entity_type} {sub_type}". Missing `{related_id_col}` column. '
-                    "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
-                ), dict_only=True)
+                return rest_bad_req(
+                    (
+                        f'Unsupported uploaded TSV spec for "{entity_type} {sub_type}". Missing `{related_id_col}` column. '
+                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+                    ),
+                    dict_only=True,
+                )
 
         if sub_type is not None:
             sub_type_col = get_sub_type_name_by_entity_type(entity_type)
@@ -464,24 +478,30 @@ def validate_records_uuids(
             if _sub_type not in supported_metadata_sub_types(entity_type):
                 ok = False
                 errors.append(
-                    rest_bad_req(ln_err(
-                        f"of `{_sub_type}` unsupported "
-                        f"on check of given `{entity_id}`. "
-                        f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
-                        idx,
-                        sub_type_col,
-                    ), dict_only=True)
+                    rest_bad_req(
+                        ln_err(
+                            f"of `{_sub_type}` unsupported "
+                            f"on check of given `{entity_id}`. "
+                            f"Supported `{'`, `'.join(supported_metadata_sub_types(entity_type))}`.",
+                            idx,
+                            sub_type_col,
+                        ),
+                        dict_only=True,
+                    )
                 )
             # Check that the stored entity _sub_type matches what is expected (the type being bulk uploaded)
             if not equals(sub_type, _sub_type):
                 ok = False
                 errors.append(
-                    rest_bad_req(ln_err(
-                        f"got `{_sub_type}` on check of given `{entity_id}`, "
-                        f"expected `{sub_type}` for `{sub_type_col}`.",
-                        idx,
-                        id_col,
-                    ), dict_only=True)
+                    rest_bad_req(
+                        ln_err(
+                            f"got `{_sub_type}` on check of given `{entity_id}`, "
+                            f"expected `{sub_type}` for `{sub_type_col}`.",
+                            idx,
+                            id_col,
+                        ),
+                        dict_only=True,
+                    )
                 )
 
         if ok is True:

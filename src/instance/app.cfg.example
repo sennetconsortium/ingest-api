@@ -74,6 +74,7 @@ FILE_UPLOAD_DIR = '/codcc-dev-test/data-dev/bulk-uploads'
 # File system settings (committed settings below are for DEV)
 GLOBUS_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
 SENNET_WEBSERVICE_FILEPATH = '/codcc-dev-test/data-dev/assets'
+WORKFLOW_SCRATCH = '/codcc/scratch'
 
 ACCESS_LEVEL_PROTECTED = 'protected'
 ACCESS_LEVEL_CONSORTIUM = 'consortium'
