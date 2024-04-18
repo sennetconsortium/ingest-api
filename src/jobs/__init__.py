@@ -8,7 +8,7 @@ from typing import Optional, Union
 from uuid import UUID, uuid4
 
 from redis import Redis, from_url
-from rq import Queue
+from rq import Queue, get_current_job
 from rq.job import Job, JobStatus, NoSuchJobError
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -145,6 +145,7 @@ class JobQueue:
 
         job.meta["user"] = user
         job.meta["visibility"] = visibility
+        job.meta["progress"] = 0
         if metadata and len(metadata) > 0:
             job.meta.update(metadata)
         job.save()
@@ -273,6 +274,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         "description": job.description,
         "status": status.title(),
         "user": job.meta.get("user", {}),
+        "progress": job.meta.get("progress", 100),
         "started_timestamp": (
             int(job.started_at.timestamp() * 1000) if job.started_at else None
         ),
@@ -340,3 +342,28 @@ def create_job_description(
     filename_suffix = f" from file {filename}" if filename else ""
 
     return f"{subject} {job_type} for {entity_type}{formatted_subtype}{filename_suffix}"
+
+
+def update_job_progress(progress: float, job: Optional[Job] = None):
+    """Update the progress of a job.
+
+    Parameters
+    ----------
+    progress : float
+        The percentage progress of the job (0-100).
+    job : Optional[Job]
+        The RQ Job object. Defaults to the current job.
+    """
+    if job is None:
+        job = get_current_job()
+
+    progress = round(progress)
+    if progress < 0:
+        progress = 0
+    if progress > 100:
+        progress = 100
+
+    meta = job.get_meta()
+    meta["progress"] = progress
+    job.meta = meta
+    job.save_meta()
