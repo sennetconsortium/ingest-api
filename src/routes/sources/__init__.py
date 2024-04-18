@@ -21,6 +21,7 @@ from jobs import (
     create_job_description,
     create_queue_id,
     get_display_job_status,
+    update_job_metadata,
 )
 from jobs.registration.entities import register_uploaded_entities
 from jobs.validation.entities import validate_uploaded_entities
@@ -79,7 +80,7 @@ def bulk_sources_upload_and_validate(token: str, user: User):
         },
         user={"id": user.uuid, "email": user.email},
         description=desc,
-        metadata={"referrer": referrer},
+        metadata={"referrer": referrer, "register_job_id": None},
     )
 
     status = job.get_status()
@@ -110,6 +111,9 @@ def create_sources_from_bulk(body: dict, token: str, user: User):
 
     if validation_job.get_status() != JobStatus.FINISHED:
         abort_bad_req("Validation job has not completed")
+
+    if validation_job.meta.get("register_job_id") is not None:
+        abort_bad_req("Registration job already started")
 
     validation_result: JobResult = validation_job.result
     if validation_result.success is False or "file" not in validation_result.results:
@@ -147,6 +151,9 @@ def create_sources_from_bulk(body: dict, token: str, user: User):
     status = job.get_status()
     if status == JobStatus.FAILED:
         abort_internal_err("Validation job failed to start")
+
+    # Save the register job id to the validation job meta
+    update_job_metadata(validation_job, {"register_job_id": job_id})
 
     display_status = get_display_job_status(job)
     return jsonify({"job_id": job_id, "status": display_status}), 202
