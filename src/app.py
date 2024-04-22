@@ -1,7 +1,6 @@
 import os
 import logging
 
-import apscheduler
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
