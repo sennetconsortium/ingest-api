@@ -24,13 +24,8 @@ vitessce_blueprint = Blueprint("vitessce", __name__)
 logger = logging.getLogger(__name__)
 
 
-@vitessce_blueprint.route("/vitessce/<string:ds_uuid>", methods=["GET"])
+@vitessce_blueprint.route("/vitessce/<entity_uuid:ds_uuid>", methods=["GET"])
 def get_vitessce_config(ds_uuid: str):
-    try:
-        UUID(ds_uuid)
-    except Exception:
-        return jsonify({"error": "uuid must be a valid UUID"}), 400
-
     try:
         groups_token = None
         cache = None
@@ -66,6 +61,12 @@ def get_vitessce_config(ds_uuid: str):
             raise ValueError("empty vitessce config")
 
         config = vitessce_conf[0]
+        # Hard check for visium no probes
+        if 'coordinationSpace' in config and 'spatialSpotRadius' in config['coordinationSpace']:
+            for key in config['coordinationSpace']['spatialSpotRadius']:
+                config['coordinationSpace']['spatialSpotRadius'][key] = 40
+
+
         if cache:
             cache.set(entity["uuid"], config, groups_token)
         return jsonify(config), 200
@@ -91,13 +92,8 @@ def get_vitessce_config(ds_uuid: str):
         )
 
 
-@vitessce_blueprint.route("/vitessce/<string:ds_uuid>/cache", methods=["DELETE"])
+@vitessce_blueprint.route("/vitessce/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
 def flush_cache(ds_uuid: str):
-    try:
-        UUID(ds_uuid)
-    except Exception:
-        return jsonify({"error": "uuid must be a valid UUID"}), 400
-
     cache: VitessceConfigCache = current_app.vitessce_cache
     if cache:
         auth_helper_instance = AuthHelper.instance()

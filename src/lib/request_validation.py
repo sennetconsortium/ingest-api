@@ -1,6 +1,8 @@
-from uuid import UUID
 import json
+from collections.abc import Iterable
+from typing import Union
 from urllib.parse import urlparse
+from uuid import UUID
 
 from jobs import JobType
 
@@ -120,3 +122,53 @@ def get_validated_referrer(data: dict, job_type: JobType) -> dict:
         "type": job_type.value,
         "path": f"{parsed.path}{query}",
     }
+
+
+def get_validated_uuids(data: Union[dict, Iterable]) -> list:
+    """Validate a list of UUIDs
+
+    Parameters
+    ----------
+    data : Union[dict, list]
+        The request body dict or list of possible UUIDs
+
+    Returns
+    -------
+    list
+        The list of validated UUID strings
+
+    Raises
+    ------
+    ValueError
+        If any of the UUIDs are invalid
+    """
+    if isinstance(data, dict):
+        data = data.get("uuids", [])
+    if not isinstance(data, list):
+        data = list(data)
+
+    invalid = [uuid for uuid in data if not is_uuid(uuid)]
+    if len(invalid) > 0:
+        raise ValueError(f"Invalid UUIDs: {', '.join(invalid)}")
+
+    return data
+
+
+def is_uuid(uuid: str) -> bool:
+    """Check if a string is a valid UUID
+
+    Parameters
+    ----------
+    uuid : str
+        The potential UUID string
+
+    Returns
+    -------
+    bool
+        Whether the string is a valid UUID
+    """
+    try:
+        UUID(uuid)
+        return True
+    except ValueError:
+        return False

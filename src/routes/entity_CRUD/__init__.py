@@ -27,6 +27,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib import get_globus_url
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
+from lib.request_validation import get_validated_uuids
 
 # Local modules
 # from routes.entity_CRUD.constraints_helper import *
@@ -190,20 +191,118 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
     return jsonify(list(uuids)), 202
 
 
-@entity_CRUD_blueprint.route('/uploads/<ds_uuid>/file-system-abs-path', methods=['GET'])
-@entity_CRUD_blueprint.route('/datasets/<ds_uuid>/file-system-abs-path', methods=['GET'])
-def get_file_system_absolute_path(ds_uuid: str):
+@entity_CRUD_blueprint.route('/uploads/<entity_uuid:uuid>/file-system-abs-path', methods=['GET'])
+@entity_CRUD_blueprint.route('/datasets/<entity_uuid:uuid>/file-system-abs-path', methods=['GET'])
+def get_file_system_absolute_path(uuid: str):
     try:
-        ingest_helper = IngestFileHelper(current_app.config)
-        return jsonify({'path': get_ds_path(ds_uuid, ingest_helper)}), 200
-    except ResponseException as re:
-        return re.response
-    except HTTPException as hte:
-        return Response(f"Error while getting file-system-abs-path for {ds_uuid}: " +
-                        hte.get_description(), hte.get_status_code())
+        q = (
+            "MATCH (e:Entity) WHERE e.uuid = $uuid AND e.entity_type IN $entity_types "
+            "RETURN e.uuid AS uuid, e.entity_type AS entity_type, e.group_uuid AS group_uuid, "
+            "e.contains_human_genetic_sequences AS contains_human_genetic_sequences, "
+            "e.data_access_level AS data_sccess_level, e.status AS status LIMIT 1"
+        )
+        entity_types = ['Dataset', 'Upload']
+        entities = Neo4jHelper.run_query(q, uuid=uuid, entity_types=entity_types)
     except Exception as e:
-        logger.error(e, exc_info=True)
-        return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
+        logger.error(f"Error while retrieving entities' file system absolute paths: {str(e)}")
+        abort_internal_err("Error while retrieving entities' file system absolute paths")
+
+    if len(entities) < 1:
+        abort_not_found(f"No dataset found with uuid: {uuid}")
+
+    entity = entities[0]
+    uuid = entity['uuid']
+    entity_type = entity['entity_type']
+    group_uuid = entity['group_uuid']
+
+    auth_header = request.headers.get("Authorization")
+    ingest_helper = IngestFileHelper(current_app.config)
+
+    if entity_type is None or entity_type.strip() == '':
+        abort_bad_req(f"Entity with uuid {uuid} needs to be a Dataset or Upload")
+    if group_uuid is None or group_uuid.strip() == '':
+        abort_bad_req(f"Unable to find group uuid on dataset {uuid}")
+
+    if equals(entity_type, Ontology.ops().entities().UPLOAD):
+        path = ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=uuid)
+        return jsonify({'path': path}), 200
+
+    is_phi = entity['contains_human_genetic_sequences']
+    if is_phi is None:
+        abort_bad_req(f"Contains_human_genetic_sequences is not set on dataset {uuid}")
+
+    try:
+        if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=auth_header):
+            return abort_bad_req(f"Entity with uuid: {uuid} is not a Dataset, Publication or upload")
+    except HTTPException as hte:
+        return Response(f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(), hte.get_status_code())
+
+    path = ingest_helper.get_dataset_directory_absolute_path(dict(entity), group_uuid, uuid)
+    return jsonify({'path': path}), 200
+
+
+@entity_CRUD_blueprint.route('/uploads/file-system-abs-path', methods=['POST'])
+@entity_CRUD_blueprint.route('/datasets/file-system-abs-path', methods=['POST'])
+@require_json(param='uuids')
+def get_multiple_file_system_absolute_paths(uuids: list):
+    try:
+        uuids = set(uuids)
+        uuids = get_validated_uuids(uuids)
+    except ValueError as e:
+        abort_bad_req(str(e))
+
+    try:
+        q = (
+            "MATCH (e:Entity) WHERE e.uuid IN $uuids AND e.entity_type IN $entity_types "
+            "RETURN e.uuid AS uuid, e.entity_type AS entity_type, e.group_uuid AS group_uuid, "
+            "e.contains_human_genetic_sequences AS contains_human_genetic_sequences, "
+            "e.data_access_level AS data_sccess_level, e.status AS status LIMIT $limit"
+        )
+        entity_types = ['Dataset', 'Upload']
+        entities = Neo4jHelper.run_query(q, uuids=uuids, entity_types=entity_types, limit=len(uuids))
+    except Exception as e:
+        logger.error(f"Error while retrieving entities' file system absolute paths: {str(e)}")
+        abort_internal_err("Error while retrieving entities' file system absolute paths")
+
+    if len(entities) < 1:
+        abort_not_found('No datasets or uploads found with any of the provided uuids')
+
+    diff = set(uuids).difference({entity['uuid'] for entity in entities})
+    if len(diff) > 0:
+        abort_not_found(f"No datasets or uploads found with the following uuids: {', '.join(diff)}")
+
+    res = []
+    auth_header = request.headers.get("Authorization")
+    ingest_helper = IngestFileHelper(current_app.config)
+    for entity in entities:
+        uuid = entity['uuid']
+        entity_type = entity['entity_type']
+        group_uuid = entity['group_uuid']
+
+        if entity_type is None or entity_type.strip() == '':
+            abort_bad_req(f"Entity with uuid {uuid} needs to be a Dataset or Upload")
+        if group_uuid is None or group_uuid.strip() == '':
+            abort_bad_req(f"Unable to find group uuid on dataset {uuid}")
+
+        if equals(entity_type, Ontology.ops().entities().UPLOAD):
+            path = ingest_helper.get_upload_directory_absolute_path(group_uuid=group_uuid, upload_uuid=uuid)
+            res.append({'uuid': uuid, 'path': path})
+            continue
+
+        is_phi = entity['contains_human_genetic_sequences']
+        if is_phi is None:
+            abort_bad_req(f"Contains_human_genetic_sequences is not set on dataset {uuid}")
+
+        try:
+            if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=auth_header):
+                return abort_bad_req(f"Entity with uuid: {uuid} is not a Dataset, Publication or upload")
+        except HTTPException as hte:
+            return Response(f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(), hte.get_status_code())
+
+        path = ingest_helper.get_dataset_directory_absolute_path(dict(entity), group_uuid, uuid)
+        res.append({'uuid': uuid, 'path': path})
+
+    return jsonify(res), 200
 
 
 @entity_CRUD_blueprint.route('/entities/file-system-rel-path', methods=['POST'])
@@ -525,6 +624,11 @@ def update_datasets_datastatus(app_context):
             "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
         )
 
+        upload_query = (
+            "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
+            "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
+        )
+
         has_rui_query = (
             "MATCH (ds:Dataset) "
             "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
@@ -539,7 +643,7 @@ def update_datasets_datastatus(app_context):
             "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
         ]
 
-        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, has_rui_query]
+        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
         results = [None] * len(queries)
         threads = []
         for i, query in enumerate(queries):
@@ -554,7 +658,8 @@ def update_datasets_datastatus(app_context):
         organ_result = results[1]
         source_result = results[2]
         processed_datasets_result = results[3]
-        has_rui_result = results[4]
+        upload_result = results[4]
+        has_rui_result = results[5]
 
         for dataset in all_datasets_result:
             output_dict[dataset['uuid']] = dataset
@@ -573,6 +678,9 @@ def update_datasets_datastatus(app_context):
         for dataset in processed_datasets_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['processed_datasets'] = dataset['processed_datasets']
+        for dataset in upload_result:
+            if output_dict.get(dataset['uuid']):
+                output_dict[dataset['uuid']]['upload'] = dataset['upload']
         for dataset in has_rui_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']

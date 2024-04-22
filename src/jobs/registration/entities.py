@@ -2,7 +2,7 @@ import json
 
 from atlas_consortia_commons.string import equals
 
-from jobs import JobResult
+from jobs import JobResult, update_job_progress
 from lib.file import set_file_details
 from lib.ontology import Ontology
 from lib.services import bulk_create_entities
@@ -22,7 +22,14 @@ def register_uploaded_entities(
         records = json.load(f)
 
     entities = convert_records(records, entity_type, group_uuid)
-    create_results = bulk_create_entities(entity_type, entities, token)
+
+    percent_delta = 100 / len(entities)
+    create_results = bulk_create_entities(
+        entity_type,
+        entities,
+        token,
+        after_each_callback=lambda idx: update_job_progress(percent_delta * (idx + 1)),
+    )
 
     all_completed = all(v["success"] for v in create_results)
 
