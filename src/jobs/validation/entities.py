@@ -9,7 +9,7 @@ from atlas_consortia_commons.string import equals
 from flask import Response, current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
-from jobs import JobResult, update_job_progress
+from jobs import JobResult, JobSubject, update_job_progress
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.entities import (
     append_constraints_list,
@@ -56,6 +56,7 @@ def validate_uploaded_entities(
                     "entity_type": entity_type,
                     "file": file_details.get("pathname"),
                     "group_uuid": group_uuid,
+                    "subject": JobSubject.ENTITY.title(),
                 },
             )
         elif type(valid_file) is list:

@@ -143,6 +143,10 @@ def register_metadata_upload(body: dict, token: str, user: User):
     if validation_result.success is False or "file" not in validation_result.results:
         abort_bad_req("Validation job failed")
 
+    subject = validation_result.results.get("subject")
+    if not equals(subject, JobSubject.METADATA):
+        abort_bad_req("Validation job was not for metadata")
+
     metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
     desc = validation_job.description.replace(
