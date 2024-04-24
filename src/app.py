@@ -7,7 +7,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
-from flask import Flask, g
+from flask import Flask
 from pymemcache import serde
 from pymemcache.client.base import PooledClient
 
@@ -201,16 +201,6 @@ if MEMCACHED_MODE:
         # Turn off the caching
         MEMCACHED_MODE = False
 
-"""
-Close the current neo4j connection at the end of every request
-"""
-@app.teardown_appcontext
-def close_neo4j_driver(error):
-    if hasattr(g, 'neo4j_driver_instance'):
-        # Close the driver instance
-        neo4j_driver.close()
-        # Also remove neo4j_driver_instance from Flask's application context
-        g.neo4j_driver_instance = None
 
 # The only endpoint that should be in this file, all others should be route Blueprints...
 @app.route('/', methods=['GET'])
