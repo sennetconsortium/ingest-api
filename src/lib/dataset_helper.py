@@ -213,7 +213,7 @@ class DatasetHelper:
             return Response(e.description, e.status_code)
 
         # The PUT call returns the latest dataset...
-        lastest_dataset = vars(entity)
+        lastest_dataset = entity
 
         self.logger.debug('=======lastest_dataset before title update=======')
         self.logger.debug(lastest_dataset)

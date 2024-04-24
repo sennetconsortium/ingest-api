@@ -1,5 +1,4 @@
 import logging
-from uuid import UUID
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.hm_auth import AuthHelper
@@ -42,6 +41,7 @@ def get_vitessce_config(ds_uuid: str):
         # Get entity from search-api
         entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
         parent = entity['immediate_ancestors'][0]
+
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
             entity = get_entity(entity["uuid"], groups_token, as_dict=True)
@@ -61,6 +61,11 @@ def get_vitessce_config(ds_uuid: str):
             raise ValueError("empty vitessce config")
 
         config = vitessce_conf[0]
+        # Hard check for visium no probes
+        if 'coordinationSpace' in config and 'spatialSpotRadius' in config['coordinationSpace']:
+            for key in config['coordinationSpace']['spatialSpotRadius']:
+                config['coordinationSpace']['spatialSpotRadius'][key] = 40
+
         if cache:
             cache.set(entity["uuid"], config, groups_token)
         return jsonify(config), 200
