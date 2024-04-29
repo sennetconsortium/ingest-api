@@ -189,7 +189,7 @@ def validate_tsv(
             schema
             if schema != "metadata"
             else iv_utils.get_schema_version(
-                path, "ascii", globus_token=token
+                path=path, encoding="ascii", ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"])
             ).schema_name
         )
     except schema_loader.PreflightError as e:
@@ -208,18 +208,6 @@ def validate_tsv(
                 globus_token=token,
                 app_context=app_context,
             )
-            if "CEDAR Validation Errors" in result:
-                if path in result["CEDAR Validation Errors"]:
-                    result = result["CEDAR Validation Errors"][path]["URL Errors"]
-                else:
-                    result = result["CEDAR Validation Errors"]
-            if "Local Validation Errors" in result:
-                if len(result["Local Validation Errors"].keys()) > 0:
-                    result = result["Local Validation Errors"][
-                        list(result["Local Validation Errors"].keys())[0]
-                    ]
-                else:
-                    result = result["Local Validation Errors"]
         except Exception as e:
             result = rest_server_err(e, True)
 
