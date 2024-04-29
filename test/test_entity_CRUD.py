@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 import app as app_module
-from routes.entity_CRUD import validate_ancestor_id, validate_entity_constraints
+from jobs.validation.entities import validate_ancestor_id, validate_entity_constraints
 
 test_data_dir = os.path.join(os.path.dirname(__file__), "data")
 

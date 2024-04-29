@@ -17,10 +17,13 @@ from flask import Blueprint, jsonify
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from jobs import (
+    JOBS_PREFIX,
     JobQueue,
     JobResult,
     JobSubject,
     JobType,
+    JobVisibility,
+    TooManyJobsFoundError,
     create_job_description,
     create_queue_id,
     get_display_job_status,
@@ -109,12 +112,26 @@ def register_metadata_upload(body: dict, token: str, user: User):
         abort_bad_req(str(e))
 
     job_queue = JobQueue.instance()
-    validation_queue_id = create_queue_id(user.uuid, validation_job_id)
     try:
-        validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
+        if user.is_data_admin is True:
+            # Admin registering for a user
+            scan_query = f"{JOBS_PREFIX}*:{validation_job_id}"
+            validation_job = job_queue.query_job(scan_query)
+            if (
+                validation_job.meta.get("visibility", JobVisibility.PUBLIC)
+                != JobVisibility.PUBLIC
+            ):
+                raise NoSuchJobError("Job is not marked PUBLIC")
+        else:
+            validation_queue_id = create_queue_id(user.uuid, validation_job_id)
+            validation_job = Job.fetch(validation_queue_id, connection=job_queue.redis)
+
     except NoSuchJobError as e:
         logger.error(f"Validation job not found: {e}")
         abort_not_found("Validation job not found")
+    except TooManyJobsFoundError as e:
+        logger.error(f"Multiple jobs found with id {validation_job_id}: {e}")
+        abort_internal_err("Multiple jobs found with job id")
 
     if validation_job.get_status() != JobStatus.FINISHED:
         abort_bad_req("Validation job has not completed")
@@ -125,6 +142,10 @@ def register_metadata_upload(body: dict, token: str, user: User):
     validation_result: JobResult = validation_job.result
     if validation_result.success is False or "file" not in validation_result.results:
         abort_bad_req("Validation job failed")
+
+    subject = validation_result.results.get("subject")
+    if not equals(subject, JobSubject.METADATA):
+        abort_bad_req("Validation job was not for metadata")
 
     metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
