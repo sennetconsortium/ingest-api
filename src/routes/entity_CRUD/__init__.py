@@ -186,7 +186,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
 
     status = job.get_status()
     if status == JobStatus.FAILED:
-        abort_internal_err("Validation job failed to start")
+        abort_internal_err("Dataset submission job failed to start")
 
     # return a 202 reponse with the accepted dataset uuids
     return jsonify(list(uuids)), 202
