@@ -19,6 +19,7 @@ from rq.job import JobStatus
 from lib.decorators import User, require_data_admin, require_json
 
 from jobs import JobQueue, JobVisibility
+from jobs.modification.datasets import update_datasets
 from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
@@ -143,6 +144,65 @@ def multiple_components():
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while creating a dataset: " + str(e) + " Check the logs", 500)
+
+
+ACCEPTED_BULK_UPDATE_FIELDS = ["uuid", "assigned_to_group_name", "ingest_task", "status"]
+
+
+@entity_CRUD_blueprint.route('/datasets', methods=['PUT'])
+@require_data_admin(param='token')
+@require_json(param='datasets')
+def bulk_update_datasets(datasets: list, token: str, user: User):
+    if len(datasets) == 0:
+        abort_bad_req("A list of datasets with updated fields is required")
+
+    uuids = [ds.get("uuid") for ds in datasets]
+    if None in uuids:
+        abort_bad_req("All datasets must have a 'uuid' field")
+    if len(set(uuids)) != len(uuids):
+        abort_bad_req("Datasets must have unique 'uuid' fields")
+
+    if not all(set(ds.keys()).issubset(ACCEPTED_BULK_UPDATE_FIELDS) for ds in datasets):
+        abort_bad_req(
+            "Some dataset(s) have invalid fields. Acceptable fields are: " +
+            ", ".join(ACCEPTED_BULK_UPDATE_FIELDS)
+        )
+
+    dataset_helper = DatasetHelper(current_app.config)
+    uuids = set([ds["uuid"] for ds in datasets])
+    try:
+        fields = {"uuid"}
+        db_datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
+    except Exception as e:
+        logger.error(f"Error while submitting datasets: {str(e)}")
+        abort_internal_err(str(e))
+
+    diff = uuids.difference({d["uuid"] for d in db_datasets})
+    if len(diff) > 0:
+        abort_not_found(f"No datasets found with the following uuids: {', '.join(diff)}")
+
+    job_queue = JobQueue.instance()
+    job_id = uuid4()
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=update_datasets,
+        job_kwargs={
+            "job_id": job_id,
+            "dataset_updates": datasets,
+            "token": token,
+        },
+        user={"id": user.uuid, "email": user.email},
+        description="Bulk dataset update",
+        metadata={},
+        visibility=JobVisibility.PRIVATE
+    )
+
+    status = job.get_status()
+    if status == JobStatus.FAILED:
+        abort_internal_err("Dateset update job failed to start")
+
+    # return a 202 reponse with the accepted dataset uuids
+    return jsonify(list(uuids)), 202
 
 
 @entity_CRUD_blueprint.route('/datasets/bulk/submit', methods=['PUT'])
