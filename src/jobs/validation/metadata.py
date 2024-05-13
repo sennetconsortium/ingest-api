@@ -189,39 +189,27 @@ def validate_tsv(
             schema
             if schema != "metadata"
             else iv_utils.get_schema_version(
-                path, "ascii", globus_token=token
+                path=path,
+                encoding="ascii",
+                ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
             ).schema_name
+        )
+        app_context = {
+            "request_header": {"X-SenNet-Application": "ingest-api"},
+            "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
+            "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
+        }
+        result = iv_utils.get_tsv_errors(
+            path,
+            schema_name=schema_name,
+            report_type=table_validator.ReportType.JSON,
+            globus_token=token,
+            app_context=app_context,
         )
     except schema_loader.PreflightError as e:
         result = rest_server_err({"Preflight": str(e)}, True)
-    else:
-        try:
-            app_context = {
-                "request_header": {"X-SenNet-Application": "ingest-api"},
-                "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
-                "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
-            }
-            result = iv_utils.get_tsv_errors(
-                path,
-                schema_name=schema_name,
-                report_type=table_validator.ReportType.JSON,
-                globus_token=token,
-                app_context=app_context,
-            )
-            if "CEDAR Validation Errors" in result:
-                if path in result["CEDAR Validation Errors"]:
-                    result = result["CEDAR Validation Errors"][path]["URL Errors"]
-                else:
-                    result = result["CEDAR Validation Errors"]
-            if "Local Validation Errors" in result:
-                if len(result["Local Validation Errors"].keys()) > 0:
-                    result = result["Local Validation Errors"][
-                        list(result["Local Validation Errors"].keys())[0]
-                    ]
-                else:
-                    result = result["Local Validation Errors"]
-        except Exception as e:
-            result = rest_server_err(e, True)
+    except Exception as e:
+        result = rest_server_err(e, True)
 
     return result
 
@@ -260,47 +248,42 @@ def create_tsv_from_path(path: str, row: int) -> dict:
 
 
 def get_cedar_schema_ids() -> dict:
-    """Returns the CEDAR schema ids for the different sample sub types.
+    """Returns the CEDAR schema ids for the different source and sample sub types.
 
     Returns
     -------
     dict
-        A dictionary containing the schema ids for each sample sub type.
+        A dictionary containing the schema ids for each source/sample sub type.
     """
     return {
         "Block": "3e98cee6-d3fb-467b-8d4e-9ba7ee49eeff",
         "Section": "01e9bc58-bdf2-49f4-9cf9-dd34f3cc62d7",
         "Suspension": "ea4fb93c-508e-4ec4-8a4b-89492ba68088",
+        "Mouse": "44662059-aa73-4756-a4a7-990489ca2f43",
     }
 
 
 def spec_supported(entity_type, upload):
-    records = get_metadata(upload.get("fullpath"))
-    if len(records) > 0:
-        if equals(entity_type, Ontology.ops().entities().SAMPLE):
-            return "metadata_schema_id" in records[0]
-        return True
-
-    return True
+    fullpath = upload.get("fullpath")
+    records = get_metadata(fullpath)
+    return len(records) and "metadata_schema_id" in records[0]
 
 
 def check_cedar(entity_type, sub_type, upload):
-    records = get_metadata(upload.get("fullpath"))
-    if len(records) > 0:
-        if (
-            equals(entity_type, Ontology.ops().entities().SAMPLE)
-            and "metadata_schema_id" in records[0]
-        ):
-            cedar_sample_sub_type_ids = get_cedar_schema_ids()
-            return equals(
-                records[0]["metadata_schema_id"], cedar_sample_sub_type_ids[sub_type]
-            )
-    return True
+    fullpath = upload.get("fullpath")
+    records = get_metadata(fullpath)
+    if len(records) > 0 and "metadata_schema_id" in records[0]:
+        cedar_sample_sub_type_ids = get_cedar_schema_ids()
+        return equals(
+            records[0]["metadata_schema_id"], cedar_sample_sub_type_ids[sub_type]
+        )
+
+    return False
 
 
 def determine_schema(entity_type, sub_type):
     if equals(entity_type, Ontology.ops().entities().SOURCE):
-        schema = "murine-source"
+        schema = "source-murine"
     elif equals(entity_type, Ontology.ops().entities().SAMPLE):
         if not sub_type:
             return rest_bad_req("`sub_type` for schema name required.")
@@ -383,18 +366,23 @@ def supported_metadata_sub_types(entity_type):
 
 def fetch_entity(token, entity_id, id_col, idx, errors):
     if entity_id is None:
-        err = rest_bad_req(ln_err(f'Must supply `{id_col}` and valid value', idx, id_col), dict_only=True)
+        err = rest_bad_req(
+            ln_err(f"Must supply `{id_col}` and valid value", idx, id_col),
+            dict_only=True,
+        )
         errors.append(err)
         return False
+
     try:
         url = (
-                ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-                + "entities/"
-                + entity_id
+            ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+            + "entities/"
+            + entity_id
         )
         resp = requests.get(url, headers=get_auth_header_dict(token))
     except requests.exceptions.RequestException as e:
         logger.error(f"Error validating metadata: {e}")
+
     if resp.status_code < 300:
         return resp.json()
     else:
