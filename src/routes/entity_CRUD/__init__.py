@@ -637,24 +637,30 @@ def run_query(query, results, i):
         results[i] = session.run(query).data()
 
 
+DATASETS_DATA_STATUS_KEY = "datasets_data_status_key"
+DATASETS_DATA_STATUS_LAST_UPDATED_KEY = "datasets_data_status_last_updated_key"
+UPLOADS_DATA_STATUS_KEY = "uploads_data_status_key"
+UPLOADS_DATA_STATUS_LAST_UPDATED_KEY = "uploads_data_status_last_updated_key"
+
+
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
     if current_app.config.get("REDIS_MODE"):
         redis_connection = from_url(current_app.config['REDIS_SERVER'])
         try:
-            cached_data = redis_connection.get("datasets_data_status_key")
+            cached_data = redis_connection.get(DATASETS_DATA_STATUS_KEY)
             if cached_data:
                 cached_data_json = json.loads(cached_data.decode('utf-8'))
-                return jsonify(cached_data_json)
+                last_updated = redis_connection.get(DATASETS_DATA_STATUS_LAST_UPDATED_KEY)
+                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
             else:
                 raise Exception
         except Exception:
             logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
-            combined_results = update_datasets_datastatus(current_app.app_context())
-            return jsonify(combined_results)
-    else:
-        combined_results = update_datasets_datastatus(current_app.app_context())
-        return jsonify(combined_results)
+
+    combined_results = update_datasets_datastatus(current_app.app_context())
+    last_updated = int(time.time() * 1000)
+    return jsonify({"data": combined_results, "last_updated": last_updated})
 
 
 def update_datasets_datastatus(app_context):
@@ -797,10 +803,14 @@ def update_datasets_datastatus(app_context):
             combined_results_string = json.dumps(combined_results)
         except json.JSONDecodeError as e:
             abort_bad_req(e)
+
         if current_app.config.get("REDIS_MODE"):
             redis_connection = from_url(current_app.config['REDIS_SERVER'])
-            cache_key = "datasets_data_status_key"
+            cache_key = DATASETS_DATA_STATUS_KEY
             redis_connection.set(cache_key, combined_results_string)
+            last_updated_key = DATASETS_DATA_STATUS_LAST_UPDATED_KEY
+            redis_connection.set(last_updated_key, int(time.time() * 1000))
+
         return combined_results
 
 
@@ -809,19 +819,19 @@ def upload_data_status():
     if current_app.config.get("REDIS_MODE"):
         redis_connection = from_url(current_app.config['REDIS_SERVER'])
         try:
-            cached_data = redis_connection.get("uploads_data_status_key")
+            cached_data = redis_connection.get(UPLOADS_DATA_STATUS_KEY)
             if cached_data:
                 cached_data_json = json.loads(cached_data.decode('utf-8'))
-                return jsonify(cached_data_json)
+                last_updated = redis_connection.get(UPLOADS_DATA_STATUS_LAST_UPDATED_KEY)
+                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
             else:
                 raise Exception
         except Exception:
             logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
-            results = update_uploads_datastatus(current_app.app_context())
-            return jsonify(results)
-    else:
-        results = update_uploads_datastatus(current_app.app_context())
-        return jsonify(results)
+
+    results = update_uploads_datastatus(current_app.app_context())
+    last_updated = int(time.time() * 1000)
+    return jsonify({"data": results, "last_updated": last_updated})
 
 
 def update_uploads_datastatus(app_context):
@@ -871,8 +881,11 @@ def update_uploads_datastatus(app_context):
 
         if current_app.config.get("REDIS_MODE"):
             redis_connection = from_url(current_app.config['REDIS_SERVER'])
-            cache_key = "uploads_data_status_key"
+            cache_key = UPLOADS_DATA_STATUS_KEY
             redis_connection.set(cache_key, results_string)
+            time_key = UPLOADS_DATA_STATUS_LAST_UPDATED_KEY
+            redis_connection.set(time_key, int(time.time() * 1000))
+
         return results
 
 
