@@ -1,13 +1,13 @@
 import logging
 from typing import Optional
 
+from atlas_consortia_commons.decorator import require_json
 from flask import Blueprint, Response, jsonify, request
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
-from lib.decorators import require_json
 from lib.exceptions import ResponseException
 from lib.rule_chain import (
     NoMatchException,

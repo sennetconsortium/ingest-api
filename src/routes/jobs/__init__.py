@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from atlas_consortia_commons.decorator import User, require_valid_token
 from atlas_consortia_commons.rest import (
     abort_bad_req,
     abort_internal_err,
@@ -11,7 +12,6 @@ from rq.command import send_stop_job_command
 from rq.job import InvalidJobOperation, Job, JobStatus, NoSuchJobError
 
 from jobs import JOBS_PREFIX, JobQueue, JobVisibility, create_queue_id, job_to_response
-from lib.decorators import User, require_valid_token
 
 jobs_blueprint = Blueprint("jobs", __name__)
 logger = logging.getLogger(__name__)
