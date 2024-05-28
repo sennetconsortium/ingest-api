@@ -499,7 +499,7 @@ def submit_dataset(uuid):
         dataset_helper = DatasetHelper(current_app.config)
 
         entity_api_url = commons_file_helper.ensureTrailingSlashURL(
-            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + uuid + '?return_dict=true'
 
         if isinstance(auth_tokens, Response):
             return auth_tokens
