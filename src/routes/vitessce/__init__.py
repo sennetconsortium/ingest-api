@@ -49,7 +49,7 @@ def get_vitessce_config(ds_uuid: str):
             return calculate_assay_info(metadata)
 
         # Get assaytype from soft-assay
-        BuilderCls = get_view_config_builder(entity, get_assaytype, parent)
+        BuilderCls = get_view_config_builder(entity, get_assaytype, None)
         builder = BuilderCls(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
         )
