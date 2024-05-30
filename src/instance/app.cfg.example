@@ -10,7 +10,7 @@ REDIS_MODE = True
 REDIS_SERVER = 'redis://ingest-api-rq-server:6379'
 # For local debugging....
 # $ docker run -d -p 6379:6379 --name rq-server redis
-# REDIS_SERVER = 'redis://localhost:6379'
+# REDIS_SERVER = 'redis://localhost:6379/0'
 
 # Globus App ID and secret
 APP_CLIENT_ID = ''
