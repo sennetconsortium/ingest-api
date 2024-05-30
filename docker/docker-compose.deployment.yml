@@ -29,3 +29,10 @@ services:
       replicas: 4
     networks:
       - sennet_docker_network
+
+  ingest-api-rq-server:
+    image: redis:alpine
+    hostname: ingest-api-rq-server
+    container_name: ingest-api-rq-server
+    networks:
+      - sennet_docker_network

@@ -4,12 +4,11 @@ import logging
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from redis import from_url
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
 from flask import Flask
-from pymemcache import serde
-from pymemcache.client.base import PooledClient
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
@@ -57,13 +56,6 @@ app.app_context().push()
 app.url_map.converters["entity_uuid"] = EntityUUIDConverter
 
 app.vitessce_cache = None
-if 'MEMCACHED_MODE' in app.config:
-    MEMCACHED_MODE = app.config['MEMCACHED_MODE']
-    # Use prefix to distinguish the cached data of same source across different deployments
-    MEMCACHED_PREFIX = app.config['MEMCACHED_PREFIX']
-else:
-    MEMCACHED_MODE = False
-    MEMCACHED_PREFIX = 'NONE'
 
 if app.config.get("REDIS_MODE", False):
     JobQueue.create(app.config['REDIS_SERVER'], "default")
@@ -171,29 +163,13 @@ except Exception:
 
 memcached_client_instance = None
 
-if MEMCACHED_MODE:
+if app.config.get("REDIS_MODE", True):
     try:
-        # Use client pool to maintain a pool of already-connected clients for improved performance
-        # The uwsgi config launches the app across multiple threads (8) inside each process (32), making essentially 256 processes
-        # Set the connect_timeout and timeout to avoid blocking the process when memcached is slow, defaults to "forever"
-        # connect_timeout: seconds to wait for a connection to the memcached server
-        # timeout: seconds to wait for send or reveive calls on the socket connected to memcached
-        # Use the ignore_exc flag to treat memcache/network errors as cache misses on calls to the get* methods
-        # Set the no_delay flag to sent TCP_NODELAY (disable Nagle's algorithm to improve TCP/IP networks and decrease the number of packets)
-        # If you intend to use anything but str as a value, it is a good idea to use a serializer
-        memcached_client_instance = PooledClient(app.config['MEMCACHED_SERVER'],
-                                                 max_pool_size=256,
-                                                 connect_timeout=1,
-                                                 timeout=30,
-                                                 ignore_exc=True,
-                                                 no_delay=True,
-                                                 serde=serde.pickle_serde)
-        app.vitessce_cache = VitessceConfigCache(memcached_client_instance, MEMCACHED_PREFIX)
+        redis_client_instance = from_url(app.config['REDIS_SERVER'])
 
-        # memcached_client_instance can be instantiated without connecting to the Memcached server
-        # A version() call will throw error (e.g., timeout) when failed to connect to server
-        # Need to convert the version in bytes to string
-        logger.info(f'Connected to Memcached server {memcached_client_instance.version().decode()} successfully :)')
+        app.vitessce_cache = VitessceConfigCache(redis_client_instance)
+
+        logger.info(f'Connected to Redis server {redis_client_instance.execute_command("INFO")["redis_version"]} successfully :)')
     except Exception:
         msg = 'Failed to connect to the Memcached server :('
         # Log the full stack trace, prepend a line with our message
