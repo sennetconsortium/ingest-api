@@ -4,12 +4,11 @@ import logging
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from redis import from_url
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import argparse
 from flask import Flask
-from pymemcache import serde
-from pymemcache.client.base import PooledClient
 
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
