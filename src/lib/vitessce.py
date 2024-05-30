@@ -16,7 +16,7 @@ class VitessceConfigCache:
         self._redis_client = redis_client
 
     def get(self, uuid: str, groups_token: str, as_str: bool = False) -> Optional[dict]:
-        config_str = self._redis_client.get(f"{REDIS_VITESSCE_PREFIX}_{uuid}")
+        config_str = self._redis_client.get(f"{REDIS_VITESSCE_PREFIX}_{uuid}").decode('utf-8')
         if config_str is None:
             return None
         if GROUPS_TOKEN_PLACEHOLDER in config_str:
