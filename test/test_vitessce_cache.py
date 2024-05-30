@@ -23,7 +23,7 @@ def test_set_strips_token():
 def test_get_populates_token():
     """Test that the cache populates the groups token in the config after retrieving"""
 
-    mock_return = json.dumps({"test": "token=<GROUPS_TOKEN>"}, separators=(",", ":"))
+    mock_return = b'{"test": "token=<GROUPS_TOKEN>"}'
     with patch.object(Redis, "get", return_value=mock_return) as mock_get:
         client = Redis("test_host")
         cache = VitessceConfigCache(client)
