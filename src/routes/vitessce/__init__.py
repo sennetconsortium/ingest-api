@@ -7,7 +7,7 @@ from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from portal_visualization.builder_factory import get_view_config_builder
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
-from lib.decorators import suppress_print
+from lib import suppress_print
 from lib.exceptions import ResponseException
 from lib.rule_chain import (
     NoMatchException,

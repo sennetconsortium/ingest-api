@@ -13,8 +13,9 @@ from flask import Flask
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons import neo4j_driver
-from atlas_consortia_commons.ubkg import initialize_ubkg
+from atlas_consortia_commons.converter import EntityUUIDConverter
 from atlas_consortia_commons.rest import get_http_exceptions_classes, abort_err_handler
+from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
 
 import submodules
@@ -32,7 +33,6 @@ from routes.sources import sources_blueprint
 from routes.samples import samples_blueprint
 
 # Local Modules
-from lib.converters import EntityUUIDConverter
 from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
