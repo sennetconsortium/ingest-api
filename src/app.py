@@ -158,10 +158,10 @@ except Exception:
     logger.exception(msg)
 
 ####################################################################################################
-## Memcached client initialization
+## Redis client initialization
 ####################################################################################################
 
-memcached_client_instance = None
+redis_client_instance = None
 
 if app.config.get("REDIS_MODE", True):
     try:
@@ -171,11 +171,10 @@ if app.config.get("REDIS_MODE", True):
 
         logger.info(f'Connected to Redis server {redis_client_instance.execute_command("INFO")["redis_version"]} successfully :)')
     except Exception:
-        msg = 'Failed to connect to the Memcached server :('
+        msg = 'Failed to connect to the Redis cluster'
         # Log the full stack trace, prepend a line with our message
         logger.exception(msg)
-        # Turn off the caching
-        MEMCACHED_MODE = False
+
 
 
 # The only endpoint that should be in this file, all others should be route Blueprints...
