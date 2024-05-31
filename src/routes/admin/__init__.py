@@ -1,6 +1,7 @@
 import logging
 from uuid import UUID
 
+from atlas_consortia_commons.decorator import require_data_admin
 from atlas_consortia_commons.rest import (
     abort_bad_req,
     abort_internal_err,
@@ -17,7 +18,6 @@ from jobs import (
     job_to_response,
 )
 from lib import globus
-from lib.decorators import require_data_admin
 
 admin_blueprint = Blueprint("admin", __name__)
 logger = logging.getLogger(__name__)

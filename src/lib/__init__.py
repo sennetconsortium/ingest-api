@@ -1,5 +1,8 @@
-from flask import current_app
+import contextlib
+import os
 import urllib.request
+
+from flask import current_app
 from hubmap_commons import file_helper as commons_file_helper
 
 
@@ -35,3 +38,14 @@ def get_globus_url(data_access_level, group_name, uuid):
     if uuid is None:
         globus_url = ""
     return globus_url
+
+
+@contextlib.contextmanager
+def suppress_print():
+    """Context manager to suppress print statements.
+
+    Good for suppressing the output of external libraries that use print statements for
+    logging.
+    """
+    with open(os.devnull, "w") as f, contextlib.redirect_stdout(f):
+        yield

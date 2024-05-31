@@ -3,6 +3,7 @@ import os
 from operator import itemgetter
 from uuid import uuid4
 
+from atlas_consortia_commons.decorator import User, require_json, require_valid_token
 from atlas_consortia_commons.rest import (
     abort_bad_req,
     abort_internal_err,
@@ -28,7 +29,6 @@ from jobs import (
 )
 from jobs.registration.entities import register_uploaded_entities
 from jobs.validation.entities import validate_uploaded_entities
-from lib.decorators import User, require_json, require_valid_token
 from lib.file import check_upload, set_file_details
 from lib.ontology import Ontology
 from lib.request_validation import (

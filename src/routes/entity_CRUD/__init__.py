@@ -12,11 +12,10 @@ from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
-from atlas_consortia_commons.string import equals
+from atlas_consortia_commons.decorator import User, require_data_admin, require_json
 from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, abort_not_found, rest_response
+from atlas_consortia_commons.string import equals
 from rq.job import JobStatus
-
-from lib.decorators import User, require_data_admin, require_json
 
 from jobs import JobQueue, JobVisibility
 from jobs.submission.datasets import submit_datasets

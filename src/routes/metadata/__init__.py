@@ -4,6 +4,12 @@ import os
 import time
 from uuid import uuid4
 
+from atlas_consortia_commons.decorator import (
+    User,
+    require_json,
+    require_multipart_form,
+    require_valid_token,
+)
 from atlas_consortia_commons.rest import (
     StatusCodes,
     abort_bad_req,
@@ -31,12 +37,6 @@ from jobs import (
 )
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
-from lib.decorators import (
-    User,
-    require_json,
-    require_multipart_form,
-    require_valid_token,
-)
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
