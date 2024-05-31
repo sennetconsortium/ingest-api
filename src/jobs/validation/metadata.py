@@ -191,13 +191,17 @@ def validate_tsv(
             else iv_utils.get_schema_version(
                 path=path,
                 encoding="ascii",
+                entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
                 ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
+                globus_token=token
             ).schema_name
         )
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
             "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
             "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
+            "constraints_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}constraints/"
+
         }
         result = iv_utils.get_tsv_errors(
             path,
