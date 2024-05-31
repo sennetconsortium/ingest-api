@@ -1218,7 +1218,9 @@ def submit_upload(upload_uuid):
         'X-SenNet-Application': 'ingest-api'
     }
 
-    update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
+    update_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid + "?return_dict=true"
+
     # Disable ssl certificate verification
     resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
 
@@ -1257,8 +1259,8 @@ def validate_upload(upload_uuid):
 
     # run the pipeline validation
     upload_changes['status'] = 'Processing'
-    update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
-
+    update_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid + "?return_dict=true"
     # Disable ssl certificate verification
     resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
     if resp.status_code >= 300:
@@ -1296,8 +1298,8 @@ def reorganize_upload(upload_uuid):
     # pipeline will update the status when finished
     upload_changes = {}
     upload_changes['status'] = 'Processing'
-    update_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid
-
+    update_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + upload_uuid + "?return_dict=true"
     # Disable ssl certificate verification
     resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
     if resp.status_code >= 300:
