@@ -48,6 +48,7 @@ def get_admin_jobs():
         for job in jobs
         if job.meta.get("visibility", JobVisibility.PUBLIC) == JobVisibility.PUBLIC
     ]
+    logger.info("Admin jobs response: " + str(res))
     return jsonify(res), 200
 
 
