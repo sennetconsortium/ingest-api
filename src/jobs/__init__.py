@@ -260,7 +260,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
     logger.info("Job ID: %s", job_id)
     logger.info("Job results: %s", results)
     logger.info("Job errors: %s", errors)
-    logger.info("Job meta: %s", json.dumps(job.meta, indent=4))
+    logger.info("Job meta: %s", job.meta)
     if status == JobStatus.FAILED:
         if admin:
             # Give admins the stack trace
