@@ -1,24 +1,25 @@
 import json
 from typing import Optional
 
-from pymemcache.client.base import PooledClient
+from redis.client import Redis
 
-MEMCACHED_TTL = 7200
+REDIS_TTL = 7200
 
 GROUPS_TOKEN_PLACEHOLDER = "<GROUPS_TOKEN>"
+REDIS_VITESSCE_PREFIX = "sn_vitessce_"
 
 
 class VitessceConfigCache:
-    """Memcached wrapper for Vitessce configuration."""
+    """Redis wrapper for Vitessce configuration."""
 
-    def __init__(self, memcached_client: PooledClient, memcached_prefix: str):
-        self._memcached_client = memcached_client
-        self._memcached_prefix = f"{memcached_prefix}_vitessce"
+    def __init__(self, redis_client: Redis):
+        self._redis_client = redis_client
 
     def get(self, uuid: str, groups_token: str, as_str: bool = False) -> Optional[dict]:
-        config_str = self._memcached_client.get(f"{self._memcached_prefix}_{uuid}")
-        if config_str is None:
+        cached_data = self._redis_client.get(f"{REDIS_VITESSCE_PREFIX}_{uuid}")
+        if cached_data is None:
             return None
+        config_str = cached_data.decode('utf-8')
         if GROUPS_TOKEN_PLACEHOLDER in config_str:
             # Replace the groups token placeholder with the actual groups token
             config_str = config_str.replace(GROUPS_TOKEN_PLACEHOLDER, groups_token)
@@ -32,13 +33,13 @@ class VitessceConfigCache:
             # Replace the groups token with a placeholder to avoid caching the token
             config_str = config_str.replace(groups_token, GROUPS_TOKEN_PLACEHOLDER)
 
-        self._memcached_client.set(
-            f"{self._memcached_prefix}_{uuid}", config_str, expire=MEMCACHED_TTL
+        self._redis_client.set(
+            f"{REDIS_VITESSCE_PREFIX}_{uuid}", config_str, ex=REDIS_TTL
         )
 
     def delete(self, uuid: str) -> bool:
-        return self._memcached_client.delete(
-            f"{self._memcached_prefix}_{uuid}", noreply=False
+        return self._redis_client.delete(
+            f"{REDIS_VITESSCE_PREFIX}_{uuid}"
         )
 
     def _should_cache(self, config: dict, groups_token: str) -> bool:

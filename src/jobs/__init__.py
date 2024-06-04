@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
@@ -256,6 +257,10 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         results = result.results if result.success else None
         errors = result.results if not result.success else None
 
+    logger.info("Job ID: %s", job_id)
+    logger.info("Job results: %s", results)
+    logger.info("Job errors: %s", errors)
+    logger.info("Job meta: %s", job.meta)
     if status == JobStatus.FAILED:
         if admin:
             # Give admins the stack trace
