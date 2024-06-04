@@ -64,6 +64,7 @@ def get_vitessce_config(ds_uuid: str):
             raise ValueError("empty vitessce config")
 
         config = vitessce_conf[0]
+        logger.info(f"Vitessce config: {config}")
 
         if cache:
             cache.set(entity["uuid"], config, groups_token)
