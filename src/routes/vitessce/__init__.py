@@ -64,10 +64,7 @@ def get_vitessce_config(ds_uuid: str):
             raise ValueError("empty vitessce config")
 
         config = vitessce_conf[0]
-        # Hard check for visium no probes
-        if 'coordinationSpace' in config and 'spatialSpotRadius' in config['coordinationSpace']:
-            for key in config['coordinationSpace']['spatialSpotRadius']:
-                config['coordinationSpace']['spatialSpotRadius'][key] = 40
+        logger.info(f"Vitessce config: {config}")
 
         if cache:
             cache.set(entity["uuid"], config, groups_token)
