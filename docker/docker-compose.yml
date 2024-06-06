@@ -18,8 +18,8 @@ services:
       retries: 3
       start_period: 40s
     environment:
-      - HOST_GID=${HOST_GID:-1002}
-      - HOST_UID=${HOST_UID:-1002}
+      - HOST_GID=${HOST_GID:-100006}
+      - HOST_UID=${HOST_UID:-100008}
     init: true
     restart: always
     volumes:
