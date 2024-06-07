@@ -45,4 +45,4 @@ docker/docker-compose.yml
 docker/docker-compose.dev.yml
 docker/docker-development.sh
 docker/docker-deployment.sh
-docker/ingest-api/nginx/conf.d
+docker/ingest-api/nginx
