@@ -37,3 +37,12 @@ venv
 
 # Testing
 .pytest_cache/
+
+# Ignore PSC puppet generated and copied files
+.env
+init_env.sh
+docker/docker-compose.yml
+docker/docker-compose.dev.yml
+docker/docker-development.sh
+docker/docker-deployment.sh
+docker/ingest-api/nginx/conf.d
