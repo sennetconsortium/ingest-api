@@ -188,9 +188,7 @@ class IngestFileHelper:
         to_path = self.dataset_directory_absolute_path(data_access_level, group_uuid, uuid, True)
         if not trial_run:
             if to_symlink_path is not None:
-                shutil.move(from_path, to_path)
                 os.symlink(to_path, to_symlink_path, True)
-                # or is it? os.symlink(from_path, to_symlink_path, True)
             else:
                 shutil.move(from_path, to_path)
         else:
