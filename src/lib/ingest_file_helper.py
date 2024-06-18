@@ -181,7 +181,7 @@ class IngestFileHelper:
 
     def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run=False, to_symlink_path=None):
         from_path = self.dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)
-        if not os.path.isdir(from_path):
+        if not os.path.isdir(from_path) and to_symlink_path is None:
             raise HTTPException(f"{uuid}: path not found to dataset will not publish, path is {from_path}", 500)
         data_access_level = 'protected'
         if not dataset_access_level == 'protected': data_access_level = 'public'
