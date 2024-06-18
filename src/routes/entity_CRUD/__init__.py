@@ -1021,7 +1021,7 @@ def publish_datastage(identifier):
                 asset_dir_exists = os.path.exists(asset_dir)
                 to_symlink_path = None
                 if is_component:
-                    to_symlink_path = get_primary_ancestor_globus_path(dataset_uuid)
+                    to_symlink_path = get_primary_ancestor_globus_path(entity_dict)
 
                 ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium',
                                                                 to_symlink_path=to_symlink_path)
@@ -1131,27 +1131,17 @@ def dataset_is_primary(dataset_uuid):
             return False
         return True
 
-def get_primary_ancestor_globus_path(dataset_uuid):
-    base_url = commons_file_helper.removeTrailingSlashURL(
-        current_app.config['ENTITY_WEBSERVICE_URL'])
-    response = requests.get(url=f"{base_url}/ancestors/{dataset_uuid}",
-                            headers=get_auth_header())
+def get_primary_ancestor_globus_path(entity_dict):
     ancestor = None
     origin_path = None
-    if response.ok:
-        for item in response.json():
+    if 'direct_ancestors' in entity_dict:
+        for item in entity_dict['direct_ancestors']:
             if item.get('creation_action').lower() == 'create dataset activity':
                 ancestor = item
                 break
     if ancestor is not None:
-        response = requests.get(url=f"{base_url}/entities/dataset/globus-url/{ancestor['uuid']}",
-        headers=get_auth_header())
-        if response.ok:
-            globus_url = response.text
-            o = urlparse(globus_url)
-            query = parse_qs(o.query)
-            if 'origin_path' in query:
-                origin_path = query['origin_path'][0]
+        ingest_helper = IngestFileHelper(current_app.config)
+        origin_path = ingest_helper.get_dataset_directory_absolute_path(ancestor, ancestor['group_uuid'], ancestor['uuid'])
 
     return origin_path
 
