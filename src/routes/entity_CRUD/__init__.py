@@ -1013,8 +1013,8 @@ def publish_datastage(identifier):
 
             ingest_helper = IngestFileHelper(current_app.config)
             ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
-
-            if is_primary or entity_dict.get('creation_action') != 'Multi-Assay Split':
+            is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
+            if is_primary or is_component is False:
                 md_file = os.path.join(ds_path, "metadata.json")
                 json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
                 logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
@@ -1031,7 +1031,12 @@ def publish_datastage(identifier):
                 # before moving check to see if there is currently a link for the dataset in the assets directory
                 asset_dir = ingest_helper.dataset_asset_directory_absolute_path(dataset_uuid)
                 asset_dir_exists = os.path.exists(asset_dir)
-                ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium')
+                to_symlink_path = None
+                if is_component:
+                    to_symlink_path = get_primary_ancestor_globus_path(entity_dict)
+
+                ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium',
+                                                                to_symlink_path=to_symlink_path)
                 uuids_for_public.append(dataset_uuid)
                 data_access_level = 'public'
                 if asset_dir_exists:
@@ -1138,6 +1143,19 @@ def dataset_is_primary(dataset_uuid):
             return False
         return True
 
+def get_primary_ancestor_globus_path(entity_dict):
+    ancestor = None
+    origin_path = None
+    if 'direct_ancestors' in entity_dict:
+        for item in entity_dict['direct_ancestors']:
+            if item.get('creation_action').lower() == 'create dataset activity':
+                ancestor = item
+                break
+    if ancestor is not None:
+        ingest_helper = IngestFileHelper(current_app.config)
+        origin_path = ingest_helper.get_dataset_directory_absolute_path(ancestor, ancestor['group_uuid'], ancestor['uuid'])
+
+    return origin_path
 
 ####################################################################################################
 ## Uploads API Endpoints
