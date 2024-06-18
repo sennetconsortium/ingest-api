@@ -32,8 +32,7 @@ from lib.request_validation import get_validated_uuids
 
 # Local modules
 # from routes.entity_CRUD.constraints_helper import *
-from routes.auth import get_auth_header_dict, get_auth_header
-from urllib.parse import urlparse, parse_qs
+from routes.auth import get_auth_header_dict
 
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload, files_exist
