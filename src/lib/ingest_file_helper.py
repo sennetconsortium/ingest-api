@@ -148,7 +148,7 @@ class IngestFileHelper:
             # put quotes around the path since it often contains spaces
             chmod_command = f"chmod {octal_representation} '{file_path}'"
             self.logger.info(
-                f"Executing chmod with mode: {octal_representation} and permissions {self.appconfig['ACCESS_LEVEL_PUBLIC']}")
+                f"Executing chmod with mode: {octal_representation} and permissions {access_level}")
             if not trial_run:
                 # apply the permissions
                 os.chmod(file_path, mode)
