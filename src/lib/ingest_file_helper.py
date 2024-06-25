@@ -136,7 +136,7 @@ class IngestFileHelper:
 
             mode = 0o750  # rwxr-x---
             if not published:
-                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
+                if access_level in [self.appconfig['ACCESS_LEVEL_PUBLIC'], self.appconfig['ACCESS_LEVEL_CONSORTIUM']]:
                     mode = 0o755  # rwxr-xr-x
             else:
                 mode = 0o550  # r-xr-x---
