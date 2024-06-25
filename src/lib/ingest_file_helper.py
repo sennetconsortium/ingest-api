@@ -29,7 +29,8 @@ class IngestFileHelper:
 
     def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
         if 'contains_human_genetic_sequences' not in dataset_record:
-            self.logger.info(f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}")
+            self.logger.info(
+                f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}")
 
         if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
@@ -60,7 +61,8 @@ class IngestFileHelper:
 
     def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid):
         if 'contains_human_genetic_sequences' not in dataset_record:
-            self.logger.info(f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}")
+            self.logger.info(
+                f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}")
 
         if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = 'protected'
@@ -82,15 +84,17 @@ class IngestFileHelper:
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
         if access_level == 'protected':
             endpoint_id = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+            rel_path = str(
+                os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
         elif published:
             endpoint_id = self.appconfig['GLOBUS_PUBLIC_ENDPOINT_UUID']
             rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH'], dataset_uuid))
         else:
             endpoint_id = self.appconfig['GLOBUS_CONSORTIUM_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+            rel_path = str(
+                os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
 
-        return {"rel_path":rel_path, "globus_endpoint_uuid":endpoint_id}
+        return {"rel_path": rel_path, "globus_endpoint_uuid": endpoint_id}
 
     def create_dataset_directory(self, dataset_record, group_uuid, dataset_uuid):
         try:
@@ -129,20 +133,24 @@ class IngestFileHelper:
 
     def set_dir_permissions(self, access_level, file_path, published=False, trial_run=False):
         try:
-            mode = 0o750  #rwxr-x---
+
+            mode = 0o750  # rwxr-x---
             if not published:
                 if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                    mode = 0o755  #rwxr-xr-x
+                    mode = 0o755  # rwxr-xr-x
             else:
-                mode = 0o550
+                mode = 0o550  # r-xr-x---
                 if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                    mode = 0o555  #r-xr-xr-x
+                    mode = 0o555  # r-xr-xr-x
 
-            # apply the permissions
+            # since mode value is octal literal, let's get its string representation removing the proceeding 0o
+            octal_representation = oct(mode)[2:]
             # put quotes around the path since it often contains spaces
-            chmod_command = f"chmod {mode} {file_path}"
-            self.logger.info(f"Executing chnod with mode: {mode} and permissions {self.appconfig['ACCESS_LEVEL_PUBLIC']}")
+            chmod_command = f"chmod {octal_representation} '{file_path}'"
+            self.logger.info(
+                f"Executing chmod with mode: {octal_representation} and permissions {self.appconfig['ACCESS_LEVEL_PUBLIC']}")
             if not trial_run:
+                # apply the permissions
                 os.chmod(file_path, mode)
             else:
                 print(chmod_command)
