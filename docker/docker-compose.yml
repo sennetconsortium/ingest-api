@@ -2,7 +2,7 @@ version: "3.7"
 
 # Will use the hostname when talking between services on the same network
 services:
-  
+
   ingest-api:
     hostname: ingest-api
     container_name: ingest-api
