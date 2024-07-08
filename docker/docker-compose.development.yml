@@ -1,9 +1,9 @@
 version: "3.7"
 
 services:
-  
+
   ingest-api:
-    build: 
+    build:
       context: ./ingest-api
       # Uncomment if tesitng against a specific branch of commons other than the PyPI package
       # Will also need to use the 'git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons'
@@ -14,11 +14,11 @@ services:
     # Build the image with name and tag
     # Exit with an error message containing err if unset or empty in the environment
     image: sennet/ingest-api:${INGEST_API_VERSION:?err}
-    volumes:  
-      # Mount the VERSION file and BUILD file 
-      - "../VERSION:/usr/src/app/VERSION" 
-      - "../BUILD:/usr/src/app/BUILD" 
-      # Mount the source code to container  
+    volumes:
+      # Mount the VERSION file and BUILD file
+      - "../VERSION:/usr/src/app/VERSION"
+      - "../BUILD:/usr/src/app/BUILD"
+      # Mount the source code to container
       - "../src:/usr/src/app/src"
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
@@ -36,6 +36,12 @@ services:
       replicas: 4
     networks:
       - sennet_docker_network
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: us-east-1
+        awslogs-group: ingest-api-rq-worker-docker-logs
+        awslogs-stream: ${LOG_STREAM}
 
   ingest-api-rq-server:
     image: redis:alpine
