@@ -94,7 +94,7 @@ def get_ds_rule_metadata(ds_uuid: str):
 def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
     # If we get more complicated transformations we should consider refactoring.
     # For now, this should suffice.
-    if source_type.upper() == "MOUSE":
+    if "MOUSE" in source_type.upper():
         rule_value_set["contains-pii"] = False
 
     return rule_value_set
