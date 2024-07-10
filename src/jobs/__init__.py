@@ -8,7 +8,7 @@ from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
 
-from redis import Redis, from_url
+from redis import Redis, from_url, exceptions
 from rq import Queue, get_current_job
 from rq.job import Job, JobStatus, NoSuchJobError
 
@@ -90,6 +90,15 @@ class JobQueue:
     @staticmethod
     def is_initialized() -> bool:
         if _instance is None:
+            return False
+        return True
+
+    @staticmethod
+    def is_connected(url) -> bool:
+        try:
+            conn = from_url(url)
+            conn.ping()
+        except (exceptions.ConnectionError, ConnectionRefusedError):
             return False
         return True
 
