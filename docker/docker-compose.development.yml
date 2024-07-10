@@ -37,8 +37,8 @@ services:
     logging:
       driver: "json-file"
       options:
+        max-size: "10m"
         max-file: "10"
-        labels: "ingest-api-rq-worker"
     networks:
       - sennet_docker_network
 
@@ -49,7 +49,7 @@ services:
     logging:
       driver: "json-file"
       options:
+        max-size: "10m"
         max-file: "10"
-        labels: "ingest-api-rq-server"
     networks:
       - sennet_docker_network
