@@ -24,6 +24,9 @@ def get_status():
     }
 
     if current_app.config.get("REDIS_MODE"):
-        status_data['redis_connection'] = JobQueue.is_connected(current_app.config['REDIS_SERVER'])
+        redis_connection = JobQueue.is_connected(current_app.config['REDIS_SERVER'])
+        status_data['redis_connection'] = redis_connection
+        if not redis_connection:
+            return jsonify(status_data), 503
 
     return jsonify(status_data)
