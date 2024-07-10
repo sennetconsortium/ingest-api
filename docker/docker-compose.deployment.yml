@@ -27,6 +27,11 @@ services:
       - "/codcc/scratch:/codcc/scratch"
     deploy:
       replicas: 4
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        labels: "ingest-api-rq-worker"
     networks:
       - sennet_docker_network
     logging:
@@ -40,5 +45,10 @@ services:
     image: redis:alpine
     hostname: ingest-api-rq-server
     container_name: ingest-api-rq-server
+    logging:
+      driver: "json-file"
+      options:
+        max-file: "10"
+        labels: "ingest-api-rq-server"
     networks:
       - sennet_docker_network

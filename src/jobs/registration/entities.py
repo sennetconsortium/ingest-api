@@ -12,11 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 def register_uploaded_entities(
-    job_id: str,
-    entity_type: str,
-    validation_file: str,
-    token: str,
-    group_uuid: str,
+        job_id: str,
+        entity_type: str,
+        validation_file: str,
+        token: str,
+        group_uuid: str,
 ) -> JobResult:
     # Entity information should already be validated at this point
     upload = set_file_details(validation_file)

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def register_uploaded_metadata(
-    job_id: str, metadata_file: str, token: str
+        job_id: str, metadata_file: str, token: str
 ) -> JobResult:
     # Metadata should already be validated at this point
     upload = set_file_details(metadata_file)
