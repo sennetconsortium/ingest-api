@@ -19,9 +19,12 @@ services:
       dockerfile: ./rq/Dockerfile
     image: sennet/ingest-api-rq-server:${INGEST_API_VERSION:?err}
     volumes:
-      - "../src:/usr/src/app/src"
-      # Mount data directory for Globus transfer
-      - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
+      # Mount the VERSION file and BUILD file
+      - "../VERSION:/usr/src/app/VERSION"
+      - "../BUILD:/usr/src/app/BUILD"
+      # Mount data directory for Globus transfer PROD
+      - "/codcc/data:/codcc/data"
+      - "/codcc/scratch:/codcc/scratch"
     deploy:
       replicas: 4
     logging:
