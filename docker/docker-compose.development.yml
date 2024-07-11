@@ -34,6 +34,11 @@ services:
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
     deploy:
       replicas: 4
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
     networks:
       - sennet_docker_network
 
@@ -41,5 +46,10 @@ services:
     image: redis:alpine
     hostname: ingest-api-rq-server
     container_name: ingest-api-rq-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
     networks:
       - sennet_docker_network

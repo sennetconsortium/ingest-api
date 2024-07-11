@@ -38,16 +38,14 @@ from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
 from jobs import JobQueue
 
-
-# Root logger configuration
-global logger
-
 # Set logging format and level (default is warning)
-logging.basicConfig(format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
-
-# Use `getLogger()` instead of `getLogger(__name__)` to apply the config to the root logger
-# will be inherited by the sub-module loggers
-logger = logging.getLogger()
+# All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
+# Log rotation is handled via logrotate on the host system with a configuration file
+# Do NOT handle log file and rotation via the Python logging to avoid issues with multi-worker processes
+logging.basicConfig(format='[%(asctime)s] %(levelname)s in %(module)s: %(message)s',
+                    level=logging.DEBUG,
+                    datefmt='%Y-%m-%d %H:%M:%S')
+logger = logging.getLogger(__name__)
 
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
 app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)

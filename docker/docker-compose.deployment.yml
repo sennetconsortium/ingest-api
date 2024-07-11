@@ -19,14 +19,19 @@ services:
       dockerfile: ./rq/Dockerfile
     image: sennet/ingest-api-rq-server:${INGEST_API_VERSION:?err}
     volumes:
-      # Mount the VERSION file and BUILD file 
-      - "../VERSION:/usr/src/app/VERSION" 
-      - "../BUILD:/usr/src/app/BUILD" 
+      # Mount the VERSION file and BUILD file
+      - "../VERSION:/usr/src/app/VERSION"
+      - "../BUILD:/usr/src/app/BUILD"
       # Mount data directory for Globus transfer PROD
       - "/codcc/data:/codcc/data"
       - "/codcc/scratch:/codcc/scratch"
     deploy:
       replicas: 4
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
     networks:
       - sennet_docker_network
 
@@ -34,5 +39,10 @@ services:
     image: redis:alpine
     hostname: ingest-api-rq-server
     container_name: ingest-api-rq-server
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "10"
     networks:
       - sennet_docker_network
