@@ -29,7 +29,8 @@ class IngestFileHelper:
 
     def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
         if 'contains_human_genetic_sequences' not in dataset_record:
-            self.logger.info(f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}")
+            self.logger.info(
+                f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}")
 
         if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = self.appconfig['ACCESS_LEVEL_PROTECTED']
@@ -60,7 +61,8 @@ class IngestFileHelper:
 
     def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid):
         if 'contains_human_genetic_sequences' not in dataset_record:
-            self.logger.info(f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}")
+            self.logger.info(
+                f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}")
 
         if 'contains_human_genetic_sequences' in dataset_record and dataset_record['contains_human_genetic_sequences']:
             access_level = 'protected'
@@ -82,15 +84,17 @@ class IngestFileHelper:
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
         if access_level == 'protected':
             endpoint_id = self.appconfig['GLOBUS_PROTECTED_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+            rel_path = str(
+                os.path.join(self.appconfig['RELATIVE_GLOBUS_PROTECTED_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
         elif published:
             endpoint_id = self.appconfig['GLOBUS_PUBLIC_ENDPOINT_UUID']
             rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH'], dataset_uuid))
         else:
             endpoint_id = self.appconfig['GLOBUS_CONSORTIUM_ENDPOINT_UUID']
-            rel_path = str(os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
+            rel_path = str(
+                os.path.join(self.appconfig['RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH'], grp_name, dataset_uuid))
 
-        return {"rel_path":rel_path, "globus_endpoint_uuid":endpoint_id}
+        return {"rel_path": rel_path, "globus_endpoint_uuid": endpoint_id}
 
     def create_dataset_directory(self, dataset_record, group_uuid, dataset_uuid):
         try:
@@ -129,65 +133,43 @@ class IngestFileHelper:
 
     def set_dir_permissions(self, access_level, file_path, published=False, trial_run=False):
         try:
-            acl_text = None
-            if not published:
-                if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
-                    acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{seq_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{seq_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
-                if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
-                    acl_text = 'u::rwx,g::r-x,o::---,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,g:{consortium_group}:r-x,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::rwx,d:other:---'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                    acl_text = 'u::rwx,g::r-x,o::r-x,m::rwx,u:{hive_user}:rwx,u:{admin_user}:rwx,d:user::rwx,d:user:{hive_user}:rwx,d:user:{admin_user}:rwx,d:group::r-x,d:mask::rwx,d:other:r-x'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-            else:
-                if access_level == self.appconfig['ACCESS_LEVEL_PROTECTED']:
-                    acl_text = 'u::r-x,g::r-x,o::---,m::rwx,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{seq_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{seq_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'])
-                if access_level == self.appconfig['ACCESS_LEVEL_CONSORTIUM']:
-                    acl_text = 'u::r-x,g::r-x,o::---,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,g:{consortium_group}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:r-x,d:group:{consortium_group}:r-x,d:group::r-x,d:mask::r-x,d:other:---'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
-                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
-                    acl_text = 'u::r-x,g::r-x,o::r-x,m::r-x,u:{hive_user}:r-x,u:{admin_user}:r-x,d:user::r-x,d:user:{hive_user}:r-x,d:user:{admin_user}:rwx,d:group::r-x,d:mask::r-x,d:other:r-x'.format(
-                        hive_user=self.appconfig['GLOBUS_BASE_FILE_USER_NAME'],
-                        admin_user=self.appconfig['GLOBUS_ADMIN_FILE_USER_NAME'],
-                        seq_group=self.appconfig['GLOBUS_GENOMIC_DATA_FILE_GROUP_NAME'],
-                        consortium_group=self.appconfig['GLOBUS_CONSORTIUM_FILE_GROUP_NAME'])
 
-            # apply the permissions
-            # put quotes around the path since it often contains spaces
-            facl_command = "setfacl" + ' -R -b' + ' --set=' + acl_text + " '" + file_path + "'"
-            self.logger.info("Executing command: " + facl_command)
-            if not trial_run:
-                subprocess.Popen(['setfacl', '-R', '-b', '--set=' + acl_text, file_path])
+            mode = 0o750  # rwxr-x---
+            if not published:
+                if access_level in [self.appconfig['ACCESS_LEVEL_PUBLIC'], self.appconfig['ACCESS_LEVEL_CONSORTIUM']]:
+                    mode = 0o755  # rwxr-xr-x
             else:
-                print(facl_command)
-            return facl_command
+                mode = 0o550  # r-xr-x---
+                if access_level == self.appconfig['ACCESS_LEVEL_PUBLIC']:
+                    mode = 0o555  # r-xr-xr-x
+
+            # since mode value is octal literal, let's get its string representation removing the proceeding 0o
+            octal_representation = oct(mode)[2:]
+            # put quotes around the path since it often contains spaces
+            chmod_command = f"chmod {octal_representation} '{file_path}'"
+            self.logger.info(
+                f"Executing chmod with mode: {octal_representation} and permissions {access_level}")
+            if not trial_run:
+                # apply the permissions
+                os.chmod(file_path, mode)
+            else:
+                print(chmod_command)
+            return chmod_command
         except Exception as e:
             self.logger.error(e, exc_info=True)
 
-    def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run=False):
+    def move_dataset_files_for_publishing(self, uuid, group_uuid, dataset_access_level, trial_run=False, to_symlink_path=None):
         from_path = self.dataset_directory_absolute_path(dataset_access_level, group_uuid, uuid, False)
-        if not os.path.isdir(from_path):
+        if not os.path.isdir(from_path) and to_symlink_path is None:
             raise HTTPException(f"{uuid}: path not found to dataset will not publish, path is {from_path}", 500)
         data_access_level = 'protected'
         if not dataset_access_level == 'protected': data_access_level = 'public'
         to_path = self.dataset_directory_absolute_path(data_access_level, group_uuid, uuid, True)
         if not trial_run:
-            shutil.move(from_path, to_path)
+            if to_symlink_path is not None:
+                os.symlink(to_symlink_path, to_path, True)
+            else:
+                shutil.move(from_path, to_path)
         else:
             print(f"mv {from_path} {to_path}")
 

@@ -1,4 +1,5 @@
 import json
+import logging
 
 from atlas_consortia_commons.string import equals
 
@@ -7,13 +8,15 @@ from lib.file import set_file_details
 from lib.ontology import Ontology
 from lib.services import bulk_create_entities
 
+logger = logging.getLogger(__name__)
+
 
 def register_uploaded_entities(
-    job_id: str,
-    entity_type: str,
-    validation_file: str,
-    token: str,
-    group_uuid: str,
+        job_id: str,
+        entity_type: str,
+        validation_file: str,
+        token: str,
+        group_uuid: str,
 ) -> JobResult:
     # Entity information should already be validated at this point
     upload = set_file_details(validation_file)
@@ -30,6 +33,10 @@ def register_uploaded_entities(
         token,
         after_each_callback=lambda idx: update_job_progress(percent_delta * (idx + 1)),
     )
+
+    for res in create_results:
+        if not res["success"]:
+            logger.error(f"Failed to register entity: {res['data']}")
 
     all_completed = all(v["success"] for v in create_results)
 

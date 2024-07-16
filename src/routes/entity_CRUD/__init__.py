@@ -636,24 +636,30 @@ def run_query(query, results, i):
         results[i] = session.run(query).data()
 
 
+DATASETS_DATA_STATUS_KEY = "datasets_data_status_key"
+DATASETS_DATA_STATUS_LAST_UPDATED_KEY = "datasets_data_status_last_updated_key"
+UPLOADS_DATA_STATUS_KEY = "uploads_data_status_key"
+UPLOADS_DATA_STATUS_LAST_UPDATED_KEY = "uploads_data_status_last_updated_key"
+
+
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
     if current_app.config.get("REDIS_MODE"):
         redis_connection = from_url(current_app.config['REDIS_SERVER'])
         try:
-            cached_data = redis_connection.get("datasets_data_status_key")
+            cached_data = redis_connection.get(DATASETS_DATA_STATUS_KEY)
             if cached_data:
                 cached_data_json = json.loads(cached_data.decode('utf-8'))
-                return jsonify(cached_data_json)
+                last_updated = redis_connection.get(DATASETS_DATA_STATUS_LAST_UPDATED_KEY)
+                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
             else:
                 raise Exception
         except Exception:
             logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
-            combined_results = update_datasets_datastatus(current_app.app_context())
-            return jsonify(combined_results)
-    else:
-        combined_results = update_datasets_datastatus(current_app.app_context())
-        return jsonify(combined_results)
+
+    combined_results = update_datasets_datastatus(current_app.app_context())
+    last_updated = int(time.time() * 1000)
+    return jsonify({"data": combined_results, "last_updated": last_updated})
 
 
 def update_datasets_datastatus(app_context):
@@ -665,7 +671,7 @@ def update_datasets_datastatus(app_context):
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
             "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
             "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
-            "COALESCE(ds.contributors IS NOT NULL) AS has_contributors, COALESCE(ds.contacts IS NOT NULL) AS has_contacts, "
+            "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
             "ancestor.entity_type AS ancestor_entity_type"
         )
 
@@ -796,10 +802,14 @@ def update_datasets_datastatus(app_context):
             combined_results_string = json.dumps(combined_results)
         except json.JSONDecodeError as e:
             abort_bad_req(e)
+
         if current_app.config.get("REDIS_MODE"):
             redis_connection = from_url(current_app.config['REDIS_SERVER'])
-            cache_key = "datasets_data_status_key"
+            cache_key = DATASETS_DATA_STATUS_KEY
             redis_connection.set(cache_key, combined_results_string)
+            last_updated_key = DATASETS_DATA_STATUS_LAST_UPDATED_KEY
+            redis_connection.set(last_updated_key, int(time.time() * 1000))
+
         return combined_results
 
 
@@ -808,19 +818,19 @@ def upload_data_status():
     if current_app.config.get("REDIS_MODE"):
         redis_connection = from_url(current_app.config['REDIS_SERVER'])
         try:
-            cached_data = redis_connection.get("uploads_data_status_key")
+            cached_data = redis_connection.get(UPLOADS_DATA_STATUS_KEY)
             if cached_data:
                 cached_data_json = json.loads(cached_data.decode('utf-8'))
-                return jsonify(cached_data_json)
+                last_updated = redis_connection.get(UPLOADS_DATA_STATUS_LAST_UPDATED_KEY)
+                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
             else:
                 raise Exception
         except Exception:
             logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
-            results = update_uploads_datastatus(current_app.app_context())
-            return jsonify(results)
-    else:
-        results = update_uploads_datastatus(current_app.app_context())
-        return jsonify(results)
+
+    results = update_uploads_datastatus(current_app.app_context())
+    last_updated = int(time.time() * 1000)
+    return jsonify({"data": results, "last_updated": last_updated})
 
 
 def update_uploads_datastatus(app_context):
@@ -870,8 +880,11 @@ def update_uploads_datastatus(app_context):
 
         if current_app.config.get("REDIS_MODE"):
             redis_connection = from_url(current_app.config['REDIS_SERVER'])
-            cache_key = "uploads_data_status_key"
+            cache_key = UPLOADS_DATA_STATUS_KEY
             redis_connection.set(cache_key, results_string)
+            time_key = UPLOADS_DATA_STATUS_LAST_UPDATED_KEY
+            redis_connection.set(time_key, int(time.time() * 1000))
+
         return results
 
 
@@ -1000,16 +1013,17 @@ def publish_datastage(identifier):
 
             ingest_helper = IngestFileHelper(current_app.config)
             ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
-
-            md_file = os.path.join(ds_path, "metadata.json")
-            json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
-            logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
-            try:
-                with open(md_file, "w") as outfile:
-                    outfile.write(json_object)
-            except Exception as e:
-                logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
-                return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
+            is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
+            if is_primary or is_component is False:
+                md_file = os.path.join(ds_path, "metadata.json")
+                json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
+                logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
+                try:
+                    with open(md_file, "w") as outfile:
+                        outfile.write(json_object)
+                except Exception as e:
+                    logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
+                    return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
 
             data_access_level = dataset_data_access_level
             # if consortium access level convert to public dataset, if protected access leave it protected
@@ -1017,7 +1031,12 @@ def publish_datastage(identifier):
                 # before moving check to see if there is currently a link for the dataset in the assets directory
                 asset_dir = ingest_helper.dataset_asset_directory_absolute_path(dataset_uuid)
                 asset_dir_exists = os.path.exists(asset_dir)
-                ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium')
+                to_symlink_path = None
+                if is_component:
+                    to_symlink_path = get_primary_ancestor_globus_path(entity_dict)
+
+                ingest_helper.move_dataset_files_for_publishing(dataset_uuid, dataset_group_uuid, 'consortium',
+                                                                to_symlink_path=to_symlink_path)
                 uuids_for_public.append(dataset_uuid)
                 data_access_level = 'public'
                 if asset_dir_exists:
@@ -1124,6 +1143,19 @@ def dataset_is_primary(dataset_uuid):
             return False
         return True
 
+def get_primary_ancestor_globus_path(entity_dict):
+    ancestor = None
+    origin_path = None
+    if 'direct_ancestors' in entity_dict:
+        for item in entity_dict['direct_ancestors']:
+            if item.get('creation_action').lower() == 'create dataset activity':
+                ancestor = item
+                break
+    if ancestor is not None:
+        ingest_helper = IngestFileHelper(current_app.config)
+        origin_path = ingest_helper.get_dataset_directory_absolute_path(ancestor, ancestor['group_uuid'], ancestor['uuid'])
+
+    return origin_path
 
 ####################################################################################################
 ## Uploads API Endpoints

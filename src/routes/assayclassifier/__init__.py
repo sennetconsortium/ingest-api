@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from atlas_consortia_commons.decorator import require_json
+from atlas_consortia_commons.decorator import require_json, require_valid_token, User
 from flask import Blueprint, Response, jsonify, request
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
@@ -30,7 +30,18 @@ def get_ds_assaytype(ds_uuid: str):
         token = get_token()
         entity = get_entity(ds_uuid, token)
         metadata = build_entity_metadata(entity)
-        return jsonify(calculate_assay_info(metadata))
+        rule_value_set = calculate_assay_info(metadata)
+
+        if sources := entity.sources:
+            source_type = ""
+            for source in sources:
+                if source_type := source.get("source_type"):
+                    # If there is a single Human source_type, treat this as a Human case
+                    if source_type.upper() == "HUMAN":
+                        break
+            apply_source_type_transformations(source_type, rule_value_set)
+
+        return jsonify(rule_value_set)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
@@ -80,11 +91,34 @@ def get_ds_rule_metadata(ds_uuid: str):
         )
 
 
+def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
+    # If we get more complicated transformations we should consider refactoring.
+    # For now, this should suffice.
+    if "MOUSE" in source_type.upper():
+        rule_value_set["contains-pii"] = False
+
+    return rule_value_set
+
+
 @assayclassifier_blueprint.route("/assaytype", methods=["POST"])
+@require_valid_token()
 @require_json(param="metadata")
-def get_assaytype_from_metadata(metadata: dict):
+def get_assaytype_from_metadata(token: str, user: User, metadata: dict):
     try:
-        return jsonify(calculate_assay_info(metadata))
+        rule_value_set = calculate_assay_info(metadata)
+
+        if parent_sample_ids := metadata.get("parent_sample_id"):
+            source_type = ""
+            parent_sample_ids = parent_sample_ids.split(",")
+            for parent_sample_id in parent_sample_ids:
+                parent_entity = get_entity(parent_sample_id, token)
+                if source_type := parent_entity.source.get("source_type"):
+                    # If there is a single Human source_type, treat this as a Human case
+                    if source_type.upper() == "HUMAN":
+                        break
+
+            apply_source_type_transformations(source_type, rule_value_set)
+        return jsonify(rule_value_set)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
