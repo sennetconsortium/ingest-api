@@ -924,7 +924,7 @@ def publish_datastage(identifier):
             # look at all of the ancestors
             # gather uuids of ancestors that need to be switched to public access_level
             # grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
+            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
             has_source = False
@@ -938,22 +938,27 @@ def publish_datastage(identifier):
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Source':
+                    source_type = node['source_type']
                     has_source = True
                     if is_primary:
                         if metadata is None or metadata.strip() == '':
                             return jsonify({"error": f"source.metadata is missing for {dataset_uuid}"}), 400
                         metadata = metadata.replace("'", '"')
                         metadata_dict = json.loads(metadata)
-                        living_donor = True
-                        organ_donor = True
-                        if metadata_dict.get('organ_donor_data') is None:
-                            living_donor = False
-                        if metadata_dict.get('living_donor_data') is None:
-                            organ_donor = False
-                        if (organ_donor and living_donor) or (not organ_donor and not living_donor):
-                            return jsonify({"error": "source.metadata.organ_donor_data or "
-                                                     "source.metadata.living_donor_data required. "
-                                                     "Both cannot be None. Both cannot be present. Only one."}), 400
+                        if 'Mouse' in source_type:
+                            if not metadata_dict:
+                                return jsonify({"error": f"source.metadata required."}), 400
+                        else:
+                            living_donor = True
+                            organ_donor = True
+                            if metadata_dict.get('organ_donor_data') is None:
+                                living_donor = False
+                            if metadata_dict.get('living_donor_data') is None:
+                                organ_donor = False
+                            if (organ_donor and living_donor) or (not organ_donor and not living_donor):
+                                return jsonify({"error": "source.metadata.organ_donor_data or "
+                                                         "source.metadata.living_donor_data required. "
+                                                         "Both cannot be None. Both cannot be present. Only one."}), 400
                     sources_to_reindex.append(uuid)
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)

@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, Union
 
 import requests
 from flask import current_app
-from hubmap_commons.file_helper import removeTrailingSlashURL
+from hubmap_commons.file_helper import removeTrailingSlashURL, ensureTrailingSlashURL
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from requests.adapters import HTTPAdapter, Retry
@@ -123,8 +123,8 @@ def get_associated_sources_from_dataset(
     hubmap_sdk.sdk_helper.HTTPException
         If the entiti-api request fails or entity not found.
     """
-    entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-    url = f"{entity_api_url}/datasets/{dataset_id}/sources"
+    entity_api_url = ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+    url = f"{entity_api_url}datasets/{dataset_id}/sources"
     headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers)
     if not res.ok:
