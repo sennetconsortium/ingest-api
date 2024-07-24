@@ -37,6 +37,7 @@ from routes.auth import get_auth_header_dict
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload, files_exist
 from lib.services import get_associated_sources_from_dataset
+from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -1353,8 +1354,8 @@ def reorganize_upload(upload_uuid):
     return Response(resp.text, resp.status_code)
 
 
-@entity_CRUD_blueprint.route('/collections/attributes', methods=['POST'])
-def collections_attributes():
+@entity_CRUD_blueprint.route('/validate-tsv', methods=['POST'])
+def validate_tsv_with_ivt():
     result: dict = {
         'error': None
     }
@@ -1364,16 +1365,26 @@ def collections_attributes():
         data = request.values
 
     attribute = data.get('attribute')
+    entity_type = data.get('entity_type')
+    sub_type = data.get('sub_type')
 
     file_upload = check_upload(attribute)
     if file_upload.get('code') is StatusCodes.OK:
+        auth_helper_instance = AuthHelper.instance()
+        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+
         file = file_upload.get('description')
         file_id = file.get('id')
         file = file.get('file')
         pathname = file_id + os.sep + file.filename
         result = set_file_details(pathname)
-        records = get_csv_records(result.get('fullpath'))
-        return rest_response(StatusCodes.OK, 'Collection Attributes',
+        schema = determine_schema(entity_type, sub_type)
+        records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+        code = StatusCodes.UNACCEPTABLE
+        if len(records) == 0:
+            records = get_csv_records(result.get('fullpath'))
+            code = StatusCodes.OK
+        return rest_response(code, 'TSV validation results',
                              records, False)
     else:
         return json.dumps(file_upload)
