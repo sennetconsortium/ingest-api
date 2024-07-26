@@ -23,7 +23,7 @@ rq==1.16.1
 APScheduler==3.10.4
 
 # For vitessce config generation
-https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.2.5.zip
+https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.2.6.zip
 
 # Testing
 pytest==7.3.1
