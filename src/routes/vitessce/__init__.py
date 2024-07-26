@@ -41,6 +41,8 @@ def get_vitessce_config(ds_uuid: str):
         # Get entity from search-api
         # entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
         entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        if 'ingest_metadata' in entity and 'files' in entity['ingest_metadata']:
+            entity['files'] = entity['ingest_metadata']['files']
 
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
