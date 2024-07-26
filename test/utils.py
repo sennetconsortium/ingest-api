@@ -31,38 +31,6 @@ class SourceTypes:
     MOUSE_ORGANOID: str = "Mouse Organoid"
 
 
-@dataclass
-class AssayTypes:
-    BULKRNA: str = "bulk-RNA"
-    CITESEQ: str = "CITE-Seq"
-    CODEX: str = "CODEX"
-    CODEXCYTOKIT: str = "codex_cytokit"
-    CODEXCYTOKITV1: str = "codex_cytokit_v1"
-    COSMX_RNA: str = "CosMX(RNA)"
-    DBITSEQ: str = "DBiT-seq"
-    FACS__FLUORESCENCEACTIVATED_CELL_SORTING: str = (
-        "FACS-Fluorescence-activatedCellSorting"
-    )
-    GEOMX_RNA: str = "GeoMX(RNA)"
-    IMAGEPYRAMID: str = "image_pyramid"
-    LCMS: str = "LC-MS"
-    LIGHTSHEET: str = "Lightsheet"
-    MIBI: str = "MIBI"
-    MIBIDEEPCELL: str = "mibi_deepcell"
-    MINTCHIP: str = "Mint-ChIP"
-    PUBLICATION: str = "publication"
-    PUBLICATIONANCILLARY: str = "publication_ancillary"
-    SALMONRNASEQ10X: str = "salmon_rnaseq_10x"
-    SALMONRNASEQBULK: str = "salmon_rnaseq_bulk"
-    SALMONSNRNASEQ10X: str = "salmon_sn_rnaseq_10x"
-    SASP: str = "SASP"
-    SCRNASEQ: str = "scRNA-seq"
-    SNATACSEQ: str = "snATAC-seq"
-    SNRNASEQ: str = "snRNA-seq"
-    SNRNASEQ10XGENOMICSV3: str = "snRNAseq-10xGenomics-v3"
-    STAINED_SLIDES: str = "StainedSlides"
-    VISIUM: str = "Visium"
-
 
 @dataclass
 class DatasetTypes:
@@ -145,17 +113,6 @@ class MockOntology(Ontology):
             return {e.name: e.default for e in fields(SourceTypes)}
         return SourceTypes
 
-    @staticmethod
-    def assay_types():
-        if Ontology.Ops.as_arr and Ontology.Ops.cb == enum_val_lower:
-            return [e.default.lower() for e in fields(AssayTypes)]
-        if Ontology.Ops.as_arr and Ontology.Ops.cb == str:
-            return [e.default for e in fields(AssayTypes)]
-        if Ontology.Ops.as_data_dict and Ontology.Ops.prop_callback is None:
-            return {e.default: e.default for e in fields(AssayTypes)}
-        if Ontology.Ops.as_data_dict:
-            return {e.name: e.default for e in fields(AssayTypes)}
-        return AssayTypes
 
     @staticmethod
     def organ_types():
