@@ -39,7 +39,8 @@ def get_vitessce_config(ds_uuid: str):
                 return Response(config, 200, mimetype="application/json")
 
         # Get entity from search-api
-        entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
+        # entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
+        entity = get_entity(ds_uuid, groups_token, as_dict=True)
 
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
@@ -51,7 +52,7 @@ def get_vitessce_config(ds_uuid: str):
         assaytype = get_assaytype(entity)
         # Adding portal-visualization `builder_factory` vis-lifted image pyramids check to see if we want to pass the parent
         if 'is_support' in assaytype['vitessce-hints'] and 'is_image' in assaytype['vitessce-hints']:
-            parent = entity['immediate_ancestors'][0]
+            parent = entity['direct_ancestors'][0]
         BuilderCls = get_view_config_builder(entity, get_assaytype, parent)
         builder = BuilderCls(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
