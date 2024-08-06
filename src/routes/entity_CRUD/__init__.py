@@ -37,6 +37,7 @@ from routes.auth import get_auth_header_dict
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload, files_exist
 from lib.services import get_associated_sources_from_dataset
+from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -924,7 +925,7 @@ def publish_datastage(identifier):
             # look at all of the ancestors
             # gather uuids of ancestors that need to be switched to public access_level
             # grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
+            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
             rval = neo_session.run(q).data()
             uuids_for_public = []
             has_source = False
@@ -938,22 +939,27 @@ def publish_datastage(identifier):
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Source':
+                    source_type = node['source_type']
                     has_source = True
                     if is_primary:
                         if metadata is None or metadata.strip() == '':
                             return jsonify({"error": f"source.metadata is missing for {dataset_uuid}"}), 400
                         metadata = metadata.replace("'", '"')
                         metadata_dict = json.loads(metadata)
-                        living_donor = True
-                        organ_donor = True
-                        if metadata_dict.get('organ_donor_data') is None:
-                            living_donor = False
-                        if metadata_dict.get('living_donor_data') is None:
-                            organ_donor = False
-                        if (organ_donor and living_donor) or (not organ_donor and not living_donor):
-                            return jsonify({"error": "source.metadata.organ_donor_data or "
-                                                     "source.metadata.living_donor_data required. "
-                                                     "Both cannot be None. Both cannot be present. Only one."}), 400
+                        if 'Mouse' in source_type:
+                            if not metadata_dict:
+                                return jsonify({"error": f"source.metadata required."}), 400
+                        else:
+                            living_donor = True
+                            organ_donor = True
+                            if metadata_dict.get('organ_donor_data') is None:
+                                living_donor = False
+                            if metadata_dict.get('living_donor_data') is None:
+                                organ_donor = False
+                            if (organ_donor and living_donor) or (not organ_donor and not living_donor):
+                                return jsonify({"error": "source.metadata.organ_donor_data or "
+                                                         "source.metadata.living_donor_data required. "
+                                                         "Both cannot be None. Both cannot be present. Only one."}), 400
                     sources_to_reindex.append(uuid)
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
@@ -1348,8 +1354,8 @@ def reorganize_upload(upload_uuid):
     return Response(resp.text, resp.status_code)
 
 
-@entity_CRUD_blueprint.route('/collections/attributes', methods=['POST'])
-def collections_attributes():
+@entity_CRUD_blueprint.route('/validate-tsv', methods=['POST'])
+def validate_tsv_with_ivt():
     result: dict = {
         'error': None
     }
@@ -1359,16 +1365,26 @@ def collections_attributes():
         data = request.values
 
     attribute = data.get('attribute')
+    entity_type = data.get('entity_type')
+    sub_type = data.get('sub_type')
 
     file_upload = check_upload(attribute)
     if file_upload.get('code') is StatusCodes.OK:
+        auth_helper_instance = AuthHelper.instance()
+        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+
         file = file_upload.get('description')
         file_id = file.get('id')
         file = file.get('file')
         pathname = file_id + os.sep + file.filename
         result = set_file_details(pathname)
-        records = get_csv_records(result.get('fullpath'))
-        return rest_response(StatusCodes.OK, 'Collection Attributes',
+        schema = determine_schema(entity_type, sub_type)
+        records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+        code = StatusCodes.UNACCEPTABLE
+        if len(records) == 0:
+            records = get_csv_records(result.get('fullpath'))
+            code = StatusCodes.OK
+        return rest_response(code, 'TSV validation results',
                              records, False)
     else:
         return json.dumps(file_upload)
