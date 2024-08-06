@@ -105,7 +105,7 @@ DATACITE_SENNET_PREFIX = ''
 
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
-UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020"}}'
+UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020"}'
 
 # URI from which to load the assay classifier rules.
 RULE_CHAIN_URI = 'https://raw.githubusercontent.com/sennetconsortium/ingest-api/main/src/routes/assayclassifier/testing_rule_chain.json'
