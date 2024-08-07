@@ -11,8 +11,4 @@ def get_dataset_types_ep():
 
 
 class Ontology(UbkgSDK):
-    @staticmethod
-    def assay_types_ext():
-        Ontology.Ops.key = 'data_type'
-        Ontology.Ops.url_params = '&dataset_provider=external'
-        return Ontology.transform_ontology(current_app.ubkg.assay_types, 'AssayTypesExt')
+    pass
