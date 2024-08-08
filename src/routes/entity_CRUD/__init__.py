@@ -1004,8 +1004,7 @@ def publish_datastage(identifier):
             entity = entity_instance.get_entity_by_id(dataset_uuid)
             entity_dict = obj_to_dict(entity)
 
-            dataset_types_edp = list(Ontology.ops(as_data_dict=True).dataset_types().values())
-            has_entity_lab_processed_dataset_type: bool = entity_dict.get('dataset_type') in dataset_types_edp
+            has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(dataset_uuid)
 
             logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}')
 
@@ -1140,6 +1139,14 @@ def publish_datastage(identifier):
         logger.error(e, exc_info=True)
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
+
+def dataset_has_entity_lab_processed_data_type(dataset_uuid):
+    with Neo4jHelper.get_instance().session() as neo_session:
+        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid")
+        result = neo_session.run(q).data()
+        if len(result) == 0:
+            return False
+        return True
 
 def dataset_is_primary(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
