@@ -595,6 +595,19 @@ paths:
                   error:
                     type: string
 
+  /metadata/data-provider-groups:
+    get:
+      tags:
+        - metadata
+      summary: Returns an array of nested objects containing information pertaining to all Data Provider groups.
+      responses:
+        "200":
+          description: The JSON containing an array of data provider group information
+        "401":
+          description: User's token is not valid
+        "500":
+          description: An unexpected error occurred
+
   /sources/bulk/validate:
     post:
       tags:
@@ -839,4 +852,4 @@ paths:
         "401":
           description: User's token is not valid
         "500":
-          description: An unexpected error occured
+          description: An unexpected error occurred
