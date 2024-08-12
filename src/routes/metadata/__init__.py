@@ -2,6 +2,7 @@ import csv
 import logging
 import os
 import time
+from http.client import HTTPException
 from uuid import uuid4
 
 from atlas_consortia_commons.decorator import (
@@ -19,7 +20,8 @@ from atlas_consortia_commons.rest import (
     rest_server_err,
 )
 from atlas_consortia_commons.string import equals
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, Response, current_app
+from hubmap_commons.hm_auth import AuthHelper
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from jobs import (
@@ -175,6 +177,26 @@ def register_metadata_upload(body: dict, token: str, user: User):
 
     display_status = get_display_job_status(job)
     return jsonify({"job_id": job_id, "status": display_status}), 202
+
+
+# Fetch all Data Provider groups through Hubmap Commons
+# Returns an Array of nested objects containing all groups
+@metadata_blueprint.route('/metadata/data-provider-groups', methods=['GET'])
+@require_valid_token()
+def get_all_data_provider_groups(token: str, user: User):
+    try:
+        auth_helper_instance = AuthHelper.instance()
+        group_list = auth_helper_instance.getHuBMAPGroupInfo()
+        return_list = []
+        for group_info in group_list.keys():
+            if group_list[group_info]['data_provider'] == True:
+                return_list.append(group_list[group_info])
+        return jsonify({'groups': return_list}), 200
+    except HTTPException as hte:
+        return Response(hte.get_description(), hte.get_status_code())
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response("Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500)
 
 
 def check_metadata_upload():
