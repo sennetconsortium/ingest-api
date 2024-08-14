@@ -231,11 +231,13 @@ def bulk_update_entities(
         for idx, (uuid, payload) in enumerate(entity_updates.items()):
             try:
                 res = s.put(
-                    f"{entity_api_url}/entities/{uuid}", json=payload, timeout=15
+                    f"{entity_api_url}/entities/{uuid}?return_dict=true",
+                    json=payload,
+                    timeout=15,
                 )
                 results[uuid] = {
                     "success": res.ok,
-                    "data": res.json() if res.ok else error_msg(res.json())
+                    "data": res.json() if res.ok else error_msg(res.json()),
                 }
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to update entity {uuid}: {e}")
@@ -322,7 +324,7 @@ def bulk_create_entities(
                 results.append(
                     {
                         "success": res.ok,
-                        "data": res.json() if res.ok else error_msg(res.json())
+                        "data": res.json() if res.ok else error_msg(res.json()),
                     }
                 )
             except requests.exceptions.RequestException as e:
