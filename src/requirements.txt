@@ -3,6 +3,9 @@ globus_sdk==2.0.1
 hubmap-sdk==1.0.7
 Werkzeug==3.0.3
 
+# Pinning specific version of neo4j
+neo4j==5.22.0
+
 # The commons package requires requests>=2.22.0
 requests==2.32.0
 
@@ -12,9 +15,6 @@ requests==2.32.0
 # git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons
 hubmap-commons==2.1.15
 atlas-consortia-commons==1.0.10
-
-# Pinning specific version of neo4j
-neo4j==5.22.0
 
 # For assay type rules
 rule_engine==4.1.0
