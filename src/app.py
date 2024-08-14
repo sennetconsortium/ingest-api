@@ -204,19 +204,19 @@ if app.config.get("REDIS_MODE"):
             name="Update Upload Data Status Job"
         )
 
-        scheduler.add_job(
-            func=update_datasets_datastatus,
-            args=[app.app_context()],
-            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
-            name="Initial run of Dataset Data Status Job"
-        )
-
-        scheduler.add_job(
-            func=update_uploads_datastatus,
-            args=[app.app_context()],
-            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
-            name="Initial run of Dataset Data Status Job"
-        )
+        # scheduler.add_job(
+        #     func=update_datasets_datastatus,
+        #     args=[app.app_context()],
+        #     trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
+        #     name="Initial run of Dataset Data Status Job"
+        # )
+        #
+        # scheduler.add_job(
+        #     func=update_uploads_datastatus,
+        #     args=[app.app_context()],
+        #     trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
+        #     name="Initial run of Dataset Data Status Job"
+        # )
 
 # For local development/testing
 if __name__ == '__main__':
