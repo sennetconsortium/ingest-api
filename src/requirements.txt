@@ -13,6 +13,9 @@ requests==2.32.0
 hubmap-commons==2.1.15
 atlas-consortia-commons==1.0.10
 
+# Pinning specific version of neo4j
+neo4j==5.22.0
+
 # For assay type rules
 rule_engine==4.1.0
 
