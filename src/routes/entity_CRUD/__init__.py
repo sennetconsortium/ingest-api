@@ -867,6 +867,7 @@ def update_datasets_datastatus(app_context):
             logger.info("File exists...")
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             logger.info("Has metadata...")
+            logger.info(f"UUID: {dataset.get('uuid')}, Access Level: {dataset.get('data_access_level')}, Group: {dataset.get('group_name')}")
             has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
             dataset['has_data'] = has_data
             dataset['has_dataset_metadata'] = has_dataset_metadata
