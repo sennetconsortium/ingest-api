@@ -6,6 +6,8 @@ import os
 import time
 from hubmap_sdk import Entity, EntitySdk
 from threading import Thread
+
+from neo4j import unit_of_work
 from redis import from_url
 
 from hubmap_commons.hm_auth import AuthHelper
@@ -666,50 +668,122 @@ def dataset_data_status():
     return jsonify({"data": combined_results, "last_updated": last_updated})
 
 
+@unit_of_work(timeout=10)
+def all_datasets_query(tx):
+    all_datasets_query = (
+        "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
+        "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
+        "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
+        "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
+        "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
+        "ancestor.entity_type AS ancestor_entity_type"
+    )
+    result = tx.run(all_datasets_query)
+    return result.data()
+
+
+@unit_of_work(timeout=10)
+def organ_query(tx):
+    organ_query = (
+        "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
+    )
+    result = tx.run(organ_query)
+    return result.data()
+
+
+@unit_of_work(timeout=10)
+def source_query(tx):
+    source_query = (
+        "MATCH (ds:Dataset)-[*]->(dn:Source) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "RETURN DISTINCT ds.uuid AS uuid, "
+        "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
+        "COLLECT(DISTINCT dn.source_type) AS source_type, "
+        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
+    )
+    result = tx.run(source_query)
+    return result.data()
+
+
+@unit_of_work(timeout=10)
+def processed_datasets_query(tx):
+    processed_datasets_query = (
+        "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
+        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
+    )
+    result = tx.run(processed_datasets_query)
+    return result.data()
+
+
+@unit_of_work(timeout=10)
+def upload_query(tx):
+    upload_query = (
+        "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
+        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
+    )
+    result = tx.run(upload_query)
+    return result.data()
+
+
+@unit_of_work(timeout=10)
+def has_rui_query(tx):
+    has_rui_query = (
+        "MATCH (ds:Dataset) "
+        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
+        "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
+    )
+    result = tx.run(has_rui_query)
+    return result.data()
+
+
 def update_datasets_datastatus(app_context):
     with app_context:
         organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
-        all_datasets_query = (
-            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
-            "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
-            "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
-            "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
-            "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
-            "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
-            "ancestor.entity_type AS ancestor_entity_type"
-        )
+        # all_datasets_query = (
+        #     "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+        #     "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
+        #     "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
+        #     "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
+        #     "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
+        #     "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
+        #     "ancestor.entity_type AS ancestor_entity_type"
+        # )
 
-        organ_query = (
-            "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
-            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-            "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
-        )
+        # organ_query = (
+        #     "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
+        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        #     "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
+        # )
 
-        source_query = (
-            "MATCH (ds:Dataset)-[*]->(dn:Source) "
-            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-            "RETURN DISTINCT ds.uuid AS uuid, "
-            "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
-            "COLLECT(DISTINCT dn.source_type) AS source_type, "
-            "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
-        )
+        # source_query = (
+        #     "MATCH (ds:Dataset)-[*]->(dn:Source) "
+        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        #     "RETURN DISTINCT ds.uuid AS uuid, "
+        #     "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
+        #     "COLLECT(DISTINCT dn.source_type) AS source_type, "
+        #     "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
+        # )
 
-        processed_datasets_query = (
-            "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-            "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
-        )
+        # processed_datasets_query = (
+        #     "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
+        #     "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
+        # )
 
-        upload_query = (
-            "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
-            "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
-        )
+        # upload_query = (
+        #     "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
+        #     "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
+        # )
 
-        has_rui_query = (
-            "MATCH (ds:Dataset) "
-            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-            "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
-            "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
-        )
+        # has_rui_query = (
+        #     "MATCH (ds:Dataset) "
+        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+        #     "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
+        #     "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
+        # )
 
         displayed_fields = [
             "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
@@ -718,15 +792,27 @@ def update_datasets_datastatus(app_context):
             "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
         ]
 
-        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
-        results = [None] * len(queries)
-        threads = []
-        for i, query in enumerate(queries):
-            thread = Thread(target=run_query, args=(query, results, i))
-            thread.start()
-            threads.append(thread)
-        for thread in threads:
-            thread.join()
+        # queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
+        # results = [None] * len(queries)
+        # threads = []
+        # for i, query in enumerate(queries):
+        #     thread = Thread(target=run_query, args=(query, results, i))
+        #     thread.name = query
+        #     thread.start()
+        #     threads.append(thread)
+        # for thread in threads:
+        #     thread.join()
+
+        results = []
+        with Neo4jHelper.get_instance().session() as session:
+            results.append(session.execute_read(all_datasets_query))
+            results.append(session.execute_read(organ_query))
+            results.append(session.execute_read(source_query))
+            results.append(session.execute_read(processed_datasets_query))
+            results.append(session.execute_read(upload_query))
+            results.append(session.execute_read(has_rui_query))
+
+
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
         all_datasets_result = results[0]
