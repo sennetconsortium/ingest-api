@@ -215,7 +215,7 @@ if app.config.get("REDIS_MODE"):
             func=update_uploads_datastatus,
             args=[app.app_context()],
             trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
-            name="Initial run of Dataset Data Status Job"
+            name="Initial run of Upload Data Status Job"
         )
 
 # For local development/testing
