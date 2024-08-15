@@ -3,8 +3,12 @@ globus_sdk==2.0.1
 hubmap-sdk==1.0.7
 Werkzeug==3.0.3
 
-# Pinning specific version of neo4j
-neo4j==5.22.0
+# Use pinned version of jsonref same as commons
+jsonref==0.3.0
+jsonschema==3.2.0
+neo4j==5.20.0
+selenium==3.141.0
+PyYAML==6.0
 
 # The commons package requires requests>=2.22.0
 requests==2.32.0
