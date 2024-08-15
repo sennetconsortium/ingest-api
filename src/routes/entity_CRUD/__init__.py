@@ -805,11 +805,17 @@ def update_datasets_datastatus(app_context):
 
         results = []
         with Neo4jHelper.get_instance().session() as session:
+            logger.info("all_datasets_query")
             results.append(session.execute_read(all_datasets_query))
+            logger.info("organ_query")
             results.append(session.execute_read(organ_query))
+            logger.info("source_query")
             results.append(session.execute_read(source_query))
+            logger.info("processed_datasets_query")
             results.append(session.execute_read(processed_datasets_query))
+            logger.info("upload_query")
             results.append(session.execute_read(upload_query))
+            logger.info("has_rui_info")
             results.append(session.execute_read(has_rui_query))
 
 
