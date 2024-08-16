@@ -7,7 +7,6 @@ import time
 from hubmap_sdk import Entity, EntitySdk
 from threading import Thread
 
-from neo4j import unit_of_work
 from redis import from_url
 
 from hubmap_commons.hm_auth import AuthHelper
@@ -749,21 +748,6 @@ def update_datasets_datastatus(app_context):
             threads.append(thread)
         for thread in threads:
             thread.join()
-
-        results = []
-        with Neo4jHelper.get_instance().session() as session:
-            logger.info("all_datasets_query")
-            results.append(session.execute_read(all_datasets_query))
-            logger.info("organ_query")
-            results.append(session.execute_read(organ_query))
-            logger.info("source_query")
-            results.append(session.execute_read(source_query))
-            logger.info("processed_datasets_query")
-            results.append(session.execute_read(processed_datasets_query))
-            logger.info("upload_query")
-            results.append(session.execute_read(upload_query))
-            logger.info("has_rui_info")
-            results.append(session.execute_read(has_rui_query))
 
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
