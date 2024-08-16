@@ -15,7 +15,8 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.decorator import User, require_data_admin, require_json
-from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, abort_not_found, rest_response
+from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, \
+    abort_not_found, rest_response
 from atlas_consortia_commons.string import equals
 from rq.job import JobStatus
 
@@ -69,8 +70,11 @@ def create_dataset():
         ingest_helper = IngestFileHelper(current_app.config)
         requested_group_uuid = auth_helper_instance.get_write_group_uuid(token, requested_group_uuid)
         dataset_request['group_uuid'] = requested_group_uuid
-        post_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset'
-        response = requests.post(post_url, json=dataset_request, headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'}, verify=False)
+        post_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset'
+        response = requests.post(post_url, json=dataset_request,
+                                 headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
+                                 verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
         new_dataset = response.json()
@@ -91,7 +95,8 @@ def multiple_components():
         return Response("json request required", 400)
     try:
         component_request = request.json
-        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
+        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'],
+                                                     current_app.config['APP_CLIENT_SECRET'])
         auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
         if isinstance(auth_tokens, Response):
             return auth_tokens
@@ -107,9 +112,13 @@ def multiple_components():
         for dataset in json_data_dict.get('datasets'):
             if 'dataset_link_abs_dir' in dataset:
                 if not os.path.exists(dataset['dataset_link_abs_dir']):
-                    return Response(f"The filepath specified with 'dataset_link_abs_dir' does not exist: {dataset['dataset_link_abs_dir']}", 400)
+                    return Response(
+                        f"The filepath specified with 'dataset_link_abs_dir' does not exist: {dataset['dataset_link_abs_dir']}",
+                        400)
                 if not os.path.isdir(dataset['dataset_link_abs_dir']):
-                    return Response(f"The filepath specified with 'dataset_link_abs_dir is not a directory: {dataset['dataset_link_abs_dir']}", 400)
+                    return Response(
+                        f"The filepath specified with 'dataset_link_abs_dir is not a directory: {dataset['dataset_link_abs_dir']}",
+                        400)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
@@ -123,8 +132,11 @@ def multiple_components():
         ingest_helper = IngestFileHelper(current_app.config)
         requested_group_uuid = auth_helper.get_write_group_uuid(token, requested_group_uuid)
         component_request['group_uuid'] = requested_group_uuid
-        post_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'datasets/components'
-        response = requests.post(post_url, json=component_request, headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'}, verify=False)
+        post_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'datasets/components'
+        response = requests.post(post_url, json=component_request,
+                                 headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
+                                 verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
         new_datasets_list = response.json()
@@ -133,7 +145,8 @@ def multiple_components():
             # The property `dataset_link_abs_dir` will contain the filepath to the existing directory located inside the primary multi-assay
             # directory. We need to create a symlink to the aforementioned directory at the path for the newly created datsets.
             if 'dataset_link_abs_dir' in dataset:
-                new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid, dataset['uuid'])
+                new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid,
+                                                                                       dataset['uuid'])
                 logger.info(
                     f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
                 os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
@@ -303,7 +316,9 @@ def get_file_system_absolute_path(uuid: str):
         if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=auth_header):
             return abort_bad_req(f"Entity with uuid: {uuid} is not a Dataset, Publication or upload")
     except HTTPException as hte:
-        return Response(f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(), hte.get_status_code())
+        return Response(
+            f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(),
+            hte.get_status_code())
 
     path = ingest_helper.get_dataset_directory_absolute_path(dict(entity), group_uuid, uuid)
     return jsonify({'path': path}), 200
@@ -365,7 +380,9 @@ def get_multiple_file_system_absolute_paths(uuids: list):
             if not get_entity_type_instanceof(entity_type, 'Dataset', auth_header=auth_header):
                 return abort_bad_req(f"Entity with uuid: {uuid} is not a Dataset, Publication or upload")
         except HTTPException as hte:
-            return Response(f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(), hte.get_status_code())
+            return Response(
+                f"Error while getting file-system-abs-path for entity with uuid {uuid} " + hte.get_description(),
+                hte.get_status_code())
 
         path = ingest_helper.get_dataset_directory_absolute_path(dict(entity), group_uuid, uuid)
         res.append({'uuid': uuid, 'path': path})
@@ -394,7 +411,8 @@ def get_file_system_relative_path():
             ingest_helper = IngestFileHelper(current_app.config)
             if ent_type == 'upload':
                 path = ingest_helper.get_upload_directory_relative_path(group_uuid=group_uuid, upload_uuid=dset['uuid'])
-            elif get_entity_type_instanceof(ent_type, 'Dataset', auth_header="Bearer " + auth_helper_instance.getProcessSecret()):
+            elif get_entity_type_instanceof(ent_type, 'Dataset',
+                                            auth_header="Bearer " + auth_helper_instance.getProcessSecret()):
                 is_phi = __get_dict_prop(dset, 'contains_human_genetic_sequences')
                 if group_uuid is None:
                     error_id = {'id': ds_uuid, 'message': 'Unable to find group uuid on dataset', 'status_code': 400}
@@ -467,7 +485,8 @@ def __get_entity(entity_uuid, auth_header=None):
         headers = None
     else:
         headers = {'Authorization': auth_header, 'Accept': 'application/json', 'Content-Type': 'application/json'}
-    get_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + entity_uuid
+    get_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/' + entity_uuid
 
     response = requests.get(get_url, headers=headers, verify=False)
     if response.status_code != 200:
@@ -567,13 +586,13 @@ def submit_dataset(uuid):
             }
             logger.info('Request_ingest_payload : ' + json.dumps(request_ingest_payload, indent=4, default=str))
             airflow_first_stop = time.time()
-            logger.info('Time to call pipeline: ' + str(airflow_first_stop-airflow_start))
+            logger.info('Time to call pipeline: ' + str(airflow_first_stop - airflow_start))
             r = requests.post(pipeline_url, json=request_ingest_payload,
                               headers={'Content-Type': 'application/json', 'Authorization': 'Bearer {token}'.format(
                                   token=AuthHelper.instance().getProcessSecret())}, verify=False)
             if r.ok:
                 airflow_second_stop = time.time()
-                logger.info('Time to get response from airflow: ' + str(airflow_second_stop-airflow_start))
+                logger.info('Time to get response from airflow: ' + str(airflow_second_stop - airflow_start))
                 """expect data like this:
                 {"ingest_id": "abc123", "run_id": "run_657-xyz", "overall_file_count": "99", "top_folder_contents": "["IMS", "processed_microscopy","raw_microscopy","VAN0001-RK-1-spatial_meta.txt"]"}
                 """
@@ -668,122 +687,50 @@ def dataset_data_status():
     return jsonify({"data": combined_results, "last_updated": last_updated})
 
 
-@unit_of_work(timeout=10)
-def all_datasets_query(tx):
-    all_datasets_query = (
-        "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
-        "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
-        "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
-        "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
-        "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
-        "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
-        "ancestor.entity_type AS ancestor_entity_type"
-    )
-    result = tx.run(all_datasets_query)
-    return result.data()
-
-
-@unit_of_work(timeout=10)
-def organ_query(tx):
-    organ_query = (
-        "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
-        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
-    )
-    result = tx.run(organ_query)
-    return result.data()
-
-
-@unit_of_work(timeout=10)
-def source_query(tx):
-    source_query = (
-        "MATCH (ds:Dataset)-[*]->(dn:Source) "
-        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        "RETURN DISTINCT ds.uuid AS uuid, "
-        "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
-        "COLLECT(DISTINCT dn.source_type) AS source_type, "
-        "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
-    )
-    result = tx.run(source_query)
-    return result.data()
-
-
-@unit_of_work(timeout=10)
-def processed_datasets_query(tx):
-    processed_datasets_query = (
-        "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-        "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
-    )
-    result = tx.run(processed_datasets_query)
-    return result.data()
-
-
-@unit_of_work(timeout=10)
-def upload_query(tx):
-    upload_query = (
-        "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
-        "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
-    )
-    result = tx.run(upload_query)
-    return result.data()
-
-
-@unit_of_work(timeout=10)
-def has_rui_query(tx):
-    has_rui_query = (
-        "MATCH (ds:Dataset) "
-        "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
-        "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
-    )
-    result = tx.run(has_rui_query)
-    return result.data()
-
-
 def update_datasets_datastatus(app_context):
     with app_context:
         organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
-        # all_datasets_query = (
-        #     "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
-        #     "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
-        #     "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
-        #     "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
-        #     "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
-        #     "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
-        #     "ancestor.entity_type AS ancestor_entity_type"
-        # )
+        all_datasets_query = (
+            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+            "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
+            "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
+            "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
+            "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
+            "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
+            "ancestor.entity_type AS ancestor_entity_type"
+        )
 
-        # organ_query = (
-        #     "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
-        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        #     "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
-        # )
+        organ_query = (
+            "MATCH (ds:Dataset)-[*]->(o:Sample {sample_category: 'Organ'}) "
+            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+            "RETURN DISTINCT ds.uuid AS uuid, o.organ AS organ, o.sennet_id as organ_sennet_id, o.uuid as organ_uuid "
+        )
 
-        # source_query = (
-        #     "MATCH (ds:Dataset)-[*]->(dn:Source) "
-        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        #     "RETURN DISTINCT ds.uuid AS uuid, "
-        #     "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
-        #     "COLLECT(DISTINCT dn.source_type) AS source_type, "
-        #     "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
-        # )
+        source_query = (
+            "MATCH (ds:Dataset)-[*]->(dn:Source) "
+            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+            "RETURN DISTINCT ds.uuid AS uuid, "
+            "COLLECT(DISTINCT dn.sennet_id) AS source_sennet_id, "
+            "COLLECT(DISTINCT dn.source_type) AS source_type, "
+            "COLLECT(DISTINCT dn.lab_source_id) AS source_lab_id, COALESCE(dn.metadata IS NOT NULL AND dn.metadata <> '{}') AS has_donor_metadata"
+        )
 
-        # processed_datasets_query = (
-        #     "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-        #     "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
-        # )
+        processed_datasets_query = (
+            "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
+            "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
+        )
 
-        # upload_query = (
-        #     "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
-        #     "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
-        # )
+        upload_query = (
+            "MATCH (u:Upload)<-[:IN_UPLOAD]-(ds) "
+            "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT u.sennet_id) AS upload"
+        )
 
-        # has_rui_query = (
-        #     "MATCH (ds:Dataset) "
-        #     "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-        #     "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
-        #     "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
-        # )
+        has_rui_query = (
+            "MATCH (ds:Dataset) "
+            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
+            "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
+            "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
+        )
 
         displayed_fields = [
             "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
@@ -792,16 +739,16 @@ def update_datasets_datastatus(app_context):
             "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
         ]
 
-        # queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
-        # results = [None] * len(queries)
-        # threads = []
-        # for i, query in enumerate(queries):
-        #     thread = Thread(target=run_query, args=(query, results, i))
-        #     thread.name = query
-        #     thread.start()
-        #     threads.append(thread)
-        # for thread in threads:
-        #     thread.join()
+        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
+        results = [None] * len(queries)
+        threads = []
+        for i, query in enumerate(queries):
+            thread = Thread(target=run_query, args=(query, results, i))
+            thread.name = query
+            thread.start()
+            threads.append(thread)
+        for thread in threads:
+            thread.join()
 
         results = []
         with Neo4jHelper.get_instance().session() as session:
@@ -817,7 +764,6 @@ def update_datasets_datastatus(app_context):
             results.append(session.execute_read(upload_query))
             logger.info("has_rui_info")
             results.append(session.execute_read(has_rui_query))
-
 
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
@@ -857,18 +803,22 @@ def update_datasets_datastatus(app_context):
             combined_results.append(output_dict[uuid])
 
         for dataset in combined_results:
-            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'), dataset.get('uuid'))
+            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'),
+                                        dataset.get('uuid'))
             logger.info(f"Globus URL: {globus_url}")
             dataset['globus_url'] = globus_url
 
-            dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
+            dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset[
+                'published_timestamp']
             dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
 
             logger.info("File exists...")
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             logger.info("Has metadata...")
-            logger.info(f"UUID: {dataset.get('uuid')}, Access Level: {dataset.get('data_access_level')}, Group: {dataset.get('group_name')}")
-            has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'), metadata=True)
+            logger.info(
+                f"UUID: {dataset.get('uuid')}, Access Level: {dataset.get('data_access_level')}, Group: {dataset.get('group_name')}")
+            has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'),
+                                               dataset.get('group_name'), metadata=True)
             dataset['has_data'] = has_data
             dataset['has_dataset_metadata'] = has_dataset_metadata
 
@@ -889,11 +839,13 @@ def update_datasets_datastatus(app_context):
                     dataset[prop] = ""
                 if prop == 'processed_datasets':
                     for processed in dataset['processed_datasets']:
-                        processed['globus_url'] = get_globus_url(processed.get('data_access_level'), processed.get('group_name'), processed.get('uuid'))
+                        processed['globus_url'] = get_globus_url(processed.get('data_access_level'),
+                                                                 processed.get('group_name'), processed.get('uuid'))
             for field in displayed_fields:
                 if dataset.get(field) is None:
                     dataset[field] = ""
-            if (dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']) or (dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
+            if (dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']) or (
+                    dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
                 dataset['has_rui_info'] = "not-applicable"
             if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
                 dataset['organ'] = organ_types_dict[dataset['organ']]
@@ -1007,7 +959,8 @@ def publish_datastage(identifier):
         if identifier is None or len(identifier) == 0:
             abort_bad_req('identifier parameter is required to publish a dataset')
 
-        url = commons_file_helper.ensureTrailingSlashURL(current_app.config['UUID_WEBSERVICE_URL']) + "uuid/" + identifier
+        url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['UUID_WEBSERVICE_URL']) + "uuid/" + identifier
         r = requests.get(url, headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
             abort_not_found("Cannot find specimen with identifier: " + identifier)
@@ -1064,7 +1017,8 @@ def publish_datastage(identifier):
                         uuids_for_public.append(uuid)
                 elif entity_type == 'Dataset':
                     if status != 'Published':
-                        abort_bad_req(f"{dataset_uuid} has an ancestor dataset that has not been Published. Will not Publish. Ancestor dataset is: {uuid}")
+                        abort_bad_req(
+                            f"{dataset_uuid} has an ancestor dataset that has not been Published. Will not Publish. Ancestor dataset is: {uuid}")
 
             if has_source is False:
                 abort_bad_req(f"{dataset_uuid}: no source found for dataset, will not Publish")
@@ -1093,7 +1047,8 @@ def publish_datastage(identifier):
                     dataset_ingest_metadata_dict: dict = string_helper.convert_str_literal(dataset_ingest_metadata)
                 logger.info(f"publish_datastage; ingest_metadata: {dataset_ingest_metadata_dict}")
 
-            if not get_entity_type_instanceof(dataset_entitytype, 'Dataset', auth_header="Bearer " + auth_helper.getProcessSecret()):
+            if not get_entity_type_instanceof(dataset_entitytype, 'Dataset',
+                                              auth_header="Bearer " + auth_helper.getProcessSecret()):
                 abort_bad_req(f"{dataset_uuid} is not a dataset will not Publish, entity type is {dataset_entitytype}")
             if not dataset_status == 'QA':
                 abort_bad_req(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}")
@@ -1105,7 +1060,8 @@ def publish_datastage(identifier):
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(dataset_uuid)
 
-            logger.info(f'is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}')
+            logger.info(
+                f'is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}')
 
             if is_primary or has_entity_lab_processed_dataset_type:
                 if dataset_contacts is None or dataset_contributors is None:
@@ -1116,7 +1072,8 @@ def publish_datastage(identifier):
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
 
             ingest_helper = IngestFileHelper(current_app.config)
-            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
+            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
+                                                                    dataset_uuid, False)
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
             if is_primary or is_component is False:
                 md_file = os.path.join(ds_path, "metadata.json")
@@ -1160,14 +1117,17 @@ def publish_datastage(identifier):
                     datacite_doi_helper.create_dataset_draft_doi(entity_dict, check_publication_status=False)
                 except Exception as e:
                     logger.exception(f"Exception while creating a draft doi for {dataset_uuid}: {e}")
-                    return jsonify({"error": f"Error occurred while trying to create a draft doi for {dataset_uuid}. {e}"}), 500
+                    return jsonify(
+                        {"error": f"Error occurred while trying to create a draft doi for {dataset_uuid}. {e}"}), 500
 
                 # This will make the draft DOI created above 'findable'....
                 try:
                     doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
                 except Exception as e:
-                    logger.exception(f"Exception while creating making doi findable and saving to entity for {dataset_uuid}: {e}")
-                    return jsonify({"error": f"Error occurred while trying to change doi draft state to findable doi for {dataset_uuid}. {e}"}), 500
+                    logger.exception(
+                        f"Exception while creating making doi findable and saving to entity for {dataset_uuid}: {e}")
+                    return jsonify({
+                                       "error": f"Error occurred while trying to change doi draft state to findable doi for {dataset_uuid}. {e}"}), 500
 
             doi_update_clause = ""
             if doi_info is not None:
@@ -1181,9 +1141,9 @@ def publish_datastage(identifier):
 
             # add Published status change to status history
             status_update = {
-               "status": "Published",
-               "changed_by_email": user_info['email'],
-               "change_timestamp": "@#TIMESTAMP#@"
+                "status": "Published",
+                "changed_by_email": user_info['email'],
+                "change_timestamp": "@#TIMESTAMP#@"
             }
             status_history_list.append(status_update)
             # convert from list to string that is used for storage in database
@@ -1225,10 +1185,12 @@ def publish_datastage(identifier):
         if not no_indexing_and_acls:
             for source_uuid in sources_to_reindex:
                 try:
-                    rspn = requests.put(current_app.config['SEARCH_WEBSERVICE_URL'] + "/reindex/" + source_uuid, headers={'Authorization': request.headers["AUTHORIZATION"]})
+                    rspn = requests.put(current_app.config['SEARCH_WEBSERVICE_URL'] + "/reindex/" + source_uuid,
+                                        headers={'Authorization': request.headers["AUTHORIZATION"]})
                     logger.info(f"Publishing {identifier} indexed source {source_uuid} with status {rspn.status_code}")
                 except Exception:
-                    logger.exception(f"While publishing {identifier} Error happened when calling reindex web service for source {source_uuid}")
+                    logger.exception(
+                        f"While publishing {identifier} Error happened when calling reindex web service for source {source_uuid}")
 
         return Response(json.dumps(r_val), 200, mimetype='application/json')
 
@@ -1241,19 +1203,23 @@ def publish_datastage(identifier):
 
 def dataset_has_entity_lab_processed_data_type(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid")
+        q = (
+            f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
             return False
         return True
 
+
 def dataset_is_primary(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
+        q = (
+            f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
         result = neo_session.run(q).data()
         if len(result) == 0:
             return False
         return True
+
 
 def get_primary_ancestor_globus_path(entity_dict):
     ancestor = None
@@ -1265,9 +1231,11 @@ def get_primary_ancestor_globus_path(entity_dict):
                 break
     if ancestor is not None:
         ingest_helper = IngestFileHelper(current_app.config)
-        origin_path = ingest_helper.get_dataset_directory_absolute_path(ancestor, ancestor['group_uuid'], ancestor['uuid'])
+        origin_path = ingest_helper.get_dataset_directory_absolute_path(ancestor, ancestor['group_uuid'],
+                                                                        ancestor['uuid'])
 
     return origin_path
+
 
 ####################################################################################################
 ## Uploads API Endpoints
@@ -1312,7 +1280,8 @@ def create_uploadstage():
         return Response("json request required", 400)
     try:
         upload_request = request.json
-        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'], current_app.config['APP_CLIENT_SECRET'])
+        auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'],
+                                                     current_app.config['APP_CLIENT_SECRET'])
         auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
         if isinstance(auth_tokens, Response):
             return auth_tokens
@@ -1330,7 +1299,8 @@ def create_uploadstage():
         ingest_helper = IngestFileHelper(current_app.config)
         requested_group_uuid = auth_helper.get_write_group_uuid(token, requested_group_uuid)
         upload_request['group_uuid'] = requested_group_uuid
-        post_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/upload'
+        post_url = commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/upload'
         response = requests.post(post_url, json=upload_request, headers=get_auth_header_dict(token), verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
@@ -1378,6 +1348,7 @@ def submit_upload(upload_uuid):
 
     return Response(resp.text, resp.status_code)
 
+
 # method to validate an Upload
 # saves the upload then calls the validate workflow via
 # AirFlow interface
@@ -1423,12 +1394,12 @@ def validate_upload(upload_uuid):
 
     return Response(resp.text, resp.status_code)
 
+
 # method to reorganize an Upload
 # saves the upload then calls the reorganize workflow via
 # AirFlow interface
 @entity_CRUD_blueprint.route('/uploads/<upload_uuid>/reorganize', methods=['PUT'])
 def reorganize_upload(upload_uuid):
-
     # get auth info to use in other calls
     # add the app specific header info
     http_headers = {
@@ -1451,7 +1422,8 @@ def reorganize_upload(upload_uuid):
 
     # disable validations stuff for now...
     # call the AirFlow validation workflow
-    validate_url = commons_file_helper.ensureTrailingSlashURL(current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
+    validate_url = commons_file_helper.ensureTrailingSlashURL(
+        current_app.config['INGEST_PIPELINE_URL']) + 'uploads/' + upload_uuid + "/reorganize"
     # Disable ssl certificate verification
     resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
     if resp2.status_code >= 300:
