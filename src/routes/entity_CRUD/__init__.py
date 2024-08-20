@@ -1,5 +1,6 @@
+import json
 from uuid import uuid4
-from flask import Blueprint, jsonify, request, Response, current_app, json
+from flask import Blueprint, Response, current_app, jsonify, request
 import logging
 import requests
 import os
@@ -804,28 +805,44 @@ def update_datasets_datastatus(app_context):
             for prop in dataset:
                 if isinstance(dataset[prop], list) and prop != 'processed_datasets':
                     dataset[prop] = ", ".join(dataset[prop])
+
                 if isinstance(dataset[prop], (bool)):
                     dataset[prop] = str(dataset[prop])
-                if isinstance(dataset[prop], str) and \
-                        len(dataset[prop]) >= 2 and \
-                        dataset[prop][0] == "[" and dataset[prop][-1] == "]":
-                    prop_as_list = string_helper.convert_str_literal(dataset[prop])
-                    if len(prop_as_list) > 0:
-                        dataset[prop] = prop_as_list
-                    else:
-                        dataset[prop] = ""
+
+                if (
+                    isinstance(dataset[prop], str)
+                    and len(dataset[prop]) >= 2
+                    and dataset[prop][0] == "[" and dataset[prop][-1] == "]"
+                ):
+                    # For cases like `"ingest_task": "[Empty directory]"` we should not
+                    # convert to a list. Converting will cause a ValueError. Leave it
+                    # as the original value and move on
+                    try:
+                        prop_as_list = string_helper.convert_str_literal(dataset[prop])
+                        if len(prop_as_list) > 0:
+                            dataset[prop] = prop_as_list
+                        else:
+                            dataset[prop] = ""
+                    except ValueError:
+                        pass
+
                 if dataset[prop] is None:
                     dataset[prop] = ""
+
                 if prop == 'processed_datasets':
                     for processed in dataset['processed_datasets']:
                         processed['globus_url'] = get_globus_url(processed.get('data_access_level'),
-                                                                 processed.get('group_name'), processed.get('uuid'))
+                                                                 processed.get('group_name'),
+                                                                 processed.get('uuid'))
+
             for field in displayed_fields:
                 if dataset.get(field) is None:
                     dataset[field] = ""
+
             if (dataset.get('organ') and dataset['organ'].upper() in ['AD', 'BD', 'BM', 'BS', 'MU', 'OT']) or (
                     dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
                 dataset['has_rui_info'] = "not-applicable"
+
             if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
                 dataset['organ'] = organ_types_dict[dataset['organ']]
 
@@ -887,21 +904,34 @@ def update_uploads_datastatus(app_context):
                 for prop in upload:
                     if isinstance(upload[prop], list):
                         upload[prop] = ", ".join(upload[prop])
+
                     if isinstance(upload[prop], (bool, int)):
                         upload[prop] = str(upload[prop])
-                    if isinstance(upload[prop], str) and \
-                            len(upload[prop]) >= 2 and \
-                            upload[prop][0] == "[" and upload[prop][-1] == "]":
-                        prop_as_list = string_helper.convert_str_literal(upload[prop])
-                        if len(prop_as_list) > 0:
-                            upload[prop] = prop_as_list
-                        else:
-                            upload[prop] = ""
+
+                    if (
+                        isinstance(upload[prop], str)
+                        and len(upload[prop]) >= 2
+                        and upload[prop][0] == "[" and upload[prop][-1] == "]"
+                    ):
+                        # For cases like `"ingest_task": "[Empty directory]"` we should not
+                        # convert to a list. Converting will cause a ValueError. Leave it
+                        # as the original value and move on
+                        try:
+                            prop_as_list = string_helper.convert_str_literal(upload[prop])
+                            if len(prop_as_list) > 0:
+                                upload[prop] = prop_as_list
+                            else:
+                                upload[prop] = ""
+                        except ValueError:
+                            pass
+
                     if upload[prop] is None:
                         upload[prop] = ""
+
                 for field in displayed_fields:
                     if upload.get(field) is None:
                         upload[field] = ""
+
         # TODO: Once url parameters are implemented in the front-end for the data-status dashboard, we'll need to return a
         # TODO: link to the datasets page only displaying datasets belonging to a given upload.
         try:
