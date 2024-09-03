@@ -1,3 +1,4 @@
+import ast
 import json
 from uuid import uuid4
 from flask import Blueprint, Response, current_app, jsonify, request
@@ -1075,9 +1076,7 @@ def publish_datastage(identifier):
             if is_primary or has_entity_lab_processed_dataset_type:
                 if dataset_contacts is None or dataset_contributors is None:
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
-                dataset_contacts = dataset_contacts.replace("'", '"')
-                dataset_contributors = dataset_contributors.replace("'", '"')
-                if len(json.loads(dataset_contacts)) < 1 or len(json.loads(dataset_contributors)) < 1:
+                if len(ast.literal_eval(dataset_contacts)) < 1 or len(ast.literal_eval(dataset_contributors)) < 1:
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
 
             ingest_helper = IngestFileHelper(current_app.config)
