@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   description: |
     A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
-  version: 1.4.12
+  version: 1.4.15
   title: SenNet Ingest API
   contact:
     name: SenNet Help Desk
@@ -350,6 +350,23 @@ components:
           readOnly: true
           description: The displayname of globus group which the user who created this Entity is a member of
 
+    AssayTypeReturnDict:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        primary:
+          type: boolean
+        vitessce-hints:
+          type: array
+          items:
+            type: string
+
+    Metadata:
+      type: object
+
 paths:
   /datasets:
     post:
@@ -595,6 +612,19 @@ paths:
                   error:
                     type: string
 
+  /metadata/data-provider-groups:
+    get:
+      tags:
+        - metadata
+      summary: Returns an array of nested objects containing information pertaining to all Data Provider groups.
+      responses:
+        "200":
+          description: The JSON containing an array of data provider group information
+        "401":
+          description: User's token is not valid
+        "500":
+          description: An unexpected error occurred
+
   /sources/bulk/validate:
     post:
       tags:
@@ -839,4 +869,78 @@ paths:
         "401":
           description: User's token is not valid
         "500":
-          description: An unexpected error occured
+          description: An unexpected error occurred
+
+
+  '/assaytype/{ds_uuid}':
+    get:
+      tags:
+        - assaytype
+      summary: Runs through the assay classifier with the provided Dataset to determine an assaytype
+      operationId: getAssayType
+      parameters:
+        - name: ds_uuid
+          in: path
+          description: The UUID of a Dataset
+          required: true
+          schema:
+             type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssayTypeReturnDict'
+        "400":
+          description: The user sent a bad parameter (e.g. a nonexistent group name) or there was a system error
+        "401":
+          description: User's token is not valid
+
+  '/assaytype/metadata/{ds_uuid}':
+    get:
+      tags:
+        - assaytype
+      summary: Get the metadata for a specific Dataset
+      operationId: getMetadata
+      parameters:
+        - name: ds_uuid
+          in: path
+          description: The UUID of a Dataset
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metadata'
+        "400":
+          description: The user sent a bad parameter (e.g. a nonexistent group name) or there was a system error
+        "401":
+          description: User's token is not valid
+
+  '/assaytype':
+    post:
+      tags:
+        - assaytype
+      summary: Runs through the assay classifier with the provided metadata to determine an assaytype
+      operationId: getAssaytypeFromMetadata
+      requestBody:
+        content:
+           application/json:
+             schema:
+               $ref: '#/components/schemas/Metadata'
+      responses:
+        "200":
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssayTypeReturnDict'
+        "400":
+          description: The user sent a bad parameter (e.g. a nonexistent group name) or there was a system error
+        "401":
+          description: User's token is not valid

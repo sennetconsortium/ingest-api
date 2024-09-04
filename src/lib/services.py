@@ -231,11 +231,13 @@ def bulk_update_entities(
         for idx, (uuid, payload) in enumerate(entity_updates.items()):
             try:
                 res = s.put(
-                    f"{entity_api_url}/entities/{uuid}", json=payload, timeout=15
+                    f"{entity_api_url}/entities/{uuid}?return_dict=true",
+                    json=payload,
+                    timeout=15,
                 )
                 results[uuid] = {
                     "success": res.ok,
-                    "data": res.json() if res.ok else res.json().get("error"),
+                    "data": res.json() if res.ok else error_msg(res.json()),
                 }
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to update entity {uuid}: {e}")
@@ -322,7 +324,7 @@ def bulk_create_entities(
                 results.append(
                     {
                         "success": res.ok,
-                        "data": res.json() if res.ok else res.json().get("error"),
+                        "data": res.json() if res.ok else error_msg(res.json()),
                     }
                 )
             except requests.exceptions.RequestException as e:
@@ -336,3 +338,24 @@ def bulk_create_entities(
                 time.sleep(throttle)
 
     return results
+
+
+def error_msg(json_res: dict) -> str:
+    """Get the error message from the json response.
+
+    Parameters
+    ----------
+    json_res : dict
+        The json response from the request.
+
+    Returns
+    -------
+    str
+        The error message from the json response.
+    """
+    if "error" in json_res:
+        return json_res["error"]
+    if "message" in json_res:
+        return json_res["message"]
+
+    return str(json_res)

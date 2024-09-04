@@ -73,9 +73,11 @@ def check_upload(key: str = "file"):
 
     except Exception as e:
         if hasattr(e, "code"):
-            return rest_response(e.code, e.name, e.description, True)
+            logger.error(f"check_upload error: {e}, code: {e.code}")
+            abort_internal_err("Internal Server Error")
         else:
-            return rest_server_err(e, True)
+            logger.error(f"check_upload error: {e}")
+            abort_internal_err("Internal Server Error")
 
 
 def ln_err(error: str, row: int = None, column: str = None) -> dict:
