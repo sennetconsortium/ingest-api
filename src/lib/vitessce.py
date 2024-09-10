@@ -53,7 +53,7 @@ def strip_extras(config: Union[str, dict], as_str: bool = False) -> Union[str, d
         config = config.replace("?token=None", "")
 
     if "&token=None" in config:
-        config = config.replace("?token=None", "")
+        config = config.replace("&token=None", "")
 
     if as_str:
         return config
