@@ -16,8 +16,8 @@ from lib.rule_chain import (
     build_entity_metadata,
     calculate_assay_info,
 )
-from lib.services import get_entity, get_entity_from_search_api
-from lib.vitessce import VitessceConfigCache
+from lib.services import get_entity
+from lib.vitessce import VitessceConfigCache, strip_extras
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
 logger = logging.getLogger(__name__)
@@ -71,6 +71,10 @@ def get_vitessce_config(ds_uuid: str):
 
         if cache:
             cache.set(entity["uuid"], config, groups_token)
+
+        if groups_token is None:
+            config = strip_extras(config)
+
         return jsonify(config), 200
 
     except ResponseException as re:
