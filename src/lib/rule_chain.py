@@ -140,6 +140,9 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
         metadata["data_types"] = calculate_data_types(entity)
 
     metadata["entity_type"] = entity.entity_type
+    if metadata["entity_type"].upper() in ["SOURCE", "SAMPLE"]:
+        raise ValueError(f"Entity is a {metadata['entity_type']}")
+    logger.info(f"Entity type is {metadata['entity_type']}")
     metadata["dag_provenance_list"] = dag_prov_list
     metadata["creation_action"] = entity.creation_action
 

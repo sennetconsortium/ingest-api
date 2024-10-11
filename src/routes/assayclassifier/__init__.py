@@ -42,6 +42,9 @@ def get_ds_assaytype(ds_uuid: str):
             apply_source_type_transformations(source_type, rule_value_set)
 
         return jsonify(rule_value_set)
+    except ValueError as excp:
+        logger.error(excp, exc_info=True)
+        return Response("Bad parameter: {excp}", 400)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
@@ -70,6 +73,9 @@ def get_ds_rule_metadata(ds_uuid: str):
         entity = get_entity(ds_uuid, token)
         metadata = build_entity_metadata(entity)
         return jsonify(metadata)
+    except ValueError as excp:
+        logger.error(excp, exc_info=True)
+        return Response("Bad parameter: {excp}", 400)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
