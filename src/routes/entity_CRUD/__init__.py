@@ -48,10 +48,15 @@ logger = logging.getLogger(__name__)
 
 
 @entity_CRUD_blueprint.route('/datasets', methods=['POST'])
+@entity_CRUD_blueprint.route('/publications', methods=['POST'])
 def create_dataset():
     if not request.is_json:
         return Response("json request required", 400)
 
+    if request.path.lower() == '/datasets':
+        entity_type = "dataset"
+    elif request.path.lower() == '/publications':
+        entity_type = "publication"
     try:
         dataset_request = request.json
         # Get the single Globus groups token for authorization
@@ -72,7 +77,7 @@ def create_dataset():
         requested_group_uuid = auth_helper_instance.get_write_group_uuid(token, requested_group_uuid)
         dataset_request['group_uuid'] = requested_group_uuid
         post_url = commons_file_helper.ensureTrailingSlashURL(
-            current_app.config['ENTITY_WEBSERVICE_URL']) + 'entities/dataset'
+            current_app.config['ENTITY_WEBSERVICE_URL']) + f'entities/{entity_type}'
         response = requests.post(post_url, json=dataset_request,
                                  headers={'Authorization': 'Bearer ' + token, 'X-SenNet-Application': 'ingest-api'},
                                  verify=False)
