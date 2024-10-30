@@ -1043,7 +1043,7 @@ def publish_datastage(identifier):
                 f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN "
                 "e.uuid as uuid, e.entity_type as entitytype, e.status as status, "
                 "e.data_access_level as data_access_level, e.group_uuid as group_uuid, "
-                "e.contacts as contacts, e.contributors as contributors"
+                "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
             )
             if is_primary:
                 q += ", e.ingest_metadata as ingest_metadata"
