@@ -118,7 +118,7 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     # This if block should catch primary datasets because primary datasets should
     # their metadata ingested as part of the reorganization.
     if hasattr(entity, "metadata"):
-        metadata = entity.ingest_metadata["metadata"]
+        metadata = entity.metadata
     else:
         # If there is no ingest-metadata, then it must be a derived dataset
         metadata["data_types"] = calculate_data_types(entity)
