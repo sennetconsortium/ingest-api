@@ -31,6 +31,7 @@ from routes.jobs import jobs_blueprint
 from routes.admin import admin_blueprint
 from routes.sources import sources_blueprint
 from routes.samples import samples_blueprint
+from routes.collections import collections_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
@@ -70,6 +71,7 @@ app.register_blueprint(jobs_blueprint)
 app.register_blueprint(admin_blueprint)
 app.register_blueprint(sources_blueprint)
 app.register_blueprint(samples_blueprint)
+app.register_blueprint(collections_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -202,8 +204,8 @@ if app.config.get("REDIS_MODE"):
             name="Update Upload Data Status Job"
         )
 
-        update_datasets_datastatus(app.app_context())
-        update_uploads_datastatus(app.app_context())
+        # update_datasets_datastatus(app.app_context())
+        # update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':

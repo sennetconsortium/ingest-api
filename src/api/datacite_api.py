@@ -39,18 +39,19 @@ class DataCiteApi:
     # https://support.datacite.org/reference/dois-2#post_dois
     # and https://docs.python.org/3/library/typing.html
     def create_new_draft_doi(self,
-                    dataset_hubmap_id: str, 
-                    dataset_uuid: str,
+                    sennet_id: str,
+                    uuid: str,
                     contributors: list, 
                     dataset_title: str,
                     publication_year: int,
-                    creators: list) -> object:
+                    creators: list,
+                    entity_type='Dataset') -> object:
         publisher = 'SenNet Consortium'
 
         # Draft DOI doesn't specify the 'event' attribute
         json = {
             'data': {
-                'id': dataset_hubmap_id,
+                'id': sennet_id,
                 'type': 'dois',
                 'attributes': {
                     # ==============ATTENTION==============
@@ -65,7 +66,7 @@ class DataCiteApi:
                     # https://schema.datacite.org/meta/kernel-4.3/doc/DataCite-MetadataKernel_v4.3.pdf#%5B%7B%22num%22%3A19%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C68%2C549%2C0%5D
 
                     # The globally unique string that identifies the resource and can't be changed
-                    'doi': self.build_doi_name(dataset_hubmap_id),
+                    'doi': self.build_doi_name(sennet_id),
                     # One or more names or titles by which the resource is known
                     'titles': [{
                         'title': dataset_title
@@ -77,10 +78,10 @@ class DataCiteApi:
                     'publicationYear': publication_year,  # Integer
                     # The general type of the resource
                     'types': {
-                        'resourceTypeGeneral': 'Dataset'
+                        'resourceTypeGeneral': entity_type
                     },
                     # The location of the landing page with more information about the resource
-                    'url': f"{self.redirect_prefix}/{dataset_uuid}"
+                    'url': f"{self.redirect_prefix}/{uuid}"
                 }
             }
         }
@@ -105,8 +106,8 @@ class DataCiteApi:
         return response
 
     # https://support.datacite.org/reference/dois-2#put_dois-id
-    def update_doi_event_publish(self, dataset_hubmap_id: str) -> object:
-        doi = self.build_doi_name(dataset_hubmap_id)
+    def update_doi_event_publish(self, sennet_id: str) -> object:
+        doi = self.build_doi_name(sennet_id)
         json = {
             'data': {
                 'id': doi,

@@ -205,7 +205,8 @@ class DataCiteDoiHelper:
         If the entity_type of the given Dataset is missing or the entity is not a Dataset
     """
     def move_doi_state_from_draft_to_findable(self, dataset: dict, user_token: str) -> dict:
-        if ('entity_type' in dataset) and (dataset['entity_type'] == 'Dataset'):
+        entity_types = ['Dataset', 'Collection', 'Epicollection']
+        if ('entity_type' in entity) and (entity['entity_type'] in entity_types):
             datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
                                        self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
             response = datacite_api.update_doi_event_publish(dataset['sennet_id'])
@@ -233,6 +234,56 @@ class DataCiteDoiHelper:
                 raise requests.exceptions.RequestException(response.text)
         else:
             raise KeyError('Either the entity_type of the given Dataset is missing or the entity is not a Dataset')
+
+    """
+        Register a draft DOI with DataCite for Collections
+
+        This is similar to create_dataset_draft_doi but for collections instead of datasets. As such, 
+        values like "status" are not included because collections don't have this value. Otherwise behaves
+        identically.
+
+        Draft DOIs may be updated to either Registered or Findable DOIs. 
+        Registered and Findable DOIs may not be returned to the Draft state, 
+        which means that changing the state of a Draft DOI is final. 
+        Draft DOIs remain until the DOI owner either deletes them or converts them to another state.
+
+        Parameters
+        ----------
+        dataset: dict
+            The dataset dict to be published
+
+        Returns
+        -------
+        dict
+            The registered DOI details
+        """
+
+    def create_collection_draft_doi(self, collection: dict) -> object:
+        datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
+                                   self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+        publication_year = int(datetime.now().year)
+        response = datacite_api.create_new_draft_doi(collection['sennet_id'],
+                                                     collection['uuid'],
+                                                     self.build_doi_contributors(collection),
+                                                     collection['title'],
+                                                     publication_year,
+                                                     self.build_doi_creators(collection),
+                                                     entity_type='Collection')
+        if response.status_code == 201:
+            logger.info(f"======Created draft DOI for collection {collection['uuid']} via DataCite======")
+            doi_data = response.json()
+            logger.debug("======resulting json from DataCite======")
+            logger.debug(doi_data)
+            return doi_data
+        else:
+            # Log the full stack trace, prepend a line with our message
+            logger.exception(f"Unable to create draft DOI for collection {collection['uuid']} via DataCite")
+            logger.debug(f'======Status code from DataCite {response.status_code} ======')
+            logger.debug("======response text from DataCite======")
+            logger.debug(response.text)
+
+            # Also bubble up the error message from DataCite
+            raise requests.exceptions.RequestException(response.text)
 
     """
     Update the dataset's properties in Entity-API after DOI is published (Draft -> Findable)
