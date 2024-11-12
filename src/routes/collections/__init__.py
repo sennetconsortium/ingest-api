@@ -10,7 +10,7 @@ from hubmap_commons.exceptions import HTTPException
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
 
-from commons.atlas_consortia_commons.rest import abort_forbidden
+from atlas_consortia_commons.rest import abort_forbidden
 
 collections_blueprint = Blueprint('collections', __name__)
 logger = logging.getLogger(__name__)
