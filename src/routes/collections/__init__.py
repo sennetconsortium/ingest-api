@@ -46,7 +46,6 @@ def register_collections_doi(collection_id):
             return jsonify({"error": f"{collection_uuid} is not a collection"}), 400
 
         # Sources/Samples need to have `data_access_level` of "public", Dataset needs a status of "Published"
-        # TODO: Need to modify and test cypher query to match requirements listed above
         with Neo4jHelper.get_instance().session() as session:
             q = f"MATCH (collection:Collection {{uuid: '{collection_uuid}'}})<-[:IN_COLLECTION]-(entity:Entity) RETURN distinct entity.uuid AS uuid, entity.data_access_level as data_access_level, entity.entity_type as entity_type, entity.status AS status"
             rval = session.run(q).data()
@@ -56,7 +55,7 @@ def register_collections_doi(collection_id):
                 if node['entity_type'] == 'Dataset':
                     if node['status'].lower() != 'published':
                         unpublished_entities.append(uuid)
-                else:
+                elif node['entity_type'] in ['Sample', 'Source']:
                     if node['data_access_level'].lower() != 'public':
                         unpublished_entities.append(uuid)
 
