@@ -204,20 +204,20 @@ class DataCiteDoiHelper:
     KeyError
         If the entity_type of the given Dataset is missing or the entity is not a Dataset
     """
-    def move_doi_state_from_draft_to_findable(self, dataset: dict, user_token: str) -> dict:
+    def move_doi_state_from_draft_to_findable(self, entity: dict, user_token: str) -> object:
         entity_types = ['Dataset', 'Collection', 'Epicollection']
         if ('entity_type' in entity) and (entity['entity_type'] in entity_types):
             datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
                                        self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
-            response = datacite_api.update_doi_event_publish(dataset['sennet_id'])
+            response = datacite_api.update_doi_event_publish(entity['sennet_id'])
 
             if response.status_code == 200:
-                logger.info(f"======Published DOI for dataset {dataset['uuid']} via DataCite======")
+                logger.info(f"======Published DOI for entity {entity['uuid']} via DataCite======")
                 doi_data = response.json()
                 logger.debug("======resulting json from DataCite======")
                 logger.debug(doi_data)
 
-                doi_name = datacite_api.build_doi_name(dataset['sennet_id'])
+                doi_name = datacite_api.build_doi_name(entity['sennet_id'])
                 doi_info = {
                     'registered_doi': doi_name,
                     'doi_url': f'https://doi.org/{doi_name}'
@@ -225,15 +225,16 @@ class DataCiteDoiHelper:
                 return doi_info
             else:
                 # Log the full stack trace, prepend a line with our message
-                logger.exception(f"Unable to publish DOI for dataset {dataset['uuid']} via DataCite")
-                logger.debug(f'======Status code from DataCite {response.status_code}======')
+                logger.exception(f"Unable to publish DOI for dataset {entity['uuid']} via DataCite")
+                logger.debug(f'======Status code from DataCite {response.status_code} ======')
                 logger.debug("======response text from DataCite======")
                 logger.debug(response.text)
 
                 # Also bubble up the error message from DataCite
                 raise requests.exceptions.RequestException(response.text)
         else:
-            raise KeyError('Either the entity_type of the given Dataset is missing or the entity is not a Dataset')
+            raise KeyError(
+                f"Either the entity_type of the given Dataset is missing or the entity is not one of the following types: {', '.join(entity_types)}")
 
     """
         Register a draft DOI with DataCite for Collections
