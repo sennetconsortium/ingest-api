@@ -204,8 +204,8 @@ if app.config.get("REDIS_MODE"):
             name="Update Upload Data Status Job"
         )
 
-        # update_datasets_datastatus(app.app_context())
-        # update_uploads_datastatus(app.app_context())
+        update_datasets_datastatus(app.app_context())
+        update_uploads_datastatus(app.app_context())
 
 # For local development/testing
 if __name__ == '__main__':
