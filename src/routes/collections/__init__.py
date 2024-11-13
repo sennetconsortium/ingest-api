@@ -4,6 +4,7 @@ import logging
 import requests
 from hubmap_sdk import EntitySdk
 
+from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 
@@ -37,7 +38,8 @@ def register_collections_doi(collection_id):
             abort_forbidden('User must be a member of the SenNet Data Admin group to publish data.')
         if collection_id is None or len(collection_id) == 0:
             return jsonify({"error": "identifier parameter is required to publish a collection."}), 400
-        r = requests.get(current_app.config['UUID_WEBSERVICE_URL'] + "uuid/" + collection_id,
+        r = requests.get(commons_file_helper.ensureTrailingSlashURL(
+            current_app.config['UUID_WEBSERVICE_URL']) + "uuid/" + collection_id,
                          headers={'Authorization': request.headers["AUTHORIZATION"]})
         if r.ok is False:
             return jsonify({"error": f"{r.text}"}), r.status_code
