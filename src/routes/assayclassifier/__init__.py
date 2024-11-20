@@ -16,6 +16,8 @@ from lib.rule_chain import (
     build_entity_metadata,
     calculate_assay_info,
     initialize_rule_chain,
+    get_data_from_ubkg,
+    standardize_results
 )
 from lib.services import get_entity
 
@@ -30,7 +32,7 @@ def get_ds_assaytype(ds_uuid: str):
         token = get_token()
         entity = get_entity(ds_uuid, token)
         metadata = build_entity_metadata(entity)
-        rule_value_set = calculate_assay_info(metadata)
+        rules_json = calculate_assay_info(metadata)
 
         if sources := entity.sources:
             source_type = ""
@@ -39,9 +41,12 @@ def get_ds_assaytype(ds_uuid: str):
                     # If there is a single Human source_type, treat this as a Human case
                     if source_type.upper() == "HUMAN":
                         break
-            apply_source_type_transformations(source_type, rule_value_set)
+            apply_source_type_transformations(source_type, rules_json)
 
-        return jsonify(rule_value_set)
+        ubkg_value_json = get_data_from_ubkg(rules_json.get("ubkg_code")).get("value", {})
+        merged_json = standardize_results(rules_json, ubkg_value_json)
+        merged_json["ubkg_json"] = ubkg_value_json
+        return jsonify(merged_json)
     except ValueError as excp:
         logger.error(excp, exc_info=True)
         return Response("Bad parameter: {excp}", 400)
@@ -97,13 +102,13 @@ def get_ds_rule_metadata(ds_uuid: str):
         )
 
 
-def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
+def apply_source_type_transformations(source_type: str, rules_json: dict) -> dict:
     # If we get more complicated transformations we should consider refactoring.
     # For now, this should suffice.
     if "MOUSE" in source_type.upper():
-        rule_value_set["contains-pii"] = False
+        rules_json["contains-pii"] = False
 
-    return rule_value_set
+    return rules_json
 
 
 @assayclassifier_blueprint.route("/assaytype", methods=["POST"])
@@ -111,7 +116,7 @@ def apply_source_type_transformations(source_type: str, rule_value_set: dict) ->
 @require_json(param="metadata")
 def get_assaytype_from_metadata(token: str, user: User, metadata: dict):
     try:
-        rule_value_set = calculate_assay_info(metadata)
+        rules_json = calculate_assay_info(metadata)
 
         if parent_sample_ids := metadata.get("parent_sample_id"):
             source_type = ""
@@ -123,8 +128,11 @@ def get_assaytype_from_metadata(token: str, user: User, metadata: dict):
                     if source_type.upper() == "HUMAN":
                         break
 
-            apply_source_type_transformations(source_type, rule_value_set)
-        return jsonify(rule_value_set)
+            apply_source_type_transformations(source_type, rules_json)
+        ubkg_value_json = get_data_from_ubkg(rules_json.get("ubkg_code")).get("value", {})
+        merged_json = standardize_results(rules_json, ubkg_value_json)
+        merged_json["ubkg_json"] = ubkg_value_json
+        return jsonify(merged_json)
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
