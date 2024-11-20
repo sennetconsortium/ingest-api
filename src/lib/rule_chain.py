@@ -193,7 +193,7 @@ def apply_source_type_transformations(source_type: str, rule_value_set: dict) ->
 
 def get_data_from_ubkg(ubkg_code: str) -> dict:
     query = urllib.parse.urlencode({"application_context": current_app.config['APPLICATION_CONTEXT']})
-    ubkg_api_url = f"{current_app.config['UBKG_INTEGRATION_ENDPOINT']}assayclasses/{ubkg_code}?{query}"
+    ubkg_api_url = f"{current_app.config['UBKG_SERVER']}assayclasses/{ubkg_code}?{query}"
     req = urllib.request.Request(ubkg_api_url)
     try:
         with urllib.request.urlopen(req) as response:
