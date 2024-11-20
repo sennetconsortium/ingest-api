@@ -15,8 +15,40 @@ logger: logging.Logger = logging.getLogger(__name__)
 SCHEMA_FILE = "rule_chain_schema.json"
 SCHEMA_BASE_URI = "http://schemata.hubmapconsortium.org/"
 
-
 rule_chain = None
+
+# Have to translate pre-UBKG keys to UBKG keys
+# Format is:
+# "Key before UBKG integration": "UBKG Key"
+pre_integration_to_ubkg_translation = {
+    'vitessce-hints': 'vitessce_hints',
+    'dir-schema': 'dir_schema',
+    'tbl-schema': 'tbl_schema',
+    'contains-pii': 'contains_full_genetic_sequences',
+    'dataset-type': 'dataset_type',
+    'is-multi-assay': 'is_multiassay',
+    'pipeline-shorthand': 'pipeline_shorthand',
+    'must-contain': 'must_contain',
+}
+
+# These are the keys returned by the rule chain before UBKG integration.
+# We will return the UBKG data in this format as well for MVP.
+# This is to avoid too much churn on end-users.
+# We set primary manually so ignore it.
+pre_integration_keys = [
+    'assaytype',
+    'vitessce-hints',
+    'dir-schema',
+    'tbl-schema',
+    'contains-pii',
+    # 'primary',
+    'dataset-type',
+    'description',
+    'is-multi-assay',
+    'pipeline-shorthand',
+    'must-contain',
+    "process_state"
+]
 
 
 def initialize_rule_chain():
@@ -79,9 +111,9 @@ def calculate_data_types(entity: Entity) -> list[str]:
     # the data_types field is not empty and not a list of empty strings
     # If it has a value it must be an old derived dataset so use that to match the rules
     if (
-        hasattr(entity, "data_types")
-        and entity.data_types
-        and set(entity.data_types) != {""}
+            hasattr(entity, "data_types")
+            and entity.data_types
+            and set(entity.data_types) != {""}
     ):
         data_types = entity.data_types
     # Moving forward (2024) we are no longer using data_types for derived datasets.
@@ -134,7 +166,7 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     # The primary publication will always have metadata,
     # so we have to do the association here.
     if entity.entity_type == "Publication":
-            metadata["data_types"] = calculate_data_types(entity)
+        metadata["data_types"] = calculate_data_types(entity)
 
     # If there is no metadata, then it must be a derived dataset
     else:
@@ -148,6 +180,43 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     metadata["creation_action"] = entity.creation_action
 
     return metadata
+
+
+def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
+    # If we get more complicated transformations we should consider refactoring.
+    # For now, this should suffice.
+    if source_type.upper() == "MOUSE":
+        rule_value_set["contains-pii"] = False
+
+    return rule_value_set
+
+
+def get_data_from_ubkg(ubkg_code: str) -> dict:
+    query = urllib.parse.urlencode({"application_context": current_app.config['APPLICATION_CONTEXT']})
+    ubkg_api_url = f"{current_app.config['UBKG_INTEGRATION_ENDPOINT']}assayclasses/{ubkg_code}?{query}"
+    req = urllib.request.Request(ubkg_api_url)
+    try:
+        with urllib.request.urlopen(req) as response:
+            response_data = response.read().decode("utf-8")
+    except urllib.error.URLError as excp:
+        print(f"Error getting extra info from UBKG {excp}")
+        return {}
+
+    return json.loads(response_data)
+
+
+def standardize_results(rule_chain_json: dict, ubkg_json: dict) -> dict:
+    # Initialize this with conditional logic to set 'primary' true or false.
+    ubkg_transformed_json = {
+        "primary": ubkg_json.get("process_state") == "primary"
+    }
+
+    for pre_integration_key in pre_integration_keys:
+        ubkg_key = pre_integration_to_ubkg_translation.get(pre_integration_key, pre_integration_key)
+        ubkg_value = ubkg_json.get(ubkg_key)
+        ubkg_transformed_json[pre_integration_key] = ubkg_value
+
+    return rule_chain_json | ubkg_transformed_json
 
 
 class NoMatchException(Exception):
