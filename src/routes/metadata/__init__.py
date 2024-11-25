@@ -122,8 +122,8 @@ def register_metadata_upload(body: dict, token: str, user: User):
             scan_query = f"{JOBS_PREFIX}*:{validation_job_id}"
             validation_job = job_queue.query_job(scan_query)
             if (
-                validation_job.meta.get("visibility", JobVisibility.PUBLIC)
-                != JobVisibility.PUBLIC
+                    validation_job.meta.get("visibility", JobVisibility.PUBLIC)
+                    != JobVisibility.PUBLIC
             ):
                 raise NoSuchJobError("Job is not marked PUBLIC")
         else:
@@ -203,18 +203,15 @@ def get_all_data_provider_groups(token: str, user: User):
 
 @metadata_blueprint.route('/metadata/provenance-metadata/<ds_uuid>', methods=['GET'])
 def get_provenance_metadata(ds_uuid: str):
-    try:
-        token = get_token()
-        entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-        entity = entity_instance.get_entity_by_id(ds_uuid)
-        metadata_json_object = entity_json_dumps(entity, token, entity_instance, False)
-        return jsonify(metadata_json_object), 200
-    except Exception as e:
-        logger.error(e, exc_info=True)
-        return Response(
-            f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500
-        )
+    token = get_token()
+    entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
+    entity = entity_instance.get_entity_by_id(ds_uuid)
 
+    if not equals(entity.entity_type, Ontology.ops().entities().DATASET):
+        abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset'")
+
+    metadata_json_object = entity_json_dumps(entity, token, entity_instance, False)
+    return jsonify(metadata_json_object), 200
 
 
 def check_metadata_upload():
