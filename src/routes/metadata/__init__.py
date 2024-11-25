@@ -22,6 +22,7 @@ from atlas_consortia_commons.rest import (
 from atlas_consortia_commons.string import equals
 from flask import Blueprint, jsonify, Response, current_app
 from hubmap_commons.hm_auth import AuthHelper
+from hubmap_sdk import EntitySdk
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from jobs import (
@@ -40,6 +41,7 @@ from jobs import (
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
+from lib.services import obj_to_dict, entity_json_dumps, get_token
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
 
@@ -197,6 +199,22 @@ def get_all_data_provider_groups(token: str, user: User):
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500)
+
+
+@metadata_blueprint.route('/metadata/provenance-metadata/<ds_uuid>', methods=['GET'])
+def get_provenance_metadata(ds_uuid: str):
+    try:
+        token = get_token()
+        entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
+        entity = entity_instance.get_entity_by_id(ds_uuid)
+        metadata_json_object = entity_json_dumps(entity, token, entity_instance, False)
+        return jsonify(metadata_json_object), 200
+    except Exception as e:
+        logger.error(e, exc_info=True)
+        return Response(
+            f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500
+        )
+
 
 
 def check_metadata_upload():

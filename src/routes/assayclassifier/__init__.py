@@ -17,7 +17,7 @@ from lib.rule_chain import (
     calculate_assay_info,
     initialize_rule_chain,
 )
-from lib.services import get_entity
+from lib.services import get_entity, get_token
 
 assayclassifier_blueprint = Blueprint("assayclassifier", __name__)
 
@@ -165,10 +165,3 @@ def reload_chain():
         logger.error(e, exc_info=True)
         return Response("Unexpected error while reloading rule chain: " + str(e), 500)
 
-
-def get_token() -> Optional[str]:
-    auth_helper_instance = AuthHelper.instance()
-    token = auth_helper_instance.getAuthorizationTokens(request.headers)
-    if not isinstance(token, str):
-        token = None
-    return token
