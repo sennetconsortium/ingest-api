@@ -15,7 +15,7 @@ from hubmap_commons.hm_auth import AuthHelper
 
 # Local modules
 from hubmap_commons.hubmap_const import HubmapConst
-from hubmap_sdk import EntitySdk
+from hubmap_sdk import EntitySdk, Entity
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
@@ -440,7 +440,7 @@ class DatasetHelper:
     def dataset_is_primary(self, dataset_uuid):
         with self.neo4j_driver_instance.session() as neo_session:
             q = (
-                f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(s:Sample) RETURN ds.uuid")
+                f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
             result = neo_session.run(q).data()
             if len(result) == 0:
                 return False

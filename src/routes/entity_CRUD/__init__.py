@@ -40,7 +40,7 @@ from routes.auth import get_auth_header_dict
 
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload, files_exist
-from lib.services import get_associated_sources_from_dataset
+from lib.services import get_associated_sources_from_dataset, obj_to_dict, entity_json_dumps
 from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -695,6 +695,7 @@ def dataset_data_status():
 
 def update_datasets_datastatus(app_context):
     with app_context:
+        dataset_helper = DatasetHelper(current_app.config)
         organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
         all_datasets_query = (
             "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
@@ -800,7 +801,7 @@ def update_datasets_datastatus(app_context):
 
             dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset[
                 'published_timestamp']
-            dataset['is_primary'] = dataset_is_primary(dataset.get('uuid'))
+            dataset['is_primary'] = dataset_helper.dataset_is_primary(dataset.get('uuid'))
 
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             has_dataset_metadata = files_exist(dataset.get('uuid'), dataset.get('data_access_level'),
@@ -959,6 +960,7 @@ def update_uploads_datastatus(app_context):
 def publish_datastage(identifier):
     try:
         auth_helper = AuthHelper.instance()
+        dataset_helper = DatasetHelper(current_app.config)
 
         user_info = auth_helper.getUserInfoUsingRequest(request, getGroups=True)
         if user_info is None:
@@ -981,7 +983,7 @@ def publish_datastage(identifier):
             abort_not_found("Cannot find specimen with identifier: " + identifier)
 
         dataset_uuid = json.loads(r.text)['hm_uuid']
-        is_primary = dataset_is_primary(dataset_uuid)
+        is_primary = dataset_helper.dataset_is_primary(dataset_uuid)
         suspend_indexing_and_acls = string_helper.isYes(request.args.get('suspend-indexing-and-acls'))
         no_indexing_and_acls = False
         if suspend_indexing_and_acls:
@@ -1090,7 +1092,7 @@ def publish_datastage(identifier):
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
             if is_primary or is_component is False:
                 md_file = os.path.join(ds_path, "metadata.json")
-                json_object = entity_json_dumps(entity, auth_tokens, entity_instance)
+                json_object = entity_json_dumps(entity, auth_tokens, entity_instance, True)
                 logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
                 try:
                     with open(md_file, "w") as outfile:
@@ -1222,17 +1224,6 @@ def dataset_has_entity_lab_processed_data_type(dataset_uuid):
         if len(result) == 0:
             return False
         return True
-
-
-def dataset_is_primary(dataset_uuid):
-    with Neo4jHelper.get_instance().session() as neo_session:
-        q = (
-            f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
-        result = neo_session.run(q).data()
-        if len(result) == 0:
-            return False
-        return True
-
 
 def get_primary_ancestor_globus_path(entity_dict):
     ancestor = None
@@ -1500,32 +1491,3 @@ def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
 
     resp_json: dict = response.json()
     return resp_json['instanceof']
-
-
-def obj_to_dict(obj) -> dict:
-    """
-    Convert the obj[ect] into a dict, but deeply.
-    Note: The Python builtin 'vars()' does not work here because of the way that some of the classes
-    are defined.
-    """
-    return json.loads(
-        json.dumps(obj, default=lambda o: getattr(o, '__dict__', str(o)))
-    )
-
-
-def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk) -> str:
-    """
-    Because entity and the content of the arrays returned from entity_instance.get_associated_*
-    contain user defined objects we need to turn them into simple python objects (e.g., dicts, lists, str)
-    before we can convert them wth json.dumps.
-    Here we create an expanded version of the entity associated with the dataset_uuid and return it as a json string.
-    """
-    dataset_uuid = entity.get_uuid()
-    entity = obj_to_dict(entity)
-    entity['organs'] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
-    entity['samples'] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
-    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
-
-    json_object = json.dumps(entity, indent=4)
-    json_object += '\n'
-    return json_object
