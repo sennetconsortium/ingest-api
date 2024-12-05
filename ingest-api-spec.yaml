@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   description: |
     A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
-  version: 1.4.19
+  version: 1.4.20
   title: SenNet Ingest API
   contact:
     name: SenNet Help Desk
@@ -620,6 +620,19 @@ paths:
       responses:
         "200":
           description: The JSON containing an array of data provider group information
+        "401":
+          description: User's token is not valid
+        "500":
+          description: An unexpected error occurred
+
+  /metadata/provenance-metadata/{identifier}:
+    get:
+      tags:
+        - metadata
+      summary: Returns the full provenance metadata for the provided dataset and all of its ancestors.
+      responses:
+        "200":
+          description: The JSON containing full provenance metadata
         "401":
           description: User's token is not valid
         "500":
