@@ -1,19 +1,31 @@
+import json
 import logging
 import time
 from typing import Callable, List, Optional, Union
+from urllib import request
 
 import requests
-from flask import current_app
+from flask import current_app, request
 from hubmap_commons.file_helper import removeTrailingSlashURL, ensureTrailingSlashURL
+from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
+from rdflib.parser import headers
 from requests.adapters import HTTPAdapter, Retry
 
 logger = logging.getLogger(__name__)
 
 
+def get_token() -> Optional[str]:
+    auth_helper_instance = AuthHelper.instance()
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    if not isinstance(token, str):
+        token = None
+    return token
+
+
 def get_entity(
-    entity_id: str, token: Optional[str], as_dict: bool = False
+        entity_id: str, token: Optional[str], as_dict: bool = False
 ) -> Union[Entity, dict]:
     """Get the entity from entity-api for the given uuid.
 
@@ -48,7 +60,7 @@ def get_entity(
 
 
 def get_entity_from_search_api(
-    entity_id: str, token: Optional[str], as_dict: bool = False
+        entity_id: str, token: Optional[str], as_dict: bool = False
 ) -> Union[Entity, dict]:
     """Get the entity from search-api for the given uuid.
 
@@ -100,7 +112,7 @@ def get_entity_from_search_api(
 
 
 def get_associated_sources_from_dataset(
-    dataset_id: str, token: str, as_dict: bool = False
+        dataset_id: str, token: str, as_dict: bool = False
 ) -> Union[List[Entity], dict]:
     """Get the associated sources for the given dataset.
 
@@ -125,7 +137,9 @@ def get_associated_sources_from_dataset(
     """
     entity_api_url = ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{entity_api_url}datasets/{dataset_id}/sources"
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = {}
+    if token is not None:
+        headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers)
     if not res.ok:
         raise SDKException(f"Failed to get associated source for dataset {dataset_id}")
@@ -170,12 +184,12 @@ def reindex_entities(entity_ids: list, token: str) -> None:
 
 
 def bulk_update_entities(
-    entity_updates: dict,
-    token: str,
-    total_tries: int = 3,
-    throttle: float = 5,
-    entity_api_url: Optional[str] = None,
-    after_each_callback: Optional[Callable[[int], None]] = None,
+        entity_updates: dict,
+        token: str,
+        total_tries: int = 3,
+        throttle: float = 5,
+        entity_api_url: Optional[str] = None,
+        after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> dict:
     """Bulk update the entities in the entity-api.
 
@@ -253,13 +267,13 @@ def bulk_update_entities(
 
 
 def bulk_create_entities(
-    entity_type: str,
-    entities: list,
-    token: str,
-    total_tries: int = 3,
-    throttle: float = 5,
-    entity_api_url: Optional[str] = None,
-    after_each_callback: Optional[Callable[[int], None]] = None,
+        entity_type: str,
+        entities: list,
+        token: str,
+        total_tries: int = 3,
+        throttle: float = 5,
+        entity_api_url: Optional[str] = None,
+        after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> list:
     """Bulk create the entities in the entity-api.
 
@@ -359,3 +373,37 @@ def error_msg(json_res: dict) -> str:
         return json_res["message"]
 
     return str(json_res)
+
+
+def obj_to_dict(obj) -> dict:
+    """
+    Convert the obj[ect] into a dict, but deeply.
+    Note: The Python builtin 'vars()' does not work here because of the way that some of the classes
+    are defined.
+    """
+    return json.loads(
+        json.dumps(obj, default=lambda o: getattr(o, '__dict__', str(o)))
+    )
+
+
+def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file: False):
+    """
+    Because entity and the content of the arrays returned from entity_instance.get_associated_*
+    contain user defined objects we need to turn them into simple python objects (e.g., dicts, lists, str)
+    before we can convert them wth json.dumps.
+    Here we create an expanded version of the entity associated with the dataset_uuid and return it as a json string.
+    """
+    dataset_uuid = entity.get_uuid()
+    entity = obj_to_dict(entity)
+    entity['organs'] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
+    entity['samples'] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
+    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
+
+    # Return as a string to be fed into a file
+    if to_file:
+        json_object = json.dumps(entity, indent=4)
+        json_object += '\n'
+        return json_object
+    # Return as a dict for JSON response
+    else:
+        return entity
