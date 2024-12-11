@@ -895,11 +895,12 @@ def update_uploads_datastatus(app_context):
             "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
             "RETURN up.uuid AS uuid, up.group_name AS group_name, up.sennet_id AS sennet_id, up.status AS status, "
             "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
+            "up.intended_organ AS intended_organ, up.intended_dataset_type AS intended_dataset_type, "
             "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
         )
 
         displayed_fields = [
-            "uuid", "group_name", "sennet_id", "status", "title", "datasets",
+            "uuid", "group_name", "sennet_id", "status", "title", "datasets", "intended_organ", "intended_dataset_type",
             "assigned_to_group_name", "ingest_task"
         ]
 
