@@ -1,8 +1,10 @@
 import os
 import logging
+import datetime
 
 import requests
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from redis import from_url
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
@@ -192,7 +194,7 @@ if app.config.get("REDIS_MODE"):
             func=update_datasets_datastatus,
             trigger=IntervalTrigger(hours=1),
             args=[app.app_context()],
-            id='update_dataset_data_status',
+            id='update_datasets_datastatus',
             name="Update Dataset Data Status Job"
         )
 
@@ -200,12 +202,25 @@ if app.config.get("REDIS_MODE"):
             func=update_uploads_datastatus,
             trigger=IntervalTrigger(hours=1),
             args=[app.app_context()],
-            id='update_upload_data_status',
+            id='update_uploads_datastatus',
             name="Update Upload Data Status Job"
         )
 
-        update_datasets_datastatus(app.app_context())
-        update_uploads_datastatus(app.app_context())
+        scheduler.add_job(
+            func=update_datasets_datastatus,
+            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
+            args=[app.app_context()],
+            id='Initial update_datasets_datastatus',
+            name="Initial run of Dataset Data Status Job"
+        )
+
+        scheduler.add_job(
+            func=update_uploads_datastatus,
+            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
+            args=[app.app_context()],
+            id='Initial update_uploads_datastatus',
+            name="Initial run of Dataset Data Status Job"
+        )
 
 # For local development/testing
 if __name__ == '__main__':
