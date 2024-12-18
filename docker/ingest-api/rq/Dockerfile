@@ -13,8 +13,8 @@ WORKDIR /usr/src/app
 # Copy from host to image
 COPY .. .
 
-RUN groupadd -r -g 1002 codcc && \
-    useradd -r -u 1002 -g 1002 -m codcc && \
+RUN groupadd -r -g 100008 codcc && \
+    useradd -r -u 100008 -g 100008 -m codcc && \
     pip install --upgrade pip && \
     pip install -r ./src/requirements.txt && \
     pip install -r ./src/submodules/ingest_validation_tools/requirements.txt
