@@ -1,5 +1,5 @@
 from flask import Blueprint, redirect, request, session, current_app, Response, make_response
-from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient
+from globus_sdk import AccessTokenAuthorizer, AuthClient, ConfidentialAppAuthClient, AuthAPIError
 import json
 import logging
 import base64
@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 # Redirect users from react app login page to Globus auth login widget then redirect back
 @auth_blueprint.route('/login')
 def login():
-    return _login(current_app.config['GLOBUS_CLIENT_APP_URI'])
+    return _login(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'], inciting_url='/login')
 
 @auth_blueprint.route('/data-ingest-board-login')
 def data_ingest_login():
-    return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens')
+    return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens', inciting_url='data-ingest-board-logout')
 
 
 @auth_blueprint.route('/logout')
@@ -45,7 +45,7 @@ def get_auth_header() -> dict:
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     return get_auth_header_dict(token)
 
-def _login(redirect_uri, key = 'tokens'):
+def _login(redirect_uri, key = 'tokens', inciting_url = '/login'):
     #redirect_uri = url_for('login', _external=True)
     _redirect_uri = current_app.config['FLASK_APP_BASE_URI'] + request.path.replace('/', '')
 
@@ -66,7 +66,12 @@ def _login(redirect_uri, key = 'tokens'):
     else:
         auth_code = request.args.get('code')
 
-        token_response = confidential_app_auth_client.oauth2_exchange_code_for_tokens(auth_code)
+        try:
+            token_response = confidential_app_auth_client.oauth2_exchange_code_for_tokens(auth_code)
+        except AuthAPIError as e:
+            logger.error(e)
+            # The exchange for token for a code has failed so start the process again
+            return redirect(inciting_url)
 
         # Get all Bearer tokens
         auth_token = token_response.by_resource_server['auth.globus.org']['access_token']
