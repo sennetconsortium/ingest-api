@@ -14,11 +14,11 @@ logger = logging.getLogger(__name__)
 # Redirect users from react app login page to Globus auth login widget then redirect back
 @auth_blueprint.route('/login')
 def login():
-    return _login(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'], redirect_failure_uri='logout')
+    return _login(redirect_uri=current_app.config['GLOBUS_CLIENT_APP_URI'], redirect_failure_uri='/logout')
 
 @auth_blueprint.route('/data-ingest-board-login')
 def data_ingest_login():
-    return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens', redirect_failure_uri='data-ingest-board-logout')
+    return _login(redirect_uri=current_app.config['DATA_INGEST_BOARD_APP_URI'], key='ingest_board_tokens', redirect_failure_uri='/data-ingest-board-logout')
 
 
 @auth_blueprint.route('/logout')
@@ -45,7 +45,7 @@ def get_auth_header() -> dict:
     token = auth_helper_instance.getAuthorizationTokens(request.headers)
     return get_auth_header_dict(token)
 
-def _login(redirect_uri, key = 'tokens', redirect_failure_uri = 'logout'):
+def _login(redirect_uri, key = 'tokens', redirect_failure_uri = '/logout'):
     #redirect_uri = url_for('login', _external=True)
     _redirect_uri = current_app.config['FLASK_APP_BASE_URI'] + request.path.replace('/', '')
 
