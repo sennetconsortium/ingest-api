@@ -70,6 +70,7 @@ def _login(redirect_uri, key = 'tokens', redirect_failure_uri = '/logout'):
             token_response = confidential_app_auth_client.oauth2_exchange_code_for_tokens(auth_code)
         except AuthAPIError as e:
             logger.error(e)
+            logger.error(f"Attempted to exchange code {auth_code} for a token.")
             # The exchange for token for a code has failed so logout and have the user start from scratch
             return redirect(redirect_failure_uri)
 
