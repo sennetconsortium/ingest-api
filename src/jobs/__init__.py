@@ -7,7 +7,7 @@ from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
 
-from redis import Redis, exceptions, from_url
+from redis import Redis, exceptions
 from rq import Queue, get_current_job
 from rq.job import Job, JobStatus, NoSuchJobError
 
@@ -55,8 +55,9 @@ class TooManyJobsFoundError(Exception):
 
 
 class JobQueue:
-    def __init__(self, url: str, queue_name: str = "default"):
-        conn = from_url(url)
+    def __init__(self, conn: Union[str, Redis], queue_name: str = "default"):
+        if isinstance(conn, str):
+            conn = Redis.from_url(conn)
         self._job_queue = Queue(queue_name, connection=conn)
         self._redis = conn
 
@@ -69,13 +70,13 @@ class JobQueue:
         return self._redis
 
     @staticmethod
-    def create(url: str, queue_name: str = "default") -> None:
+    def create(conn: Union[str, Redis], queue_name: str = "default") -> None:
         global _instance
         if _instance is not None:
             raise Exception(
                 "An instance of JobQueue exists already. Use the JobQueue.instance() method to retrieve it."
             )
-        _instance = JobQueue(url, queue_name)
+        _instance = JobQueue(conn, queue_name)
 
     @staticmethod
     def instance() -> JobQueue:
@@ -95,7 +96,7 @@ class JobQueue:
     @staticmethod
     def is_connected(url) -> bool:
         try:
-            conn = from_url(url)
+            conn = Redis.from_url(url)
             conn.ping()
         except (exceptions.ConnectionError, ConnectionRefusedError):
             return False
