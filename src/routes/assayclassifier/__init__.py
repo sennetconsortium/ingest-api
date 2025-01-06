@@ -71,6 +71,8 @@ def get_ds_rule_metadata(ds_uuid: str):
     try:
         token = get_token()
         entity = get_entity(ds_uuid, token)
+        if entity == {}:
+            return Response(f"Entity with uuid {ds_uuid} not found", 404)
         metadata = build_entity_metadata(entity)
         return jsonify(metadata)
     except ValueError as excp:
