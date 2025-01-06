@@ -3,7 +3,6 @@ import time
 from datetime import timedelta
 from threading import Thread
 from typing import Optional
-from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = f'update_datasets_datastatus:{uuid4()}'
+    job_id = 'update_datasets_datastatus'
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_datasets_datastatus,
