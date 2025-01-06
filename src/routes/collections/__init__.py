@@ -13,6 +13,8 @@ from lib.neo4j_helper import Neo4jHelper
 
 from atlas_consortia_commons.rest import abort_forbidden
 
+from lib.services import get_entity_by_id
+
 collections_blueprint = Blueprint('collections', __name__)
 logger = logging.getLogger(__name__)
 
@@ -84,7 +86,7 @@ def register_collections_doi(collection_id):
 
             doi_info = None
 
-            entity = entity_instance.get_entity_by_id(collection_uuid)
+            entity = get_entity_by_id(collection_uuid)
             entity_dict = vars(entity)
             datacite_doi_helper = DataCiteDoiHelper()
             try:

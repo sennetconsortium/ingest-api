@@ -41,7 +41,7 @@ from jobs import (
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
-from lib.services import obj_to_dict, entity_json_dumps, get_token
+from lib.services import obj_to_dict, entity_json_dumps, get_token, get_entity_by_id
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
 
@@ -205,7 +205,7 @@ def get_all_data_provider_groups(token: str, user: User):
 def get_provenance_metadata(ds_uuid: str):
     token = get_token()
     entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-    entity = entity_instance.get_entity_by_id(ds_uuid)
+    entity = get_entity_by_id(ds_uuid)
 
     if not equals(entity.entity_type, Ontology.ops().entities().DATASET):
         abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset'")

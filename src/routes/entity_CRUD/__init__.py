@@ -40,7 +40,7 @@ from routes.auth import get_auth_header_dict
 
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload, files_exist
-from lib.services import get_associated_sources_from_dataset, obj_to_dict, entity_json_dumps
+from lib.services import get_associated_sources_from_dataset, obj_to_dict, entity_json_dumps, get_entity_by_id
 from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -1071,9 +1071,9 @@ def publish_datastage(identifier):
             if not dataset_status == 'QA':
                 abort_bad_req(f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}")
 
+
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-            entity = entity_instance.get_entity_by_id(dataset_uuid)
+            entity = get_entity_by_id(dataset_uuid)
             entity_dict = obj_to_dict(entity)
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(dataset_uuid)
