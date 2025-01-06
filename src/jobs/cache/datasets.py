@@ -28,7 +28,8 @@ def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[tim
         description='Update datasets datastatus',
         metadata={},
         visibility=JobVisibility.PRIVATE,
-        at_datetime=delta
+        at_datetime=delta,
+        lifetime=timedelta(hours=2),
     )
 
     status = job.get_status()
