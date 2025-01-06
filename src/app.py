@@ -38,6 +38,7 @@ from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
 from jobs import JobQueue
 from jobs.cache.datasets import schedule_update_datasets_datastatus
+from jobs.cache.uploads import schedule_update_uploads_datastatus
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -187,6 +188,7 @@ if app.config.get("REDIS_MODE"):
     # schedule the cache jobs
     job_queue = JobQueue.instance()
     schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
+    schedule_update_uploads_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
 
 
 # For local development/testing
