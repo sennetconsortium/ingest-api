@@ -28,8 +28,11 @@ def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[tim
         metadata={},
         visibility=JobVisibility.PRIVATE,
         at_datetime=delta,
-        lifetime=timedelta(hours=2),
     )
+    job.ttl = None  # Never expire the job
+    job.result_ttl = int(timedelta(hours=2).total_seconds())  # Keep the result for 2 hours
+    job.failure_ttl = 0  # Never keep the failure result
+    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
