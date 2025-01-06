@@ -17,6 +17,8 @@ _instance = None
 
 JOBS_PREFIX = "rq:job:"  # The prefix for all job keys in Redis
 
+SERVER_PROCESS_ID = "server_process"
+
 
 @dataclass(frozen=True)
 class JobResult:

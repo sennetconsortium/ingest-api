@@ -3,9 +3,6 @@ import logging
 import datetime
 
 import requests
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 from redis import from_url
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -24,7 +21,7 @@ import submodules
 from routes.auth import auth_blueprint
 from routes.status import status_blueprint
 from routes.privs import privs_blueprint
-from routes.entity_CRUD import entity_CRUD_blueprint, update_datasets_datastatus, update_uploads_datastatus
+from routes.entity_CRUD import entity_CRUD_blueprint
 from routes.metadata import metadata_blueprint
 from routes.file import file_blueprint
 from routes.assayclassifier import assayclassifier_blueprint
@@ -40,6 +37,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
 from jobs import JobQueue
+from jobs.cache.datasets import schedule_update_datasets_datastatus
 
 # Set logging format and level (default is warning)
 # All the API logging is forwarded to the uWSGI server and gets written into the log file `uwsgi-ingest-api.log`
@@ -150,7 +148,7 @@ try:
         logger.info("Initialized UploadFileHelper class successfully :)")
 
         # This will delete all the temp dirs on restart
-        #file_upload_helper_instance.clean_temp_dir()
+        # file_upload_helper_instance.clean_temp_dir()
     else:
         file_upload_helper_instance = UploadFileHelper.instance()
 # Use a broad catch-all here
@@ -178,7 +176,6 @@ if app.config.get("REDIS_MODE", True):
         logger.exception(msg)
 
 
-
 # The only endpoint that should be in this file, all others should be route Blueprints...
 @app.route('/', methods=['GET'])
 def index():
@@ -186,41 +183,11 @@ def index():
 
 
 if app.config.get("REDIS_MODE"):
-    scheduler = BackgroundScheduler()
-    scheduler.start()
+    logger.info("Scheduling cache jobs in RQ worker")
+    # schedule the cache jobs
+    job_queue = JobQueue.instance()
+    schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
 
-    with app.app_context():
-        scheduler.add_job(
-            func=update_datasets_datastatus,
-            trigger=IntervalTrigger(hours=1),
-            args=[app.app_context()],
-            id='update_datasets_datastatus',
-            name="Update Dataset Data Status Job"
-        )
-
-        scheduler.add_job(
-            func=update_uploads_datastatus,
-            trigger=IntervalTrigger(hours=1),
-            args=[app.app_context()],
-            id='update_uploads_datastatus',
-            name="Update Upload Data Status Job"
-        )
-
-        scheduler.add_job(
-            func=update_datasets_datastatus,
-            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
-            args=[app.app_context()],
-            id='Initial update_datasets_datastatus',
-            name="Initial run of Dataset Data Status Job"
-        )
-
-        scheduler.add_job(
-            func=update_uploads_datastatus,
-            trigger=DateTrigger(run_date=datetime.datetime.now() + datetime.timedelta(minutes=1)),
-            args=[app.app_context()],
-            id='Initial update_uploads_datastatus',
-            name="Initial run of Dataset Data Status Job"
-        )
 
 # For local development/testing
 if __name__ == '__main__':
