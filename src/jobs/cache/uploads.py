@@ -32,7 +32,7 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[time
         logger.error(f'Failed to schedule update uploads datastatus job: {job_id}: {job.get_error()}')
 
 
-def update_uploads_datastatus():
+def update_uploads_datastatus(schedule_next_job=True):
     try:
         logger.info("Starting update uploads datastatus")
         start = time.perf_counter()
@@ -100,7 +100,8 @@ def update_uploads_datastatus():
         logger.error(f"Failed to update uploads datastatus: {e}", exc_info=True)
         raise e
     finally:
-        # Schedule the next cache job
-        connection = get_current_connection()
-        job_queue = JobQueue(connection)
-        schedule_update_uploads_datastatus(job_queue)
+        if schedule_next_job:
+            # Schedule the next cache job
+            connection = get_current_connection()
+            job_queue = JobQueue(connection)
+            schedule_update_uploads_datastatus(job_queue)

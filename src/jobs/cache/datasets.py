@@ -45,7 +45,7 @@ def run_query(neo4j_driver_instance, query, results, i):
         logger.error(e, exc_info=True)
 
 
-def update_datasets_datastatus():
+def update_datasets_datastatus(schedule_next_job=True):
     try:
         logger.info("Starting update datasets datastatus")
         start = time.perf_counter()
@@ -223,6 +223,7 @@ def update_datasets_datastatus():
         raise e
     finally:
         # Schedule the next cache job
-        connection = get_current_connection()
-        job_queue = JobQueue(connection)
-        schedule_update_datasets_datastatus(job_queue)
+        if schedule_next_job:
+            connection = get_current_connection()
+            job_queue = JobQueue(connection)
+            schedule_update_datasets_datastatus(job_queue)
