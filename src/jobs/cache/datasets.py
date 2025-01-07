@@ -227,8 +227,12 @@ def update_datasets_datastatus(schedule_next_job=True):
         logger.error(f"Failed to update datasets datastatus: {e}", exc_info=True)
         raise e
     finally:
-        # Schedule the next cache job
         if schedule_next_job:
+            # Schedule the next cache job
             connection = get_current_connection()
             job_queue = JobQueue(connection)
             schedule_update_datasets_datastatus(job_queue)
+
+            # Trim the stream to keep only the latest results. RQ hardcodes number of results to 10.
+            stream_name = "rq:results:server_process:update_datasets_datastatus"
+            connection.xtrim(stream_name, maxlen=1)
