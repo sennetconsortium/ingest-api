@@ -86,7 +86,7 @@ def register_collections_doi(collection_id):
 
             doi_info = None
 
-            entity = get_entity_by_id(collection_uuid)
+            entity = get_entity_by_id(collection_uuid, token=auth_tokens)
             if entity == {}:
                 abort_not_found(f"Entity with uuid {collection_uuid} not found")
 

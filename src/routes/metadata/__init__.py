@@ -205,7 +205,7 @@ def get_all_data_provider_groups(token: str, user: User):
 def get_provenance_metadata(ds_uuid: str):
     token = get_token()
     entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-    entity = get_entity_by_id(ds_uuid)
+    entity = get_entity_by_id(ds_uuid, token=token)
 
     if entity == {}:
         abort_not_found(f"Entity with uuid {ds_uuid} not found")

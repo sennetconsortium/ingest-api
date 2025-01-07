@@ -1074,7 +1074,7 @@ def publish_datastage(identifier):
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
-            entity = get_entity_by_id(dataset_uuid)
+            entity = get_entity_by_id(dataset_uuid, token=auth_tokens)
 
             if entity == {}:
                 abort_not_found(f"Entity with uuid {dataset_uuid} not found")
