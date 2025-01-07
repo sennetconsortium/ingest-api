@@ -5,13 +5,17 @@ from typing import Callable, List, Optional, Union
 from urllib import request
 
 import requests
+from atlas_consortia_commons.file import ensure_trailing_slash_url
 from flask import current_app, request
 from hubmap_commons.file_helper import removeTrailingSlashURL, ensureTrailingSlashURL
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
-from rdflib.parser import headers
+from hubmap_sdk.sdk_helper import make_entity
 from requests.adapters import HTTPAdapter, Retry
+
+from lib.entities.source import Source
+from routes.auth import get_auth_header_dict
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +26,22 @@ def get_token() -> Optional[str]:
     if not isinstance(token, str):
         token = None
     return token
+
+def get_entity_by_id(identifier, token=None):
+    service_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
+    url = f"{service_url}entities/{identifier}"
+    if token is None:
+        response = requests.get(url)
+    else:
+        response = requests.get(url, headers=get_auth_header_dict(token))
+    output = response.json()
+    entity = {}
+    if output is not None and 'entity_type' in output:
+        if output['entity_type'].lower() == 'source':
+            entity = Source(output)
+        else:
+            entity = make_entity(output)
+    return entity
 
 
 def get_entity(
@@ -46,13 +66,11 @@ def get_entity(
     hubmap_sdk.sdk_helper.HTTPException
         If the entity-api request fails.
     """
-    entity_api_url = current_app.config["ENTITY_WEBSERVICE_URL"]
-    entity_api = EntitySdk(token=token, service_url=entity_api_url)
+    entity = None
     try:
-        entity = entity_api.get_entity_by_id(entity_id)
-    except SDKException:
-        entity_api = EntitySdk(service_url=entity_api_url)
-        entity = entity_api.get_entity_by_id(entity_id)  # may again raise SDKException
+        entity = get_entity_by_id(entity_id, token)
+    except Exception as e:
+        logger.error(f"Failed to get entity: {e}")
 
     if as_dict:
         return vars(entity)

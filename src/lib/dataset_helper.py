@@ -19,6 +19,7 @@ from hubmap_sdk import EntitySdk, Entity
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
+from lib.services import get_entity_by_id
 
 
 class DatasetHelper:
@@ -226,7 +227,7 @@ class DatasetHelper:
         # Delete the old thumbnail file from Neo4j before updating with new one
         # First retrieve the exisiting thumbnail file uuid
         try:
-            entity = entity_api.get_entity_by_id(dataset_uuid)
+            entity = get_entity_by_id(dataset_uuid)
         # All exceptions that occur in EntitySdk are HTTPExceptions
         except HTTPException as e:
             err_msg = f"Failed to query the dataset of uuid {dataset_uuid} while calling EntitySdk.get_entities() status code:{e.status_code}  message:{e.description}"

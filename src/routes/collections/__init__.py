@@ -11,7 +11,9 @@ from hubmap_commons.exceptions import HTTPException
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
 
-from atlas_consortia_commons.rest import abort_forbidden
+from atlas_consortia_commons.rest import abort_forbidden, abort_not_found
+
+from lib.services import get_entity_by_id
 
 collections_blueprint = Blueprint('collections', __name__)
 logger = logging.getLogger(__name__)
@@ -84,7 +86,10 @@ def register_collections_doi(collection_id):
 
             doi_info = None
 
-            entity = entity_instance.get_entity_by_id(collection_uuid)
+            entity = get_entity_by_id(collection_uuid, token=auth_tokens)
+            if entity == {}:
+                abort_not_found(f"Entity with uuid {collection_uuid} not found")
+
             entity_dict = vars(entity)
             datacite_doi_helper = DataCiteDoiHelper()
             try:
