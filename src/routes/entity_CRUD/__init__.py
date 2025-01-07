@@ -9,8 +9,6 @@ import time
 from hubmap_sdk import EntitySdk
 from threading import Thread
 
-from redis import from_url
-
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons import file_helper as commons_file_helper
@@ -19,9 +17,11 @@ from atlas_consortia_commons.decorator import User, require_data_admin, require_
 from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, \
     abort_not_found, rest_response
 from atlas_consortia_commons.string import equals
-from rq.job import JobStatus
+from rq.exceptions import NoSuchJobError
+from rq.job import Job, JobStatus
+from rq.results import Result
 
-from jobs import JobQueue, JobVisibility
+from jobs import SERVER_PROCESS_ID, JobQueue, JobVisibility, create_queue_id
 from jobs.modification.datasets import update_datasets_uploads
 from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
@@ -40,6 +40,8 @@ from routes.auth import get_auth_header_dict
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload
 from lib.services import obj_to_dict, entity_json_dumps
+from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_ID, update_datasets_datastatus
+from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_ID, update_uploads_datastatus
 from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -674,42 +676,56 @@ UPLOADS_DATA_STATUS_LAST_UPDATED_KEY = "uploads_data_status_last_updated_key"
 
 @entity_CRUD_blueprint.route('/datasets/data-status', methods=['GET'])
 def dataset_data_status():
-    if current_app.config.get("REDIS_MODE"):
-        redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    if current_app.config.get("REDIS_MODE") is False:
+        # Redis is not enabled, retrieve data-status manually
         try:
-            cached_data = redis_connection.get(DATASETS_DATA_STATUS_KEY)
-            if cached_data:
-                cached_data_json = json.loads(cached_data.decode('utf-8'))
-                last_updated = redis_connection.get(DATASETS_DATA_STATUS_LAST_UPDATED_KEY)
-                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
-            else:
-                raise Exception
+            combined_results = update_datasets_datastatus(schedule_next_job=False)
+            last_updated = int(time.time() * 1000)
+            return jsonify({"data": combined_results, "last_updated": last_updated})
         except Exception:
-            logger.error("Failed to retrieve datasets data-status from cache. Retrieving new data")
+            abort_internal_err("Failed to retrieve datasets data-status.")
 
-    combined_results = update_datasets_datastatus(current_app.app_context())
-    last_updated = int(time.time() * 1000)
-    return jsonify({"data": combined_results, "last_updated": last_updated})
+    # Get recurring job from rq
+    try:
+        job_queue = JobQueue.instance()
+        queue_id = create_queue_id(SERVER_PROCESS_ID, DATASETS_DATASTATUS_JOB_ID)
+        job = Job.fetch(queue_id, connection=job_queue.redis)
+    except NoSuchJobError:
+        return jsonify({"message": "Datasets data-status is currently being cached"}), 202
+
+    # Get the latest results from the recurring job
+    latest_results = job.latest_result()
+    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
+        return jsonify({"message": "Datasets data-status is currently being cached"}), 202
+
+    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
 def upload_data_status():
-    if current_app.config.get("REDIS_MODE"):
-        redis_connection = from_url(current_app.config['REDIS_SERVER'])
+    if current_app.config.get("REDIS_MODE") is False:
+        # Redis is not enabled, retrieve data-status manually
         try:
-            cached_data = redis_connection.get(UPLOADS_DATA_STATUS_KEY)
-            if cached_data:
-                cached_data_json = json.loads(cached_data.decode('utf-8'))
-                last_updated = redis_connection.get(UPLOADS_DATA_STATUS_LAST_UPDATED_KEY)
-                return jsonify({"data": cached_data_json, "last_updated": int(last_updated)})
-            else:
-                raise Exception
+            combined_results = update_uploads_datastatus(schedule_next_job=False)
+            last_updated = int(time.time() * 1000)
+            return jsonify({"data": combined_results, "last_updated": last_updated})
         except Exception:
-            logger.error("Failed to retrieve uploads data-status from cache. Retrieving new data")
+            abort_internal_err("Failed to retrieve uploads data-status.")
 
-    results = update_uploads_datastatus(current_app.app_context())
-    last_updated = int(time.time() * 1000)
-    return jsonify({"data": results, "last_updated": last_updated})
+    # Get recurring job from rq
+    try:
+        job_queue = JobQueue.instance()
+        queue_id = create_queue_id(SERVER_PROCESS_ID, UPLOADS_DATASTATUS_JOB_ID)
+        job = Job.fetch(queue_id, connection=job_queue.redis)
+    except NoSuchJobError:
+        return jsonify({"message": "Uploads data-status is currently being cached"}), 202
+
+    # Get the latest results from the recurring job
+    latest_results = job.latest_result()
+    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
+        return jsonify({"message": "Uploads data-status is currently being cached"}), 202
+
+    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods=['PUT'])

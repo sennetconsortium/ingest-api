@@ -12,9 +12,11 @@ from lib import get_globus_url
 
 logger = logging.getLogger(__name__)
 
+UPLOADS_DATASTATUS_JOB_ID = 'update_uploads_datastatus'
+
 
 def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = 'update_uploads_datastatus'
+    job_id = UPLOADS_DATASTATUS_JOB_ID
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_uploads_datastatus,

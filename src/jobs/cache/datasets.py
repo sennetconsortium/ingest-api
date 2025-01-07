@@ -16,9 +16,11 @@ from lib.ontology import Ontology
 
 logger = logging.getLogger(__name__)
 
+DATASETS_DATASTATUS_JOB_ID = 'update_datasets_datastatus'
+
 
 def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = 'update_datasets_datastatus'
+    job_id = DATASETS_DATASTATUS_JOB_ID
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_datasets_datastatus,
