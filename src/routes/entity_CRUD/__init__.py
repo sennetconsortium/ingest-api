@@ -1073,7 +1073,12 @@ def publish_datastage(identifier):
 
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
+            entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
             entity = get_entity_by_id(dataset_uuid)
+
+            if entity == {}:
+                abort_not_found(f"Entity with uuid {dataset_uuid} not found")
+
             entity_dict = obj_to_dict(entity)
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(dataset_uuid)

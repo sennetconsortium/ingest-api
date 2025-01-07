@@ -207,6 +207,9 @@ def get_provenance_metadata(ds_uuid: str):
     entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
     entity = get_entity_by_id(ds_uuid)
 
+    if entity == {}:
+        abort_not_found(f"Entity with uuid {ds_uuid} not found")
+
     if not equals(entity.entity_type, Ontology.ops().entities().DATASET):
         abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset'")
 
