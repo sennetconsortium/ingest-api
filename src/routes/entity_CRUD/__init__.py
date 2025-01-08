@@ -1096,16 +1096,6 @@ def publish_datastage(identifier):
             ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
                                                                     dataset_uuid, False)
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
-            if is_primary or is_component is False:
-                md_file = os.path.join(ds_path, "metadata.json")
-                json_object = entity_json_dumps(entity, auth_tokens, EntitySdk(service_url=current_app.config['ENTITY_WEBSERVICE_URL']), True)
-                logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
-                try:
-                    with open(md_file, "w") as outfile:
-                        outfile.write(json_object)
-                except Exception as e:
-                    logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
-                    return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
 
             data_access_level = dataset_data_access_level
             # if consortium access level convert to public dataset, if protected access leave it protected
@@ -1197,6 +1187,17 @@ def publish_datastage(identifier):
                 neo_session.run(update_q)
                 for e_id in uuids_for_public:
                     entity_instance.clear_cache(e_id)
+
+        if is_primary or is_component is False:
+            md_file = os.path.join(ds_path, "metadata.json")
+            json_object = entity_json_dumps(entity, auth_tokens, EntitySdk(service_url=current_app.config['ENTITY_WEBSERVICE_URL']), True)
+            logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
+            try:
+                with open(md_file, "w") as outfile:
+                    outfile.write(json_object)
+            except Exception as e:
+                logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
+                return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
 
         if no_indexing_and_acls:
             r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
