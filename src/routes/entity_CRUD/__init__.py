@@ -1098,7 +1098,7 @@ def publish_datastage(identifier):
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
             if is_primary or is_component is False:
                 md_file = os.path.join(ds_path, "metadata.json")
-                json_object = entity_json_dumps(entity, auth_tokens, entity_instance, True)
+                json_object = entity_json_dumps(entity, auth_tokens, EntitySdk(service_url=current_app.config['ENTITY_WEBSERVICE_URL']), True)
                 logger.info(f"publish_datastage; writing metadata.json file: '{md_file}'; containing: '{json_object}'")
                 try:
                     with open(md_file, "w") as outfile:
