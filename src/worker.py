@@ -47,4 +47,4 @@ conn = redis_from_url(redis_url)
 if __name__ == "__main__":
     with Connection(conn), app.app_context():
         worker = Worker(list(map(Queue, listen_queue)))
-        worker.work()
+        worker.work(with_scheduler=True)

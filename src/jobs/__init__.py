@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
 
-from redis import Redis, from_url, exceptions
+from redis import Redis, exceptions
 from rq import Queue, get_current_job
 from rq.job import Job, JobStatus, NoSuchJobError
 
@@ -17,6 +16,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 _instance = None
 
 JOBS_PREFIX = "rq:job:"  # The prefix for all job keys in Redis
+
+SERVER_PROCESS_ID = "server_process"
 
 
 @dataclass(frozen=True)
@@ -56,8 +57,9 @@ class TooManyJobsFoundError(Exception):
 
 
 class JobQueue:
-    def __init__(self, url: str, queue_name: str = "default"):
-        conn = from_url(url)
+    def __init__(self, conn: Union[str, Redis], queue_name: str = "default"):
+        if isinstance(conn, str):
+            conn = Redis.from_url(conn)
         self._job_queue = Queue(queue_name, connection=conn)
         self._redis = conn
 
@@ -70,13 +72,13 @@ class JobQueue:
         return self._redis
 
     @staticmethod
-    def create(url: str, queue_name: str = "default") -> None:
+    def create(conn: Union[str, Redis], queue_name: str = "default") -> None:
         global _instance
         if _instance is not None:
             raise Exception(
                 "An instance of JobQueue exists already. Use the JobQueue.instance() method to retrieve it."
             )
-        _instance = JobQueue(url, queue_name)
+        _instance = JobQueue(conn, queue_name)
 
     @staticmethod
     def instance() -> JobQueue:
@@ -96,7 +98,7 @@ class JobQueue:
     @staticmethod
     def is_connected(url) -> bool:
         try:
-            conn = from_url(url)
+            conn = Redis.from_url(url)
             conn.ping()
         except (exceptions.ConnectionError, ConnectionRefusedError):
             return False
@@ -111,6 +113,7 @@ class JobQueue:
         job_func,
         job_kwargs,
         visibility: JobVisibility = JobVisibility.PUBLIC,
+        at_datetime: Union[datetime, timedelta, None] = None,
     ) -> Job:
         """Enqueue a job in the queue.
 
@@ -130,6 +133,8 @@ class JobQueue:
             Job function keyword arguments.
         visibility : JobVisibility
             The visibility of the job. Defaults to JobVisibility.PUBLIC.
+        at_datetime : Union[datetime, timedelta, None]
+            The datetime to schedule the job for. If None, the job is enqueued immediately. Defaults to None.
 
         Returns
         -------
@@ -142,16 +147,23 @@ class JobQueue:
             lifetime = timedelta(days=7).total_seconds()
 
         queue_id = create_queue_id(user["id"], job_id)
-        job = self.queue.enqueue(
-            job_func,
-            kwargs=job_kwargs,
-            job_id=queue_id,
-            job_timeout=18000,
-            ttl=lifetime,
-            result_ttl=lifetime,
-            error_ttl=lifetime,
-            description=description,
-        )
+
+        func_args = {
+            "kwargs": job_kwargs,
+            "job_id": queue_id,
+            "job_timeout": 18000,
+            "ttl": lifetime,
+            "result_ttl": lifetime,
+            "error_ttl": lifetime,
+            "description": description,
+        }
+
+        if isinstance(at_datetime, datetime):
+            job = self.queue.enqueue_at(at_datetime, job_func, **func_args)
+        elif isinstance(at_datetime, timedelta):
+            job = self.queue.enqueue_in(at_datetime, job_func, **func_args)
+        else:
+            job = self.queue.enqueue(job_func, **func_args)
 
         job.meta["user"] = user
         job.meta["visibility"] = visibility
