@@ -130,7 +130,7 @@ def get_entity_from_search_api(
 
 
 def get_associated_sources_from_dataset(
-        dataset_id: str, token: str, as_dict: bool = False
+        dataset_id: str, token: str = None, as_dict: bool = False
 ) -> Union[List[Entity], dict]:
     """Get the associated sources for the given dataset.
 
@@ -415,7 +415,7 @@ def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file
     entity = obj_to_dict(entity)
     entity['organs'] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
     entity['samples'] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
-    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
+    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, as_dict=True)
 
     # Return as a string to be fed into a file
     if to_file:
