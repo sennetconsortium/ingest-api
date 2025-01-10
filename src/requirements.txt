@@ -18,16 +18,14 @@ requests==2.32.3
 # Default is main branch specified in docker-compose.development.yml if not set
 # git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons
 hubmap-commons==2.1.18
-atlas-consortia-commons==1.0.10
+atlas-consortia-commons==1.1.0
 
 # For assay type rules
 rule_engine==4.1.0
 
 # Job queue
 redis==5.0.3
-rq==1.16.1
-
-APScheduler==3.10.4
+rq==1.16.2
 
 # For vitessce config generation
 https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.2.6.zip
