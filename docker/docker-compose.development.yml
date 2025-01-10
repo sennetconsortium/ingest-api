@@ -23,7 +23,7 @@ services:
       # Mount data directory for Globus transfer
       - "/codcc/dev-test/data-dev:/codcc/dev-test/data-dev"
     depends_on:
-      - ingest-api-rq-server:
+      - ingest-api-rq-server
 
   ingest-api-rq-worker:
     build:
