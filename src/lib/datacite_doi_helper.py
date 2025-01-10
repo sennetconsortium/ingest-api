@@ -13,6 +13,7 @@ from hubmap_sdk import Entity, EntitySdk
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from api.datacite_api import DataCiteApi
+from lib.services import get_entity_by_id
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
@@ -357,7 +358,7 @@ if __name__ == "__main__":
     for dataset_uuid in datasets:
         logger.debug(f"Begin {count}: ========================={dataset_uuid}=========================")
         try:
-            entity = entity_api.get_entity_by_id(dataset_uuid)
+            entity = get_entity_by_id(dataset_uuid)
             dataset = vars(entity)
 
             data_cite_doi_helper = DataCiteDoiHelper()
