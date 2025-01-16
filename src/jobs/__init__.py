@@ -44,12 +44,14 @@ class JobType(str, Enum):
 
 class JobVisibility(str, Enum):
     """Enum that represents whether a job is returned to the end user or not. Public
-    jobs are returned to the end user, while private jobs are not. Results of private
+    jobs are returned to the end user, while private jobs are not. Admin visibility
+    is used for jobs that are only visible to data admins. Results of private
     jobs also have a shorter lifetime in the queue.
     """
 
     PUBLIC = "public"
     PRIVATE = "private"
+    ADMIN = "admin"
 
 
 class TooManyJobsFoundError(Exception):
@@ -143,6 +145,8 @@ class JobQueue:
         """
         if visibility == JobVisibility.PRIVATE:
             lifetime = timedelta(days=1).total_seconds()
+        elif visibility == JobVisibility.ADMIN:
+            lifetime = timedelta(hours=2).total_seconds()
         else:
             lifetime = timedelta(days=7).total_seconds()
 
@@ -275,8 +279,12 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
     if status == JobStatus.FINISHED:
         result: JobResult = job.result
         status = "complete" if result.success else "error"
-        results = result.results if result.success else None
         errors = result.results if not result.success else None
+        results = None
+        if result.success and job.meta.get("omit_results", False):
+            results = "omitted"
+        elif result.success:
+            result.results
 
     logger.info("Job ID: %s", job_id)
     logger.info("Job results: %s", results)
@@ -307,6 +315,9 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         ),
         "ended_timestamp": (
             int(job.ended_at.timestamp() * 1000) if job.ended_at else None
+        ),
+        "enqueued_timestamp": (
+            int(job.enqueued_at.timestamp() * 1000) if job.enqueued_at else None
         ),
         "results": results,
         "errors": errors,

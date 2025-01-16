@@ -27,8 +27,8 @@ def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[tim
         job_kwargs={},
         user={'id': SERVER_PROCESS_ID, 'email': SERVER_PROCESS_ID},
         description='Update datasets datastatus',
-        metadata={},
-        visibility=JobVisibility.PRIVATE,
+        metadata={'omit_results': True},  # omit results from job endpoints
+        visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
     job.ttl = None  # Never expire the job

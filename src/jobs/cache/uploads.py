@@ -23,8 +23,8 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[time
         job_kwargs={},
         user={'id': SERVER_PROCESS_ID, 'email': SERVER_PROCESS_ID},
         description='Update uploads datastatus',
-        metadata={},
-        visibility=JobVisibility.PRIVATE,
+        metadata={'omit_results': True},  # omit results from job endpoints
+        visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
     job.ttl = None  # Never expire the job
