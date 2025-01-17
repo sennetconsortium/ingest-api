@@ -1,7 +1,6 @@
 import logging
 import time
 from datetime import timedelta
-from typing import Optional
 from uuid import uuid4
 
 from flask import current_app
@@ -17,7 +16,7 @@ UPLOADS_DATASTATUS_JOB_ID = 'update_uploads_datastatus'
 UPLOADS_DATASTATUS_JOB_PREFIX = 'update_uploads_datastatus'
 
 
-def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
+def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
@@ -25,7 +24,10 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[time
         job_kwargs={},
         user={'id': UPLOADS_DATASTATUS_JOB_PREFIX, 'email': UPLOADS_DATASTATUS_JOB_PREFIX},
         description='Update uploads datastatus',
-        metadata={'omit_results': True},  # omit results from job endpoints
+        metadata={
+            'omit_results': True,  # omit results from job endpoints
+            'scheduled_for_timestamp': int(time.time() + delta.total_seconds()) * 1000
+        },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )

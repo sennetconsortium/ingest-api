@@ -302,7 +302,7 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
                 )
             }
 
-    return {
+    result = {
         "job_id": job_id,
         "register_job_id": job.meta.get("register_job_id"),
         "referrer": job.meta.get("referrer", {}),
@@ -316,12 +316,15 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         "ended_timestamp": (
             int(job.ended_at.timestamp() * 1000) if job.ended_at else None
         ),
-        "enqueued_timestamp": (
-            int(job.enqueued_at.timestamp() * 1000) if job.enqueued_at else None
-        ),
         "results": results,
         "errors": errors,
     }
+
+    if admin:
+        result["enqueued_timestamp"] = int(job.enqueued_at.timestamp() * 1000) if job.enqueued_at else None
+        result["scheduled_for_timestamp"] = job.meta.get("scheduled_for_timestamp")
+
+    return result
 
 
 def get_display_job_status(job: Job) -> str:

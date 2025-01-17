@@ -2,7 +2,6 @@ import logging
 import time
 from datetime import timedelta
 from threading import Thread
-from typing import Optional
 from uuid import uuid4
 
 from flask import current_app
@@ -21,7 +20,7 @@ DATASETS_DATASTATUS_JOB_ID = 'update_datasets_datastatus'
 DATASETS_DATASTATUS_JOB_PREFIX = 'update_datasets_datastatus'
 
 
-def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
+def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
@@ -29,7 +28,10 @@ def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[tim
         job_kwargs={},
         user={'id': DATASETS_DATASTATUS_JOB_PREFIX, 'email': DATASETS_DATASTATUS_JOB_PREFIX},
         description='Update datasets datastatus',
-        metadata={'omit_results': True},  # omit results from job endpoints
+        metadata={
+            'omit_results': True,  # omit results from job endpoints
+            'scheduled_for_timestamp': int(time.time() + delta.total_seconds()) * 1000
+        },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
