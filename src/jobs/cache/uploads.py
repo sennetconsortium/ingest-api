@@ -6,9 +6,9 @@ from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
-from rq import get_current_connection
+from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility
+from jobs import JobQueue, JobResult, JobStatus, JobVisibility, update_job_progress
 from lib import get_globus_url
 
 logger = logging.getLogger(__name__)
@@ -57,9 +57,11 @@ def update_uploads_datastatus(schedule_next_job=True):
             "intended_dataset_type", "assigned_to_group_name", "ingest_task"
         ]
 
+        current_job = get_current_job()
         with neo4j_driver_instance.session() as session:
             results = session.run(all_uploads_query).data()
-            for upload in results:
+            percent_delta = 100 / len(results) if results else 100
+            for idx, upload in enumerate(results):
                 globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
                 upload['globus_url'] = globus_url
                 for prop in upload:
@@ -93,6 +95,11 @@ def update_uploads_datastatus(schedule_next_job=True):
                     if upload.get(field) is None:
                         upload[field] = ""
 
+                if current_job is not None:
+                    update_job_progress(percent_delta * (idx + 1), current_job)
+
+        if current_job is not None:
+            update_job_progress(100, current_job)
         logger.info(f"Finished updating uploads datastatus in {time.perf_counter() - start:.2f} seconds")
 
         return JobResult(success=True, results={

@@ -7,9 +7,9 @@ from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
-from rq import get_current_connection
+from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility
+from jobs import JobQueue, JobResult, JobStatus, JobVisibility, update_job_progress
 from lib import get_globus_url
 from lib.dataset_helper import DatasetHelper
 from lib.file import files_exist
@@ -112,8 +112,13 @@ def update_datasets_datastatus(schedule_next_job=True):
             thread.name = query
             thread.start()
             threads.append(thread)
+
         for thread in threads:
             thread.join()
+
+        current_job = get_current_job()
+        if current_job is not None:
+            update_job_progress(50, current_job)
 
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
@@ -151,6 +156,9 @@ def update_datasets_datastatus(schedule_next_job=True):
         combined_results = []
         for uuid in output_dict:
             combined_results.append(output_dict[uuid])
+
+        if current_job is not None:
+            update_job_progress(75, current_job)
 
         dataset_helper = DatasetHelper(current_app.config)
         for dataset in combined_results:
@@ -214,6 +222,8 @@ def update_datasets_datastatus(schedule_next_job=True):
             if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
                 dataset['organ'] = organ_types_dict[dataset['organ']]
 
+        if current_job is not None:
+            update_job_progress(100, current_job)
         logger.info(f"Finished updating datasets datastatus in {time.perf_counter() - start:.2f} seconds")
 
         return JobResult(success=True, results={
