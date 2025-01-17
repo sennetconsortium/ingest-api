@@ -26,7 +26,7 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = t
         description='Update uploads datastatus',
         metadata={
             'omit_results': True,  # omit results from job endpoints
-            'scheduled_for_timestamp': int(time.time() + delta.total_seconds()) * 1000
+            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000)
         },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
