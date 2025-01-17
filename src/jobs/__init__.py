@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Optional, Union
 from uuid import UUID, uuid4
@@ -310,18 +310,14 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
         "status": status.title(),
         "user": job.meta.get("user", {}),
         "progress": job.meta.get("progress", 100),
-        "started_timestamp": (
-            int(job.started_at.timestamp() * 1000) if job.started_at else None
-        ),
-        "ended_timestamp": (
-            int(job.ended_at.timestamp() * 1000) if job.ended_at else None
-        ),
+        "started_timestamp": int(job.started_at.replace(tzinfo=timezone.utc).timestamp() * 1000) if job.started_at else None,
+        "ended_timestamp": int(job.ended_at.replace(tzinfo=timezone.utc).timestamp() * 1000) if job.ended_at else None,
         "results": results,
         "errors": errors,
     }
 
     if admin:
-        result["enqueued_timestamp"] = int(job.enqueued_at.timestamp() * 1000) if job.enqueued_at else None
+        result["enqueued_timestamp"] = int(job.enqueued_at.replace(tzinfo=timezone.utc).timestamp() * 1000) if job.enqueued_at else None
         result["scheduled_for_timestamp"] = job.meta.get("scheduled_for_timestamp")
 
     return result
