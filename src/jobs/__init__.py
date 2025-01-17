@@ -111,7 +111,7 @@ class JobQueue:
         user: dict,
         description: str,
         metadata: Optional[dict],
-        job_id: str,
+        job_id: Union[str, UUID],
         job_func,
         job_kwargs,
         visibility: JobVisibility = JobVisibility.PUBLIC,
@@ -127,7 +127,7 @@ class JobQueue:
             The description of the job.
         metadata : Optional[dict]
             Additional metadata to store with the job.
-        job_id : str
+        job_id : Union[str, UUID]
             The job id.
         job_func : func
             Job function to execute.

@@ -2,35 +2,33 @@ import logging
 import time
 from datetime import timedelta
 from typing import Optional
+from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
 from rq import get_current_connection
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility, SERVER_PROCESS_ID
+from jobs import JobQueue, JobResult, JobStatus, JobVisibility
 from lib import get_globus_url
 
 logger = logging.getLogger(__name__)
 
 UPLOADS_DATASTATUS_JOB_ID = 'update_uploads_datastatus'
+UPLOADS_DATASTATUS_JOB_PREFIX = 'update_uploads_datastatus'
 
 
 def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = UPLOADS_DATASTATUS_JOB_ID
+    job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_uploads_datastatus,
         job_kwargs={},
-        user={'id': SERVER_PROCESS_ID, 'email': SERVER_PROCESS_ID},
+        user={'id': UPLOADS_DATASTATUS_JOB_PREFIX, 'email': UPLOADS_DATASTATUS_JOB_PREFIX},
         description='Update uploads datastatus',
         metadata={'omit_results': True},  # omit results from job endpoints
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
-    job.ttl = None  # Never expire the job
-    job.result_ttl = int(timedelta(hours=2).total_seconds())  # Keep the result for 2 hours
-    job.failure_ttl = 0  # Never keep the failure result
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
@@ -111,7 +109,3 @@ def update_uploads_datastatus(schedule_next_job=True):
             connection = get_current_connection()
             job_queue = JobQueue(connection)
             schedule_update_uploads_datastatus(job_queue)
-
-            # Trim the stream to keep only the latest results. RQ hardcodes number of results to 10.
-            stream_name = "rq:results:server_process:update_uploads_datastatus"
-            connection.xtrim(stream_name, maxlen=1)
