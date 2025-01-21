@@ -18,10 +18,9 @@ from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbi
     abort_not_found, rest_response
 from atlas_consortia_commons.string import equals
 from rq.exceptions import NoSuchJobError
-from rq.job import Job, JobStatus
-from rq.results import Result
+from rq.job import JobStatus
 
-from jobs import SERVER_PROCESS_ID, JobQueue, JobVisibility, create_queue_id
+from jobs import JOBS_PREFIX, JobQueue, JobVisibility
 from jobs.modification.datasets import update_datasets_uploads
 from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
@@ -40,8 +39,8 @@ from routes.auth import get_auth_header_dict
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload
 from lib.services import get_associated_sources_from_dataset, obj_to_dict, entity_json_dumps, get_entity_by_id
-from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_ID, update_datasets_datastatus
-from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_ID, update_uploads_datastatus
+from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_PREFIX, update_datasets_datastatus
+from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
 from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -679,26 +678,28 @@ def dataset_data_status():
     if current_app.config.get("REDIS_MODE") is False:
         # Redis is not enabled, retrieve data-status manually
         try:
-            combined_results = update_datasets_datastatus(schedule_next_job=False)
-            last_updated = int(time.time() * 1000)
-            return jsonify({"data": combined_results, "last_updated": last_updated})
+            results = update_datasets_datastatus(schedule_next_job=False)
+            return jsonify(results.results)
         except Exception:
             abort_internal_err("Failed to retrieve datasets data-status.")
 
-    # Get recurring job from rq
+    # Get jobs from rq
     try:
         job_queue = JobQueue.instance()
-        queue_id = create_queue_id(SERVER_PROCESS_ID, DATASETS_DATASTATUS_JOB_ID)
-        job = Job.fetch(queue_id, connection=job_queue.redis)
+        scan_query = f"{JOBS_PREFIX}{DATASETS_DATASTATUS_JOB_PREFIX}:*"
+        jobs = job_queue.query_jobs(scan_query)
+        success_jobs = [job for job in jobs if job.get_status() == JobStatus.FINISHED]
+        if len(success_jobs) == 0:
+            raise NoSuchJobError
+        if len(success_jobs) == 1:
+            return jsonify(success_jobs[0].result.results)
+
+        # Get the latest finished jobs
+        newest_job = max(success_jobs, key=lambda j: j.ended_at)
+        return jsonify(newest_job.result.results)
+
     except NoSuchJobError:
         return jsonify({"message": "Datasets data-status is currently being cached"}), 202
-
-    # Get the latest results from the recurring job
-    latest_results = job.latest_result()
-    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
-        return jsonify({"message": "Datasets data-status is currently being cached"}), 202
-
-    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
@@ -706,26 +707,28 @@ def upload_data_status():
     if current_app.config.get("REDIS_MODE") is False:
         # Redis is not enabled, retrieve data-status manually
         try:
-            combined_results = update_uploads_datastatus(schedule_next_job=False)
-            last_updated = int(time.time() * 1000)
-            return jsonify({"data": combined_results, "last_updated": last_updated})
+            results = update_uploads_datastatus(schedule_next_job=False)
+            return jsonify(results.results)
         except Exception:
             abort_internal_err("Failed to retrieve uploads data-status.")
 
-    # Get recurring job from rq
+    # Get jobs from rq
     try:
         job_queue = JobQueue.instance()
-        queue_id = create_queue_id(SERVER_PROCESS_ID, UPLOADS_DATASTATUS_JOB_ID)
-        job = Job.fetch(queue_id, connection=job_queue.redis)
+        scan_query = f"{JOBS_PREFIX}{UPLOADS_DATASTATUS_JOB_PREFIX}:*"
+        jobs = job_queue.query_jobs(scan_query)
+        success_jobs = [job for job in jobs if job.get_status() == JobStatus.FINISHED]
+        if len(success_jobs) == 0:
+            raise NoSuchJobError
+        if len(success_jobs) == 1:
+            return jsonify(success_jobs[0].result.results)
+
+        # Get the latest finished jobs
+        newest_job = max(success_jobs, key=lambda j: j.ended_at)
+        return jsonify(newest_job.result.results)
+
     except NoSuchJobError:
         return jsonify({"message": "Uploads data-status is currently being cached"}), 202
-
-    # Get the latest results from the recurring job
-    latest_results = job.latest_result()
-    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
-        return jsonify({"message": "Uploads data-status is currently being cached"}), 202
-
-    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods=['PUT'])
