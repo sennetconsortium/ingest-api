@@ -34,12 +34,18 @@ class JobSubject(str, Enum):
 class JobType(str, Enum):
     VALIDATE = "validate"
     REGISTER = "register"
+    CACHE = "cache"
 
     @property
     def noun(self) -> str:
         if self == JobType.VALIDATE:
             return "validation"
-        return "registration"
+        elif self == JobType.REGISTER:
+            return "registration"
+        elif self == JobType.CACHE:
+            return "caching"
+        else:
+            return ""
 
 
 class JobVisibility(str, Enum):
