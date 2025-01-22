@@ -1245,7 +1245,9 @@ def validate_tsv_with_ivt():
                 return rest_response(StatusCodes.OK, 'TSV validation results',
                              records, False)
             else:
-                if isinstance(records[0], Exception):
+                if isinstance(records, dict) and 'description' in records:
+                    return rest_bad_req(records['description'], False)
+                if isinstance(records, list) and isinstance(records[0], Exception):
                     return rest_bad_req(records[0].args[0].get('message'), False)
                 else:
                     return rest_bad_req('Unknown error occurred', False)

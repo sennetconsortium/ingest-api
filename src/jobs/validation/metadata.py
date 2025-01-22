@@ -206,7 +206,7 @@ def validate_tsv(
             schema_version=schema.version,
             cedar_api_key=current_app.config['CEDAR_API_KEY'],
             latest_version_name=latest_schema_name):
-            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema.version}", False)
+            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema.version}", True)
 
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
