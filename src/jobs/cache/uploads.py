@@ -7,7 +7,7 @@ from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
 from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility, update_job_progress
+from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,8 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = t
         description='Update uploads datastatus',
         metadata={
             'omit_results': True,  # omit results from job endpoints
-            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000)
+            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
+            'referrer': {'type': JobType.CACHE.value},
         },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
