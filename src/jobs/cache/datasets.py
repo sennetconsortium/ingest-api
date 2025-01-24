@@ -2,13 +2,13 @@ import logging
 import time
 from datetime import timedelta
 from threading import Thread
-from typing import Optional
+from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
-from rq import get_current_connection
+from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility, SERVER_PROCESS_ID
+from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
 from lib.dataset_helper import DatasetHelper
 from lib.file import files_exist
@@ -17,24 +17,25 @@ from lib.ontology import Ontology
 logger = logging.getLogger(__name__)
 
 DATASETS_DATASTATUS_JOB_ID = 'update_datasets_datastatus'
+DATASETS_DATASTATUS_JOB_PREFIX = 'update_datasets_datastatus'
 
 
-def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = DATASETS_DATASTATUS_JOB_ID
+def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
+    job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_datasets_datastatus,
         job_kwargs={},
-        user={'id': SERVER_PROCESS_ID, 'email': SERVER_PROCESS_ID},
+        user={'id': DATASETS_DATASTATUS_JOB_PREFIX, 'email': DATASETS_DATASTATUS_JOB_PREFIX},
         description='Update datasets datastatus',
-        metadata={},
-        visibility=JobVisibility.PRIVATE,
+        metadata={
+            'omit_results': True,  # omit results from job endpoints
+            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
+            'referrer': {'type': JobType.CACHE.value},
+        },
+        visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
-    job.ttl = None  # Never expire the job
-    job.result_ttl = int(timedelta(hours=2).total_seconds())  # Keep the result for 2 hours
-    job.failure_ttl = 0  # Never keep the failure result
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
@@ -114,8 +115,13 @@ def update_datasets_datastatus(schedule_next_job=True):
             thread.name = query
             thread.start()
             threads.append(thread)
+
         for thread in threads:
             thread.join()
+
+        current_job = get_current_job()
+        if current_job is not None:
+            update_job_progress(50, current_job)
 
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
@@ -153,6 +159,9 @@ def update_datasets_datastatus(schedule_next_job=True):
         combined_results = []
         for uuid in output_dict:
             combined_results.append(output_dict[uuid])
+
+        if current_job is not None:
+            update_job_progress(75, current_job)
 
         dataset_helper = DatasetHelper(current_app.config)
         for dataset in combined_results:
@@ -216,6 +225,8 @@ def update_datasets_datastatus(schedule_next_job=True):
             if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
                 dataset['organ'] = organ_types_dict[dataset['organ']]
 
+        if current_job is not None:
+            update_job_progress(100, current_job)
         logger.info(f"Finished updating datasets datastatus in {time.perf_counter() - start:.2f} seconds")
 
         return JobResult(success=True, results={
@@ -232,7 +243,3 @@ def update_datasets_datastatus(schedule_next_job=True):
             connection = get_current_connection()
             job_queue = JobQueue(connection)
             schedule_update_datasets_datastatus(job_queue)
-
-            # Trim the stream to keep only the latest results. RQ hardcodes number of results to 10.
-            stream_name = "rq:results:server_process:update_datasets_datastatus"
-            connection.xtrim(stream_name, maxlen=1)

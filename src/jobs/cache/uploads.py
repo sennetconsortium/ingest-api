@@ -1,36 +1,37 @@
 import logging
 import time
 from datetime import timedelta
-from typing import Optional
+from uuid import uuid4
 
 from flask import current_app
 from hubmap_commons import neo4j_driver, string_helper
-from rq import get_current_connection
+from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobVisibility, SERVER_PROCESS_ID
+from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
 
 logger = logging.getLogger(__name__)
 
 UPLOADS_DATASTATUS_JOB_ID = 'update_uploads_datastatus'
+UPLOADS_DATASTATUS_JOB_PREFIX = 'update_uploads_datastatus'
 
 
-def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: Optional[timedelta] = timedelta(hours=1)):
-    job_id = UPLOADS_DATASTATUS_JOB_ID
+def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
+    job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_uploads_datastatus,
         job_kwargs={},
-        user={'id': SERVER_PROCESS_ID, 'email': SERVER_PROCESS_ID},
+        user={'id': UPLOADS_DATASTATUS_JOB_PREFIX, 'email': UPLOADS_DATASTATUS_JOB_PREFIX},
         description='Update uploads datastatus',
-        metadata={},
-        visibility=JobVisibility.PRIVATE,
+        metadata={
+            'omit_results': True,  # omit results from job endpoints
+            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
+            'referrer': {'type': JobType.CACHE.value},
+        },
+        visibility=JobVisibility.ADMIN,
         at_datetime=delta,
     )
-    job.ttl = None  # Never expire the job
-    job.result_ttl = int(timedelta(hours=2).total_seconds())  # Keep the result for 2 hours
-    job.failure_ttl = 0  # Never keep the failure result
-    job.save()
 
     status = job.get_status()
     if status == JobStatus.FAILED:
@@ -59,9 +60,11 @@ def update_uploads_datastatus(schedule_next_job=True):
             "intended_dataset_type", "assigned_to_group_name", "ingest_task"
         ]
 
+        current_job = get_current_job()
         with neo4j_driver_instance.session() as session:
             results = session.run(all_uploads_query).data()
-            for upload in results:
+            percent_delta = 100 / len(results) if results else 100
+            for idx, upload in enumerate(results):
                 globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
                 upload['globus_url'] = globus_url
                 for prop in upload:
@@ -95,6 +98,11 @@ def update_uploads_datastatus(schedule_next_job=True):
                     if upload.get(field) is None:
                         upload[field] = ""
 
+                if current_job is not None:
+                    update_job_progress(percent_delta * (idx + 1), current_job)
+
+        if current_job is not None:
+            update_job_progress(100, current_job)
         logger.info(f"Finished updating uploads datastatus in {time.perf_counter() - start:.2f} seconds")
 
         return JobResult(success=True, results={
@@ -111,7 +119,3 @@ def update_uploads_datastatus(schedule_next_job=True):
             connection = get_current_connection()
             job_queue = JobQueue(connection)
             schedule_update_uploads_datastatus(job_queue)
-
-            # Trim the stream to keep only the latest results. RQ hardcodes number of results to 10.
-            stream_name = "rq:results:server_process:update_uploads_datastatus"
-            connection.xtrim(stream_name, maxlen=1)
