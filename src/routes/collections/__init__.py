@@ -8,6 +8,8 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
 
+
+from lib.datacite_api import DataciteApiException
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
 
@@ -92,22 +94,43 @@ def register_collections_doi(collection_id):
 
             entity_dict = vars(entity)
             datacite_doi_helper = DataCiteDoiHelper()
+            # Checks both whether a doi already exists, as well as if it is already findable. If True, DOI exists and is findable
+            # If false, DOI exists but is not yet in findable. If None, doi does not yet exist.
             try:
-                datacite_doi_helper.create_collection_draft_doi(entity_dict)
-            except Exception as e:
-                logger.exception(f"Exception while creating a draft doi for {collection_uuid}")
-                return jsonify(
-                    {
-                        "error": f"Error occurred while trying to create a draft doi for {collection_uuid}. Check logs."}), 500
-            # This will make the draft DOI created above 'findable'....
-            try:
-                doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
-            except Exception as e:
-                logger.exception \
-                    (f"Exception while creating making doi findable and saving to entity for {collection_uuid}")
-                return jsonify(
-                    {
-                        "error": f"Error occurred while making doi findable and saving to entity for {collection_uuid}. Check logs."}), 500
+                doi_exists = datacite_doi_helper.check_doi_existence_and_state(entity_dict)
+            except DataciteApiException as e:
+                logger.exception(f"Exception while fetching doi for {collection_uuid}")
+                return jsonify({"error": f"Error occurred while trying to confirm existence of doi for {collection_uuid}. {e}"}), 500
+            # Doi does not exist, create draft then make it findable
+            if doi_exists is None:
+                try:
+                    datacite_doi_helper.create_collection_draft_doi(entity_dict)
+                except DataciteApiException as datacite_exception:
+                    return jsonify({"error": str(datacite_exception)}), datacite_exception.error_code
+                except Exception as e:
+                    logger.exception(f"Exception while creating a draft doi for {collection_uuid}")
+                    return jsonify({"error": f"Error occurred while trying to create a draft doi for {collection_uuid}. Check logs."}), 500
+                # This will make the draft DOI created above 'findable'....
+                try:
+                    doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
+                except Exception as e:
+                    logger.exception(f"Exception while creating making doi findable and saving to entity for {collection_uuid}")
+                    return jsonify({"error": f"Error occurred while making doi findable and saving to entity for {collection_uuid}. Check logs."}), 500
+            # Doi exists, but is not yet findable. Just make it findable
+            elif doi_exists is False:
+                try:
+                    doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
+                except Exception as e:
+                    logger.exception(f"Exception while creating making doi findable and saving to entity for {collection_uuid}")
+                    return jsonify({"error": f"Error occurred while making doi findable and saving to entity for {collection_uuid}. Check logs."}), 500
+            # The doi exists and it is already findable, skip both steps
+            elif doi_exists is True:
+                logger.debug(f"DOI for {collection_uuid} is already findable. Skipping creation and state change.")
+                doi_name = datacite_doi_helper.build_doi_name(entity_dict)
+                doi_info = {
+                    'registered_doi': doi_name,
+                    'doi_url': f'https://doi.org/{doi_name}'
+                }
             doi_update_data = ""
             if not doi_info is None:
                 doi_update_data = {"registered_doi": doi_info["registered_doi"], "doi_url": doi_info['doi_url']}
