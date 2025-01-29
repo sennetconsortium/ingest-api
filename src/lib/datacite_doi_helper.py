@@ -13,6 +13,7 @@ from hubmap_sdk import Entity, EntitySdk
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from api.datacite_api import DataCiteApi
+from lib.datacite_api import DataciteApiException
 from lib.services import get_entity_by_id
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -123,6 +124,24 @@ class DataCiteDoiHelper:
             return None
 
         return creators
+
+    def check_doi_existence_and_state(self, entity: dict):
+        datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
+                                   self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+        doi_name = datacite_api.build_doi_name(entity['hubmap_id'])
+        try:
+            doi_response = datacite_api.get_doi_by_id(doi_name)
+        except requests.exceptions.RequestException as e:
+            raise DataciteApiException(error_code=500, message="Failed to connect to DataCite")
+        if doi_response.status_code == 200:
+            logger.debug("==========DOI already exists. Skipping create-draft=========")
+            response_data = doi_response.json()
+            state = response_data.get("data", {}).get("attributes", {}).get("state")
+            if state == "findable":
+                return True
+            else:
+                return False
+        return None
 
     """
     Register a draft DOI with DataCite
@@ -286,6 +305,11 @@ class DataCiteDoiHelper:
 
             # Also bubble up the error message from DataCite
             raise requests.exceptions.RequestException(response.text)
+
+    def build_doi_name(self, entity):
+        datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password, self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+        doi_name = datacite_api.build_doi_name(entity['hubmap_id'])
+        return doi_name
 
     """
     Update the dataset's properties in Entity-API after DOI is published (Draft -> Findable)
