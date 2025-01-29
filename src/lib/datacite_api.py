@@ -38,19 +38,19 @@ class DataCiteApi:
     # https://support.datacite.org/reference/dois-2#post_dois
     # and https://docs.python.org/3/library/typing.html
     def create_new_draft_doi(self,
-                             hubmap_id: str,
+                             sennet_id: str,
                              uuid: str,
                              contributors: list,
                              title: str,
                              publication_year: int,
                              creators: list,
                              entity_type='Dataset') -> object:
-        publisher = 'HuBMAP Consortium'
+        publisher = 'SenNet Consortium'
 
         # Draft DOI doesn't specify the 'event' attribute
         json = {
             'data': {
-                'id': hubmap_id,
+                'id': sennet_id,
                 'type': 'dois',
                 'attributes': {
                     # ==============ATTENTION==============
@@ -65,7 +65,7 @@ class DataCiteApi:
                     # https://schema.datacite.org/meta/kernel-4.3/doc/DataCite-MetadataKernel_v4.3.pdf#%5B%7B%22num%22%3A19%2C%22gen%22%3A0%7D%2C%7B%22name%22%3A%22XYZ%22%7D%2C68%2C549%2C0%5D
 
                     # The globally unique string that identifies the resource and can't be changed
-                    'doi': self.build_doi_name(hubmap_id),
+                    'doi': self.build_doi_name(sennet_id),
                     # One or more names or titles by which the resource is known
                     'titles': [{
                         'title': title
