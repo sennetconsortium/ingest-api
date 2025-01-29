@@ -15,7 +15,7 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.decorator import User, require_data_admin, require_json
 from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, \
-    abort_not_found, rest_response
+    abort_not_found, rest_response, rest_bad_req, rest_server_err
 from atlas_consortia_commons.string import equals
 from rq.exceptions import NoSuchJobError
 from rq.job import JobStatus
@@ -1232,25 +1232,33 @@ def validate_tsv_with_ivt():
     sub_type = data.get('sub_type')
 
     file_upload = check_upload(attribute)
-    if file_upload.get('code') is StatusCodes.OK:
-        auth_helper_instance = AuthHelper.instance()
-        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    try:
+        if file_upload.get('code') is StatusCodes.OK:
+            auth_helper_instance = AuthHelper.instance()
+            auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
 
-        file = file_upload.get('description')
-        file_id = file.get('id')
-        file = file.get('file')
-        pathname = file_id + os.sep + file.filename
-        result = set_file_details(pathname)
-        schema = determine_schema(entity_type, sub_type)
-        records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
-        code = StatusCodes.UNACCEPTABLE
-        if len(records) == 0:
-            records = get_csv_records(result.get('fullpath'))
-            code = StatusCodes.OK
-        return rest_response(code, 'TSV validation results',
+            file = file_upload.get('description')
+            file_id = file.get('id')
+            file = file.get('file')
+            pathname = file_id + os.sep + file.filename
+            result = set_file_details(pathname)
+            schema = determine_schema(entity_type, sub_type)
+            records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+            if len(records) == 0:
+                records = get_csv_records(result.get('fullpath'))
+                return rest_response(StatusCodes.OK, 'TSV validation results',
                              records, False)
-    else:
-        return json.dumps(file_upload)
+            else:
+                if isinstance(records, dict) and 'description' in records:
+                    return rest_bad_req(records['description'], False)
+                if isinstance(records, list) and isinstance(records[0], Exception):
+                    return rest_bad_req(records[0].args[0].get('message'), False)
+                else:
+                    return rest_bad_req('Unknown error occurred', False)
+        else:
+            return json.dumps(file_upload)
+    except Exception as e:
+        return rest_server_err(e, False)
 
 
 def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
