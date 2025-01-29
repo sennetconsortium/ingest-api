@@ -202,7 +202,7 @@ def validate_tsv(
             )
         )
 
-        if not iv_utils.is_schema_latest_version(
+        if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
             schema_version=schema.version,
             cedar_api_key=current_app.config['CEDAR_API_KEY'],
             latest_version_name=latest_schema_name):
