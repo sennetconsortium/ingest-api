@@ -128,7 +128,7 @@ class DataCiteDoiHelper:
     def check_doi_existence_and_state(self, entity: dict):
         datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
                                    self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
-        doi_name = datacite_api.build_doi_name(entity['hubmap_id'])
+        doi_name = datacite_api.build_doi_name(entity['sennet_id'])
         try:
             doi_response = datacite_api.get_doi_by_id(doi_name)
         except requests.exceptions.RequestException as e:
@@ -308,7 +308,7 @@ class DataCiteDoiHelper:
 
     def build_doi_name(self, entity):
         datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password, self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
-        doi_name = datacite_api.build_doi_name(entity['hubmap_id'])
+        doi_name = datacite_api.build_doi_name(entity['sennet_id'])
         return doi_name
 
     """
