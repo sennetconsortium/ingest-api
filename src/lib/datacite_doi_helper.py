@@ -13,6 +13,7 @@ from hubmap_sdk import Entity, EntitySdk
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from api.datacite_api import DataCiteApi
+from lib.datacite_api import DataciteApiException
 from lib.services import get_entity_by_id
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -38,7 +39,7 @@ class DataCiteDoiHelper:
         self.datacite_repository_id = config['DATACITE_REPOSITORY_ID']
         self.datacite_repository_password = config['DATACITE_REPOSITORY_PASSWORD']
         # Prefix, e.g., 10.80478 for test...
-        self.datacite_hubmap_prefix = config['DATACITE_SENNET_PREFIX']
+        self.datacite_sennet_prefix = config['DATACITE_SENNET_PREFIX']
         # DataCite TEST API: https://api.test.datacite.org/
         self.datacite_api_url = config['DATACITE_API_URL']
         self.entity_api_url = config['ENTITY_WEBSERVICE_URL']
@@ -124,6 +125,24 @@ class DataCiteDoiHelper:
 
         return creators
 
+    def check_doi_existence_and_state(self, entity: dict):
+        datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
+                                   self.datacite_sennet_prefix, self.datacite_api_url, self.entity_api_url)
+        doi_name = datacite_api.build_doi_name(entity['sennet_id'])
+        try:
+            doi_response = datacite_api.get_doi_by_id(doi_name)
+        except requests.exceptions.RequestException as e:
+            raise DataciteApiException(error_code=500, message="Failed to connect to DataCite")
+        if doi_response.status_code == 200:
+            logger.debug("==========DOI already exists. Skipping create-draft=========")
+            response_data = doi_response.json()
+            state = response_data.get("data", {}).get("attributes", {}).get("state")
+            if state == "findable":
+                return True
+            else:
+                return False
+        return None
+
     """
     Register a draft DOI with DataCite
 
@@ -150,7 +169,7 @@ class DataCiteDoiHelper:
                     raise ValueError('This Dataset is not Published, can not register DOI')
 
             datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
-                                       self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+                                       self.datacite_sennet_prefix, self.datacite_api_url, self.entity_api_url)
 
             # Get publication_year, default to the current year
             publication_year = int(datetime.now().year)
@@ -209,7 +228,7 @@ class DataCiteDoiHelper:
         entity_types = ['Dataset', 'Collection', 'Epicollection']
         if ('entity_type' in entity) and (entity['entity_type'] in entity_types):
             datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
-                                       self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+                                       self.datacite_sennet_prefix, self.datacite_api_url, self.entity_api_url)
             response = datacite_api.update_doi_event_publish(entity['sennet_id'])
 
             if response.status_code == 200:
@@ -262,7 +281,7 @@ class DataCiteDoiHelper:
 
     def create_collection_draft_doi(self, collection: dict) -> object:
         datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password,
-                                   self.datacite_hubmap_prefix, self.datacite_api_url, self.entity_api_url)
+                                   self.datacite_sennet_prefix, self.datacite_api_url, self.entity_api_url)
         publication_year = int(datetime.now().year)
         response = datacite_api.create_new_draft_doi(collection['sennet_id'],
                                                      collection['uuid'],
@@ -286,6 +305,11 @@ class DataCiteDoiHelper:
 
             # Also bubble up the error message from DataCite
             raise requests.exceptions.RequestException(response.text)
+
+    def build_doi_name(self, entity):
+        datacite_api = DataCiteApi(self.datacite_repository_id, self.datacite_repository_password, self.datacite_sennet_prefix, self.datacite_api_url, self.entity_api_url)
+        doi_name = datacite_api.build_doi_name(entity['sennet_id'])
+        return doi_name
 
     """
     Update the dataset's properties in Entity-API after DOI is published (Draft -> Findable)
