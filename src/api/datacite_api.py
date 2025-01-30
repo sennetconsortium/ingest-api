@@ -11,17 +11,17 @@ logger = logging.getLogger(__name__)
 class DataCiteApi:
 
     def __init__(self, datacite_repository_id: str, datacite_repository_password: str,
-                 datacite_hubmap_prefix: str, datacite_api_url: str, entity_api_url: str):
+                 datacite_sennet_prefix: str, datacite_api_url: str, entity_api_url: str):
         self.auth = HTTPBasicAuth(datacite_repository_id, datacite_repository_password)
-        self.datacite_hubmap_prefix = datacite_hubmap_prefix
+        self.datacite_sennet_prefix = datacite_sennet_prefix
         self.datacite_api_url = datacite_api_url
         self.redirect_prefix = f"{entity_api_url}/doi/redirect"
         self.ssl_verification_enabed = False
 
     # https://support.datacite.org/docs/doi-basics
-    def build_doi_name(self, dataset_hubmap_id: str):
+    def build_doi_name(self, dataset_sennet_id: str):
         # Format: prefix/suffix, no need for proxy part
-        return f"{self.datacite_hubmap_prefix}/{dataset_hubmap_id}"
+        return f"{self.datacite_sennet_prefix}/{dataset_sennet_id}"
 
     # DOI retrieval
     # https://support.datacite.org/reference/dois-2#get_dois-id
