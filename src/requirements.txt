@@ -27,6 +27,7 @@ rule_engine==4.1.0
 redis==5.0.3
 rq==1.16.2
 
+# We cannot go beyond 0.3.6 as it now requires python >= 3.10
 # For vitessce config generation
 https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.3.6.tar.gz
 
