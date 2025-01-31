@@ -1,6 +1,6 @@
 Flask==3.0.3
 globus_sdk==2.0.1
-hubmap-sdk==1.0.7
+hubmap-sdk==1.0.10
 Werkzeug==3.0.3
 
 # Use pinned version of jsonref same as commons
@@ -17,7 +17,7 @@ requests==2.32.3
 # Use the branch name of commons from github for testing new changes made in commons from different branch
 # Default is main branch specified in docker-compose.development.yml if not set
 # git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons
-hubmap-commons==2.1.18
+hubmap-commons==2.1.19
 atlas-consortia-commons==1.1.0
 
 # For assay type rules
@@ -27,9 +27,9 @@ rule_engine==4.1.0
 redis==5.0.3
 rq==1.16.2
 
-# We cannot go beyond 0.3.6 as it now requires python >= 3.10
-# For vitessce config generation
-https://github.com/hubmapconsortium/portal-visualization/archive/refs/tags/0.3.6.tar.gz
-
 # Testing
 pytest==7.3.1
+
+# We cannot go beyond 0.3.6 as it now requires python >= 3.10
+# For vitessce config generation
+git+https://github.com/hubmapconsortium/portal-visualization.git@0.3.6#egg=portal-visualization
