@@ -165,7 +165,7 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str, schema: str = "metadata", path: Optional[str] = None
+    token: str, schema: str = "metadata", latest_schema_name: str = "isLatestVersion", path: Optional[str] = None
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -175,6 +175,11 @@ def validate_tsv(
         The groups_token to use for validation.
     schema : str
         Name of the schema to validate against. Defaults to "metadata".
+    latest_schema_name : str
+        Used to specify which version to check against. Values include:
+            isLatestVersion,
+            isLatestPublishedVersion,
+            isLatestDraftVersion
     path : str, optional
         The path of the tsv for Ingest Validation Tools. Defaults to None.
 
@@ -185,7 +190,7 @@ def validate_tsv(
     """
 
     try:
-        schema_name = (
+        schema = (
             schema
             if schema != "metadata"
             else iv_utils.get_schema_version(
@@ -194,8 +199,15 @@ def validate_tsv(
                 entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
                 ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
                 globus_token=token
-            ).schema_name
+            )
         )
+
+        if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
+            schema_version=schema.version,
+            cedar_api_key=current_app.config['CEDAR_API_KEY'],
+            latest_version_name=latest_schema_name):
+            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema.version}", True)
+
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
             "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
@@ -205,7 +217,7 @@ def validate_tsv(
         }
         result = iv_utils.get_tsv_errors(
             path,
-            schema_name=schema_name,
+            schema_name=schema.schema_name,
             report_type=table_validator.ReportType.JSON,
             globus_token=token,
             app_context=app_context,
