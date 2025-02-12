@@ -24,6 +24,7 @@ from jobs import JobResult, JobSubject, update_job_progress
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
 from routes.auth import get_auth_header_dict
+from submodules.ingest_validation_tools.src.ingest_validation_tools.schema_loader import SchemaVersion
 
 logger = logging.getLogger(__name__)
 
@@ -202,11 +203,15 @@ def validate_tsv(
             )
         )
 
-        if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
-            schema_version=schema.version,
-            cedar_api_key=current_app.config['CEDAR_API_KEY'],
-            latest_version_name=latest_schema_name):
-            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema.version}", True)
+        schema_name = schema
+        if isinstance(schema, SchemaVersion):
+            schema_name = schema.schema_name
+            schema_version = schema.version
+            if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
+                schema_version=schema_version,
+                cedar_api_key=current_app.config['CEDAR_API_KEY'],
+                latest_version_name=latest_schema_name):
+                return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True)
 
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
@@ -217,7 +222,7 @@ def validate_tsv(
         }
         result = iv_utils.get_tsv_errors(
             path,
-            schema_name=schema.schema_name,
+            schema_name=schema_name,
             report_type=table_validator.ReportType.JSON,
             globus_token=token,
             app_context=app_context,
