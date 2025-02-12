@@ -24,6 +24,7 @@ from jobs import JobResult, JobSubject, update_job_progress
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
 from routes.auth import get_auth_header_dict
+from submodules.ingest_validation_tools.src.ingest_validation_tools.schema_loader import SchemaVersion
 
 logger = logging.getLogger(__name__)
 
@@ -202,11 +203,17 @@ def validate_tsv(
             )
         )
 
-        if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
-            schema_version=schema.version,
+        validation_stop = False
+        if isinstance(schema, SchemaVersion) and schema.is_cedar is False:
+            validation_stop = True
+
+        schema_version = schema.version if isinstance(schema, SchemaVersion) else schema
+
+        if validation_stop or not iv_utils.is_schema_latest_version(
+            schema_version=schema_version,
             cedar_api_key=current_app.config['CEDAR_API_KEY'],
             latest_version_name=latest_schema_name):
-            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema.version}", True)
+            return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True)
 
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
