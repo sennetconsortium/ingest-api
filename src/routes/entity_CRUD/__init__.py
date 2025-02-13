@@ -1250,7 +1250,7 @@ def validate_tsv_with_ivt():
                 if isinstance(records, list) and isinstance(records[0], Exception):
                     return rest_bad_req(records[0].args[0].get('message'), False)
                 else:
-                    return rest_bad_req('Unknown error occurred', False)
+                    return rest_bad_req(records, False)
         else:
             return json.dumps(file_upload)
     except Exception as e:
