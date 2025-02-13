@@ -887,9 +887,6 @@ def publish_datastage(identifier):
                 if asset_dir_exists:
                     ingest_helper.relink_to_public(dataset_uuid)
 
-            acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
-                                                             True, no_indexing_and_acls)
-
             doi_info = None
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
             if is_primary or has_entity_lab_processed_dataset_type:
@@ -971,6 +968,10 @@ def publish_datastage(identifier):
             except Exception as e:
                 logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
                 return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
+
+        # Change the directory permissions to prevent user from writing to published folder
+        acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
+                                                         True, no_indexing_and_acls)
 
         if no_indexing_and_acls:
             r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
