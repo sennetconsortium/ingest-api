@@ -867,8 +867,6 @@ def publish_datastage(identifier):
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
 
             ingest_helper = IngestFileHelper(current_app.config)
-            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
-                                                                    dataset_uuid, False)
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
 
             data_access_level = dataset_data_access_level
@@ -887,9 +885,6 @@ def publish_datastage(identifier):
                 data_access_level = 'public'
                 if asset_dir_exists:
                     ingest_helper.relink_to_public(dataset_uuid)
-
-            acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
-                                                             True, no_indexing_and_acls)
 
             doi_info = None
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
@@ -962,6 +957,9 @@ def publish_datastage(identifier):
                 for e_id in uuids_for_public:
                     entity_instance.clear_cache(e_id)
 
+        # Write metadata.json into directory
+        ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
+                                                                dataset_uuid, True)
         if is_primary or is_component is False:
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(entity, auth_tokens, EntitySdk(service_url=current_app.config['ENTITY_WEBSERVICE_URL']), True)
@@ -972,6 +970,10 @@ def publish_datastage(identifier):
             except Exception as e:
                 logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
                 return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
+
+        # Change the directory permissions to prevent user from writing to published folder
+        acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
+                                                         True, no_indexing_and_acls)
 
         if no_indexing_and_acls:
             r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}
