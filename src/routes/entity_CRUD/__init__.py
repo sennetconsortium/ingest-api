@@ -1215,6 +1215,22 @@ def reorganize_upload(upload_uuid):
 
 @entity_CRUD_blueprint.route('/validate-tsv', methods=['POST'])
 def validate_tsv_with_ivt():
+    """
+    Uploads and handles tsv for validation with IVT submodule.
+
+    Sample data flow from client:
+
+    From portal-ui (Epi)Collection edit form:
+    > Makes a POST to this /validate-tsv
+    > This calls validate_tsv which in turn calls get_tsv_errors IVT method
+
+    Returns
+    -------
+    dict
+        A dictionary containing validation results in
+        format of atlas_consortia_commons.rest.rest_response {code, name, description}
+
+    """
     result: dict = {
         'error': None
     }
@@ -1240,35 +1256,7 @@ def validate_tsv_with_ivt():
             result = set_file_details(pathname)
             schema = determine_schema(entity_type, sub_type)
             validation_results = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
-            if len(validation_results) == 0:
-                validation_results = get_csv_records(result.get('fullpath'))
-                return rest_response(StatusCodes.OK, 'TSV validation results',
-                                     validation_results, False)
-            else:
-                final_results = []
-                def parse_results(record):
-                    if isinstance(record, dict):
-                        if 'description' in record:
-                            parse_results(record['description'])
-                        if 'column' in record and 'error' in record and 'row' in record:
-                            final_results.append(record)
-                        else:
-                            # some unexpected dict, just str it and append to results
-                            final_results.append(ln_err(str(record)))
-                    elif isinstance(record, list):
-                        for item in record:
-                            parse_results(item)
-                    elif isinstance(record, Exception):
-                        ex = record.args[0]
-                        final_results.append(ln_err(f"{ex.get('message', '')} {ex.get('cause', '')} {ex.get('fixSuggestion', '')}"))
-                    else:
-                        # some other instance, maybe str or some other object
-                        final_results.append(ln_err(str(record)))
-
-                for r in validation_results:
-                    parse_results(r)
-
-                return rest_bad_req(final_results, False)
+            return json.dumps(validation_results)
         else:
             return json.dumps(file_upload)
     except Exception as e:
