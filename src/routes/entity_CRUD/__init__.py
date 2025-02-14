@@ -18,10 +18,9 @@ from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbi
     abort_not_found, rest_response, rest_bad_req, rest_server_err
 from atlas_consortia_commons.string import equals
 from rq.exceptions import NoSuchJobError
-from rq.job import Job, JobStatus
-from rq.results import Result
+from rq.job import JobStatus
 
-from jobs import SERVER_PROCESS_ID, JobQueue, JobVisibility, create_queue_id
+from jobs import JOBS_PREFIX, JobQueue, JobVisibility
 from jobs.modification.datasets import update_datasets_uploads
 from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
@@ -39,9 +38,9 @@ from routes.auth import get_auth_header_dict
 
 from lib.ontology import Ontology
 from lib.file import get_csv_records, check_upload
-from lib.services import get_associated_sources_from_dataset, obj_to_dict, entity_json_dumps, get_entity_by_id
-from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_ID, update_datasets_datastatus
-from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_ID, update_uploads_datastatus
+from lib.services import obj_to_dict, entity_json_dumps, get_entity_by_id
+from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_PREFIX, update_datasets_datastatus
+from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
 from jobs.validation.metadata import validate_tsv, determine_schema
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
@@ -679,26 +678,28 @@ def dataset_data_status():
     if current_app.config.get("REDIS_MODE") is False:
         # Redis is not enabled, retrieve data-status manually
         try:
-            combined_results = update_datasets_datastatus(schedule_next_job=False)
-            last_updated = int(time.time() * 1000)
-            return jsonify({"data": combined_results, "last_updated": last_updated})
+            results = update_datasets_datastatus(schedule_next_job=False)
+            return jsonify(results.results)
         except Exception:
             abort_internal_err("Failed to retrieve datasets data-status.")
 
-    # Get recurring job from rq
+    # Get jobs from rq
     try:
         job_queue = JobQueue.instance()
-        queue_id = create_queue_id(SERVER_PROCESS_ID, DATASETS_DATASTATUS_JOB_ID)
-        job = Job.fetch(queue_id, connection=job_queue.redis)
+        scan_query = f"{JOBS_PREFIX}{DATASETS_DATASTATUS_JOB_PREFIX}:*"
+        jobs = job_queue.query_jobs(scan_query)
+        success_jobs = [job for job in jobs if job.get_status() == JobStatus.FINISHED]
+        if len(success_jobs) == 0:
+            raise NoSuchJobError
+        if len(success_jobs) == 1:
+            return jsonify(success_jobs[0].result.results)
+
+        # Get the latest finished jobs
+        newest_job = max(success_jobs, key=lambda j: j.ended_at)
+        return jsonify(newest_job.result.results)
+
     except NoSuchJobError:
         return jsonify({"message": "Datasets data-status is currently being cached"}), 202
-
-    # Get the latest results from the recurring job
-    latest_results = job.latest_result()
-    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
-        return jsonify({"message": "Datasets data-status is currently being cached"}), 202
-
-    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/uploads/data-status', methods=['GET'])
@@ -706,26 +707,28 @@ def upload_data_status():
     if current_app.config.get("REDIS_MODE") is False:
         # Redis is not enabled, retrieve data-status manually
         try:
-            combined_results = update_uploads_datastatus(schedule_next_job=False)
-            last_updated = int(time.time() * 1000)
-            return jsonify({"data": combined_results, "last_updated": last_updated})
+            results = update_uploads_datastatus(schedule_next_job=False)
+            return jsonify(results.results)
         except Exception:
             abort_internal_err("Failed to retrieve uploads data-status.")
 
-    # Get recurring job from rq
+    # Get jobs from rq
     try:
         job_queue = JobQueue.instance()
-        queue_id = create_queue_id(SERVER_PROCESS_ID, UPLOADS_DATASTATUS_JOB_ID)
-        job = Job.fetch(queue_id, connection=job_queue.redis)
+        scan_query = f"{JOBS_PREFIX}{UPLOADS_DATASTATUS_JOB_PREFIX}:*"
+        jobs = job_queue.query_jobs(scan_query)
+        success_jobs = [job for job in jobs if job.get_status() == JobStatus.FINISHED]
+        if len(success_jobs) == 0:
+            raise NoSuchJobError
+        if len(success_jobs) == 1:
+            return jsonify(success_jobs[0].result.results)
+
+        # Get the latest finished jobs
+        newest_job = max(success_jobs, key=lambda j: j.ended_at)
+        return jsonify(newest_job.result.results)
+
     except NoSuchJobError:
         return jsonify({"message": "Uploads data-status is currently being cached"}), 202
-
-    # Get the latest results from the recurring job
-    latest_results = job.latest_result()
-    if latest_results is None or latest_results.type != Result.Type.SUCCESSFUL:
-        return jsonify({"message": "Uploads data-status is currently being cached"}), 202
-
-    return jsonify(latest_results.return_value.results)
 
 
 @entity_CRUD_blueprint.route('/datasets/<identifier>/publish', methods=['PUT'])
@@ -820,7 +823,7 @@ def publish_datastage(identifier):
                 "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
             )
             if is_primary:
-                q += ", e.ingest_metadata as ingest_metadata"
+                q += ", e.metadata as metadata"
 
             rval = neo_session.run(q).data()
             dataset_status = rval[0]['status']
@@ -829,12 +832,12 @@ def publish_datastage(identifier):
             dataset_group_uuid = rval[0]['group_uuid']
             dataset_contacts = rval[0]['contacts']
             dataset_contributors = rval[0]['contributors']
-            dataset_ingest_metadata_dict = None
+            dataset_metadata_dict = None
             if is_primary:
-                dataset_ingest_metadata = rval[0].get('ingest_metadata')
-                if dataset_ingest_metadata is not None:
-                    dataset_ingest_metadata_dict: dict = string_helper.convert_str_literal(dataset_ingest_metadata)
-                logger.info(f"publish_datastage; ingest_metadata: {dataset_ingest_metadata_dict}")
+                dataset_metadata = rval[0].get('metadata')
+                if dataset_metadata is not None:
+                    dataset_metadata_dict: dict = string_helper.convert_str_literal(dataset_metadata)
+                logger.info(f"publish_datastage; metadata: {dataset_metadata_dict}")
 
             if not get_entity_type_instanceof(dataset_entitytype, 'Dataset',
                                               auth_header="Bearer " + auth_helper.getProcessSecret()):
@@ -863,8 +866,6 @@ def publish_datastage(identifier):
                     abort_bad_req(f"{dataset_uuid} missing contacts or contributors. Must have at least one of each")
 
             ingest_helper = IngestFileHelper(current_app.config)
-            ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
-                                                                    dataset_uuid, False)
             is_component = entity_dict.get('creation_action') == 'Multi-Assay Split'
 
             data_access_level = dataset_data_access_level
@@ -883,9 +884,6 @@ def publish_datastage(identifier):
                 data_access_level = 'public'
                 if asset_dir_exists:
                     ingest_helper.relink_to_public(dataset_uuid)
-
-            acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
-                                                             True, no_indexing_and_acls)
 
             doi_info = None
             # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
@@ -958,6 +956,9 @@ def publish_datastage(identifier):
                 for e_id in uuids_for_public:
                     entity_instance.clear_cache(e_id)
 
+        # Write metadata.json into directory
+        ds_path = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid,
+                                                                dataset_uuid, True)
         if is_primary or is_component is False:
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(entity, auth_tokens, EntitySdk(service_url=current_app.config['ENTITY_WEBSERVICE_URL']), True)
@@ -968,6 +969,10 @@ def publish_datastage(identifier):
             except Exception as e:
                 logger.exception(f"Fatal error while writing md_file {md_file}; {str(e)}")
                 return jsonify({"error": f"{dataset_uuid} problem writing metadata.json file."}), 500
+
+        # Change the directory permissions to prevent user from writing to published folder
+        acls_cmd = ingest_helper.set_dataset_permissions(dataset_uuid, dataset_group_uuid, data_access_level,
+                                                         True, no_indexing_and_acls)
 
         if no_indexing_and_acls:
             r_val = {'acl_cmd': acls_cmd, 'sources_for_indexing': sources_to_reindex}

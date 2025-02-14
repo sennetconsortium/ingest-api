@@ -4,7 +4,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk.sdk_helper import HTTPException
 from hubmap_sdk.sdk_helper import HTTPException as SDKException
-from portal_visualization.builder_factory import get_view_config_builder
+from portal_visualization.builder_factory import get_view_config_builder, has_visualization
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
 from lib import suppress_print
@@ -41,22 +41,26 @@ def get_vitessce_config(ds_uuid: str):
         # Get entity from search-api
         # entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
         entity = get_entity(ds_uuid, groups_token, as_dict=True)
-        if 'ingest_metadata' in entity and 'files' in entity['ingest_metadata']:
-            entity['files'] = entity['ingest_metadata']['files']
 
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
-            entity = get_entity(entity["uuid"], groups_token, as_dict=True)
             metadata = build_entity_metadata(entity)
             return calculate_assay_info(metadata)
 
         parent = None
         assaytype = get_assaytype(entity)
+        entity['soft_assaytype'] = assaytype['assaytype']
+        entity['vitessce-hints'] = assaytype['vitessce-hints']
+        # TODO: May need to add a check for is_seg_mask in vitessce-hints and may also need to pass epic_uuid to this endpoint
         # Adding portal-visualization `builder_factory` vis-lifted image pyramids check to see if we want to pass the parent
         if 'is_support' in assaytype['vitessce-hints'] and 'is_image' in assaytype['vitessce-hints']:
             parent = entity['direct_ancestors'][0]
-        BuilderCls = get_view_config_builder(entity, get_assaytype, parent)
-        builder = BuilderCls(
+
+        if not has_visualization(entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None):
+           return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
+
+        Builder = get_view_config_builder(entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None)
+        builder = Builder(
             entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
         )
         with suppress_print():

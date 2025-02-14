@@ -321,7 +321,7 @@ class DatasetHelper:
 
         metadata = json_data['metadata']
         if 'files_info_alt_path' in metadata:
-            metadata['files'] = self.get_file_list(metadata['files_info_alt_path'])
+            update_record['files'] = self.get_file_list(metadata['files_info_alt_path'])
 
         if 'overwrite_metadata' in json_data and json_data['overwrite_metadata'] == False:
             raise ValueError("overwrite_metadata set to False, merging of metadata is not supported on update")
@@ -376,7 +376,7 @@ class DatasetHelper:
 
                 metadata['metadata'] = meta_lvl3
 
-        update_record[HubmapConst.DATASET_INGEST_METADATA_ATTRIBUTE] = metadata
+        update_record['metadata'] = metadata
 
         if not antibodies is None:
             update_record['antibodies'] = antibodies

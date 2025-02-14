@@ -1,7 +1,6 @@
 import requests
 from requests.auth import HTTPBasicAuth
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +18,9 @@ class DataCiteApi:
         self.ssl_verification_enabed = False
 
     # https://support.datacite.org/docs/doi-basics
-    def build_doi_name(self, dataset_sennet_id: str):
+    def build_doi_name(self, entity_sennet_id: str):
         # Format: prefix/suffix, no need for proxy part
-        return f"{self.datacite_sennet_prefix}/{dataset_sennet_id}"
+        return f"{self.datacite_sennet_prefix}/{entity_sennet_id}"
 
     # DOI retrieval
     # https://support.datacite.org/reference/dois-2#get_dois-id
@@ -39,13 +38,13 @@ class DataCiteApi:
     # https://support.datacite.org/reference/dois-2#post_dois
     # and https://docs.python.org/3/library/typing.html
     def create_new_draft_doi(self,
-                    sennet_id: str,
-                    uuid: str,
-                    contributors: list, 
-                    dataset_title: str,
-                    publication_year: int,
-                    creators: list,
-                    entity_type='Dataset') -> object:
+                             sennet_id: str,
+                             uuid: str,
+                             contributors: list,
+                             title: str,
+                             publication_year: int,
+                             creators: list,
+                             entity_type='Dataset') -> object:
         publisher = 'SenNet Consortium'
 
         # Draft DOI doesn't specify the 'event' attribute
@@ -69,7 +68,7 @@ class DataCiteApi:
                     'doi': self.build_doi_name(sennet_id),
                     # One or more names or titles by which the resource is known
                     'titles': [{
-                        'title': dataset_title
+                        'title': title
                     }],
                     # The name of the entity that holds, archives, publishes prints, distributes,
                     # releases, issues, or produces the resource
@@ -106,8 +105,8 @@ class DataCiteApi:
         return response
 
     # https://support.datacite.org/reference/dois-2#put_dois-id
-    def update_doi_event_publish(self, sennet_id: str) -> object:
-        doi = self.build_doi_name(sennet_id)
+    def update_doi_event_publish(self, entity_sennet_id: str) -> object:
+        doi = self.build_doi_name(entity_sennet_id)
         json = {
             'data': {
                 'id': doi,
@@ -130,3 +129,9 @@ class DataCiteApi:
             verify=self.ssl_verification_enabed
         )
         return response
+
+class DataciteApiException(Exception):
+
+    def __init__(self, message, error_code=None):
+        super().__init__(message)
+        self.error_code = error_code

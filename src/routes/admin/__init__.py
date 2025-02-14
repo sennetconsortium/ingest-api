@@ -46,9 +46,8 @@ def get_admin_jobs():
     res = [
         job_to_response(job, admin=True)
         for job in jobs
-        if job.meta.get("visibility", JobVisibility.PUBLIC) == JobVisibility.PUBLIC
+        if job.meta.get("visibility") in [JobVisibility.PUBLIC, JobVisibility.ADMIN]
     ]
-    logger.info("Admin jobs response: " + str(res))
     return jsonify(res), 200
 
 
@@ -64,7 +63,7 @@ def get_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
-        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+        if job.meta.get("visibility") not in [JobVisibility.PUBLIC, JobVisibility.ADMIN]:
             raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
@@ -88,7 +87,7 @@ def delete_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
-        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+        if job.meta.get("visibility") not in [JobVisibility.PUBLIC, JobVisibility.ADMIN]:
             raise NoSuchJobError("Job is not marked PUBLIC")
         job.delete()
     except NoSuchJobError as e:
@@ -113,7 +112,7 @@ def cancel_admin_job(job_id: UUID):
     scan_query = f"{JOBS_PREFIX}*:{job_id}"
     try:
         job = job_queue.query_job(scan_query)
-        if job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
+        if job.meta.get("visibility") not in [JobVisibility.PUBLIC, JobVisibility.ADMIN]:
             raise NoSuchJobError("Job is not marked PUBLIC")
     except NoSuchJobError as e:
         logger.error(f"Job not found: {e}")
