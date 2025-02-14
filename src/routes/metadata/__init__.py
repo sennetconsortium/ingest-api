@@ -53,6 +53,27 @@ logger = logging.getLogger(__name__)
 @require_valid_token()
 @require_multipart_form(combined_param="data")
 def validate_metadata_upload(data: dict, token: str, user: User):
+    """
+    Handles metadata tsv upload for validation with IVT submodule.
+
+    Sample data flow from client:
+
+    From portal-ui Bulk Metadata wizard:
+    > Makes a POST to this /metadata/validate
+    > This calls validate_uploaded_metadata as job function.
+    > validate_uploaded_metadata calls validate_tsv which in turn calls get_tsv_errors IVT method
+
+    Parameters
+    ----------
+    data
+    token
+    user
+
+    Returns
+    -------
+    dict
+        Response dict with job_id and status
+    """
     try:
         entity_type, sub_type = get_validated_entity_type(data)
         referrer = get_validated_referrer(data, JobType.VALIDATE)
