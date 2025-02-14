@@ -823,7 +823,7 @@ def publish_datastage(identifier):
                 "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
             )
             if is_primary:
-                q += ", e.ingest_metadata as ingest_metadata"
+                q += ", e.metadata as metadata"
 
             rval = neo_session.run(q).data()
             dataset_status = rval[0]['status']
@@ -832,12 +832,12 @@ def publish_datastage(identifier):
             dataset_group_uuid = rval[0]['group_uuid']
             dataset_contacts = rval[0]['contacts']
             dataset_contributors = rval[0]['contributors']
-            dataset_ingest_metadata_dict = None
+            dataset_metadata_dict = None
             if is_primary:
-                dataset_ingest_metadata = rval[0].get('ingest_metadata')
-                if dataset_ingest_metadata is not None:
-                    dataset_ingest_metadata_dict: dict = string_helper.convert_str_literal(dataset_ingest_metadata)
-                logger.info(f"publish_datastage; ingest_metadata: {dataset_ingest_metadata_dict}")
+                dataset_metadata = rval[0].get('metadata')
+                if dataset_metadata is not None:
+                    dataset_metadata_dict: dict = string_helper.convert_str_literal(dataset_metadata)
+                logger.info(f"publish_datastage; metadata: {dataset_metadata_dict}")
 
             if not get_entity_type_instanceof(dataset_entitytype, 'Dataset',
                                               auth_header="Bearer " + auth_helper.getProcessSecret()):
