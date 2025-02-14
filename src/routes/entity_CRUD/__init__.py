@@ -27,7 +27,7 @@ from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
-from lib.file import set_file_details
+from lib.file import set_file_details, ln_err
 from lib.file_upload_helper import UploadFileHelper
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
@@ -1239,18 +1239,36 @@ def validate_tsv_with_ivt():
             pathname = file_id + os.sep + file.filename
             result = set_file_details(pathname)
             schema = determine_schema(entity_type, sub_type)
-            records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
-            if len(records) == 0:
-                records = get_csv_records(result.get('fullpath'))
+            validation_results = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+            if len(validation_results) == 0:
+                validation_results = get_csv_records(result.get('fullpath'))
                 return rest_response(StatusCodes.OK, 'TSV validation results',
-                             records, False)
+                                     validation_results, False)
             else:
-                if isinstance(records, dict) and 'description' in records:
-                    return rest_bad_req(records['description'], False)
-                if isinstance(records, list) and isinstance(records[0], Exception):
-                    return rest_bad_req(records[0].args[0].get('message'), False)
-                else:
-                    return rest_bad_req(records, False)
+                final_results = []
+                def parse_results(record):
+                    if isinstance(record, dict):
+                        if 'description' in record:
+                            parse_results(record['description'])
+                        if 'column' in record and 'error' in record and 'row' in record:
+                            final_results.append(record)
+                        else:
+                            # some unexpected dict, just str it and append to results
+                            final_results.append(ln_err(str(record)))
+                    elif isinstance(record, list):
+                        for item in record:
+                            parse_results(item)
+                    elif isinstance(record, Exception):
+                        ex = record.args[0]
+                        final_results.append(ln_err(f"{ex.get('message', '')} {ex.get('cause', '')} {ex.get('fixSuggestion', '')}"))
+                    else:
+                        # some other instance, maybe str or some other object
+                        final_results.append(ln_err(str(record)))
+
+                for r in validation_results:
+                    parse_results(r)
+
+                return rest_bad_req(final_results, False)
         else:
             return json.dumps(file_upload)
     except Exception as e:
