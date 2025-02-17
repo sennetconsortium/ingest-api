@@ -23,6 +23,7 @@ from rq.job import JobStatus
 from jobs import JOBS_PREFIX, JobQueue, JobVisibility
 from jobs.modification.datasets import update_datasets_uploads
 from jobs.submission.datasets import submit_datasets
+from lib.commons import get_as_obj
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
@@ -916,7 +917,7 @@ def publish_datastage(identifier):
             status_history_list = []
             status_history_str = rval[0].get('status_history')
             if status_history_str is not None:
-                status_history_list = string_helper.convert_str_literal(status_history_str)
+                status_history_list = get_as_obj(status_history_str)
 
             # add Published status change to status history
             status_update = {
@@ -926,11 +927,10 @@ def publish_datastage(identifier):
             }
             status_history_list.append(status_update)
             # convert from list to string that is used for storage in database
-            new_status_history_str = string_helper.convert_py_obj_to_string(status_history_list)
+            new_status_history_str = json.dumps(status_history_list)
             # substitute the TIMESTAMP function to let Neo4j set the change_timestamp value of this status change record
-            status_history_with_timestamp_str = new_status_history_str.replace("'@#TIMESTAMP#@'", '" + TIMESTAMP() + "')
-            status_history_with_timestamp = string_helper.convert_str_literal(status_history_with_timestamp_str)
-            status_history_update_clause = f', e.status_history = "{json.dumps(status_history_with_timestamp)}"'
+            status_history_with_timestamp = new_status_history_str.replace("'@#TIMESTAMP#@'", '" + TIMESTAMP() + "')
+            status_history_update_clause = f', e.status_history = "{status_history_with_timestamp}"'
 
             # set dataset status to published and set the last modified user info and user who published
             # also reset ingest_task and assigned_to_group_name
