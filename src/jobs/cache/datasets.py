@@ -31,7 +31,7 @@ def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: timedelta = 
         metadata={
             'omit_results': True,  # omit results from job endpoints
             'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
-            'referrer': {'type': JobType.CACHE.value},
+            'referrer': {'type': JobType.CACHE.value, 'path': ''},
         },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
