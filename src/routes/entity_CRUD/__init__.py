@@ -26,7 +26,7 @@ from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
-from lib.file import set_file_details
+from lib.file import set_file_details, ln_err
 from lib.file_upload_helper import UploadFileHelper
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
@@ -1221,6 +1221,22 @@ def reorganize_upload(upload_uuid):
 
 @entity_CRUD_blueprint.route('/validate-tsv', methods=['POST'])
 def validate_tsv_with_ivt():
+    """
+    Uploads and handles tsv for validation with IVT submodule.
+
+    Sample data flow from client:
+
+    From portal-ui (Epi)Collection edit form:
+    > Makes a POST to this /validate-tsv
+    > This calls validate_tsv which in turn calls get_tsv_errors IVT method
+
+    Returns
+    -------
+    dict
+        A dictionary containing validation results in
+        format of atlas_consortia_commons.rest.rest_response {code, name, description}
+
+    """
     result: dict = {
         'error': None
     }
@@ -1245,18 +1261,8 @@ def validate_tsv_with_ivt():
             pathname = file_id + os.sep + file.filename
             result = set_file_details(pathname)
             schema = determine_schema(entity_type, sub_type)
-            records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
-            if len(records) == 0:
-                records = get_csv_records(result.get('fullpath'))
-                return rest_response(StatusCodes.OK, 'TSV validation results',
-                             records, False)
-            else:
-                if isinstance(records, dict) and 'description' in records:
-                    return rest_bad_req(records['description'], False)
-                if isinstance(records, list) and isinstance(records[0], Exception):
-                    return rest_bad_req(records[0].args[0].get('message'), False)
-                else:
-                    return rest_bad_req(records, False)
+            validation_results = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+            return json.dumps(validation_results)
         else:
             return json.dumps(file_upload)
     except Exception as e:
