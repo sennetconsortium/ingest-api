@@ -145,7 +145,8 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str, entity_type: str, sub_type: str, latest_schema_name: Optional[str] = "isLatestVersion", path: Optional[str] = None
+        token: str, entity_type: str, sub_type: str, attribute: Optional[str]="",
+        latest_schema_name: Optional[str] = "isLatestVersion", path: Optional[str] = None
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -153,7 +154,13 @@ def validate_tsv(
     ----------
     token : str
         The groups_token to use for validation.
-    latest_schema_name : str
+    entity_type : str
+        The entity type the user asserts this file is to be validated against.
+    sub_type : str
+        The sub type (block, section, suspension)  the user asserts this file is to be validated against.
+    attribute : str, optional
+        Used to check against the schema returned by the IVT in the case of 'contributors'
+    latest_schema_name : str, optional
         Used to specify which version to check against. Values include:
             isLatestVersion,
             isLatestPublishedVersion,
@@ -179,10 +186,12 @@ def validate_tsv(
 
         # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
         entity_type_info = schema.entity_type_info
-        if not equals(entity_type_info.entity_type.value, entity_type.lower()) or not equals(entity_type_info.entity_sub_type, sub_type.lower()):
-            return rest_bad_req(
-                f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
-                f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
+        # First check if the schema is for contributors
+        if not equals(entity_type_info.entity_type.value, attribute.lower()):
+            if not equals(entity_type_info.entity_type.value, entity_type.lower()) or not equals(entity_type_info.entity_sub_type, sub_type.lower()):
+                return rest_bad_req(
+                    f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
+                    f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
 
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
