@@ -41,7 +41,7 @@ from lib.file import get_csv_records, check_upload
 from lib.services import obj_to_dict, entity_json_dumps, get_entity_by_id
 from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_PREFIX, update_datasets_datastatus
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
-from jobs.validation.metadata import validate_tsv, determine_schema
+from jobs.validation.metadata import validate_tsv
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -1259,7 +1259,8 @@ def validate_tsv_with_ivt():
             file = file.get('file')
             pathname = file_id + os.sep + file.filename
             result = set_file_details(pathname)
-            validation_results = validate_tsv(token=auth_token, path=result.get('fullpath'))
+            validation_results = validate_tsv(token=auth_token, entity_type=entity_type, sub_type=sub_type,
+                                              path=result.get('fullpath'))
             return json.dumps(validation_results)
         else:
             return json.dumps(file_upload)

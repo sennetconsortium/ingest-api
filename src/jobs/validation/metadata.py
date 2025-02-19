@@ -49,26 +49,8 @@ def validate_uploaded_metadata(
                     )
                 },
             )
-
-        if check_cedar(entity_type, sub_type, upload) is False:
-            logger.error(
-                f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
-            )
-            id = get_cedar_schema_ids().get(sub_type)
-            update_job_progress(100)
-            return JobResult(
-                success=False,
-                results={
-                    "message": (
-                        f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
-                        f'Valid id for "{sub_type}": {id}. '
-                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
-                    )
-                },
-            )
-
         validation_results = validate_tsv(
-            token=token, path=upload.get("fullpath")
+            token=token, entity_type=entity_type, sub_type=sub_type, path=upload.get("fullpath")
         )
         if validation_results.get('code') != StatusCodes.OK:
             _errors = validation_results.get('description')
@@ -163,7 +145,7 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str, latest_schema_name: str = "isLatestVersion", path: Optional[str] = None
+    token: str, entity_type: str, sub_type: str, latest_schema_name: Optional[str] = "isLatestVersion", path: Optional[str] = None
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -187,15 +169,20 @@ def validate_tsv(
     """
 
     try:
-        schema = (
-            iv_utils.get_schema_version(
-                path=path,
-                encoding="ascii",
-                entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
-                ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
-                globus_token=token
-            )
+        schema = iv_utils.get_schema_version(
+            path=path,
+            encoding="ascii",
+            entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
+            ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
+            globus_token=token
         )
+
+        # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
+        entity_type_info = schema.entity_type_info
+        if not equals(entity_type_info.entity_type.value, entity_type.lower()) or not equals(entity_type_info.entity_sub_type, sub_type.lower()):
+            return rest_bad_req(
+                f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
+                f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
 
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
@@ -294,56 +281,14 @@ def create_tsv_from_path(path: str, row: int) -> dict:
     return result
 
 
-def get_cedar_schema_ids() -> dict:
-    """Returns the CEDAR schema ids for the different source and sample sub types.
-
-    Returns
-    -------
-    dict
-        A dictionary containing the schema ids for each source/sample sub type.
-    """
-    return {
-        "Block": "3e98cee6-d3fb-467b-8d4e-9ba7ee49eeff",
-        "Section": "01e9bc58-bdf2-49f4-9cf9-dd34f3cc62d7",
-        "Suspension": "ea4fb93c-508e-4ec4-8a4b-89492ba68088",
-        "Mouse": "44662059-aa73-4756-a4a7-990489ca2f43",
-    }
-
-
-def spec_supported(entity_type, upload):
+def spec_supported(upload):
     fullpath = upload.get("fullpath")
     records = get_metadata(fullpath)
     return len(records) and "metadata_schema_id" in records[0]
 
 
-def check_cedar(entity_type, sub_type, upload):
-    fullpath = upload.get("fullpath")
-    records = get_metadata(fullpath)
-    if len(records) > 0 and "metadata_schema_id" in records[0]:
-        cedar_sample_sub_type_ids = get_cedar_schema_ids()
-        return equals(
-            records[0]["metadata_schema_id"], cedar_sample_sub_type_ids[sub_type]
-        )
-
-    return False
-
-
-def determine_schema(entity_type, sub_type):
-    if equals(entity_type, Ontology.ops().entities().SOURCE):
-        schema = "source-murine"
-    elif equals(entity_type, Ontology.ops().entities().SAMPLE):
-        if not sub_type:
-            return rest_bad_req("`sub_type` for schema name required.")
-        schema = f"sample-{sub_type}"
-    else:
-        schema = "metadata"
-
-    schema = schema.lower()
-    return schema
-
-
 def _get_response(
-    metadata, entity_type, sub_type, validate_uuids, token, pathname=None
+        metadata, entity_type, sub_type, validate_uuids, token, pathname=None
 ):
     if validate_uuids == "1":
         response = validate_records_uuids(
