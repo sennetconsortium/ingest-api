@@ -21,7 +21,7 @@ collections_blueprint = Blueprint('collections', __name__)
 logger = logging.getLogger(__name__)
 
 """
-Takes a valid id for a collection entity, validates that it contains required fields and has datasets in the published state, 
+Takes a valid id for a collection entity, validates that it contains required fields and has datasets in the published state,
 then registers a DOI, updates the collection via entity-api, and returns the new registered_doi
 """
 
@@ -69,22 +69,25 @@ def register_collections_doi(collection_id):
                         unpublished_entities.append(uuid)
 
             if len(unpublished_entities) > 0:
-                return jsonify(
-                    {
-                        "error": f"Collection with uuid {collection_uuid} has one more associated entities that have not been Published.",
-                        "entity_uuids": ', '.join(unpublished_entities)}), 422
+                return jsonify({
+                    "error": f"Collection with uuid {collection_uuid} has one more associated entities that have not been Published.",
+                    "entity_uuids": ', '.join(unpublished_entities)
+                }), 422
+
             # get info for the collection to be published
             q = "MATCH (e:Collection {uuid: $uuid}) RETURN e.uuid as uuid, e.contacts as contacts, e.contributors as contributors"
             rval = session.run(q, uuid=collection_uuid).data()
             collection_contacts = rval[0]['contacts']
             collection_contributors = rval[0]['contributors']
             if collection_contributors is None or collection_contacts is None:
-                return jsonify \
-                        ({
-                        "error": "Collection missing contacts or contributors field. Must have at least one of each"}), 400
+                return jsonify({
+                    "error": "Collection missing contacts or contributors field. Must have at least one of each"
+                }), 400
+
             if len(collection_contributors) < 1 or len(collection_contacts) < 1:
-                return jsonify \
-                    ({"error": "Collection missing contacts or contributors. Must have at least one of each"}), 400
+                return jsonify({
+                    "error": "Collection missing contacts or contributors. Must have at least one of each"
+                }), 400
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(token=auth_tokens, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
@@ -110,20 +113,20 @@ def register_collections_doi(collection_id):
                     datacite_doi_helper.create_collection_draft_doi(entity_dict)
                 except DataciteApiException as datacite_exception:
                     return jsonify({"error": str(datacite_exception)}), datacite_exception.error_code
-                except Exception as e:
+                except Exception:
                     logger.exception(f"Exception while creating a draft doi for {collection_uuid}")
                     return jsonify({"error": f"Error occurred while trying to create a draft doi for {collection_uuid}. Check logs."}), 500
                 # This will make the draft DOI created above 'findable'....
                 try:
                     doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
-                except Exception as e:
+                except Exception:
                     logger.exception(f"Exception while creating making doi findable and saving to entity for {collection_uuid}")
                     return jsonify({"error": f"Error occurred while making doi findable and saving to entity for {collection_uuid}. Check logs."}), 500
             # Doi exists, but is not yet findable. Just make it findable
             elif doi_exists is False:
                 try:
                     doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(entity_dict, auth_tokens)
-                except Exception as e:
+                except Exception:
                     logger.exception(f"Exception while creating making doi findable and saving to entity for {collection_uuid}")
                     return jsonify({"error": f"Error occurred while making doi findable and saving to entity for {collection_uuid}. Check logs."}), 500
             # The doi exists and it is already findable, skip both steps
@@ -135,7 +138,7 @@ def register_collections_doi(collection_id):
                     'doi_url': f'https://doi.org/{doi_name}'
                 }
             doi_update_data = ""
-            if not doi_info is None:
+            if doi_info is not None:
                 doi_update_data = {"registered_doi": doi_info["registered_doi"], "doi_url": doi_info['doi_url']}
 
             entity_instance.clear_cache(collection_uuid)
@@ -147,5 +150,6 @@ def register_collections_doi(collection_id):
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
         logger.error(e, exc_info=True)
-        return jsonify \
-            ({"error": "Unexpected error while registering collection doi: " + str(e) + "  Check the logs"}), 500
+        return jsonify({
+            "error": "Unexpected error while registering collection doi: " + str(e) + "  Check the logs"
+        }), 500

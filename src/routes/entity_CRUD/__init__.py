@@ -446,12 +446,14 @@ def get_file_system_relative_path():
             logger.error(e, exc_info=True)
             error_id = {'id': ds_uuid, 'message': str(e), 'status_code': 500}
             error_id_list.append(error_id)
+
     if len(error_id_list) > 0:
         status_code = 400
         for each in error_id_list:
             if each['status_code'] == 500:
                 status_code = 500
         return jsonify(error_id_list), status_code
+
     return jsonify(out_list), 200
 
 
@@ -798,7 +800,7 @@ def publish_datastage(identifier):
                         metadata_dict = json.loads(metadata)
                         if 'Mouse' in source_type:
                             if not metadata_dict:
-                                return jsonify({"error": f"source.metadata required."}), 400
+                                return jsonify({"error": "source.metadata required."}), 400
                         else:
                             living_donor = True
                             organ_donor = True
@@ -1011,6 +1013,7 @@ def dataset_has_entity_lab_processed_data_type(dataset_uuid):
         if len(result) == 0:
             return False
         return True
+
 
 def get_primary_ancestor_globus_path(entity_dict):
     ancestor = None

@@ -15,7 +15,7 @@ from hubmap_commons.hm_auth import AuthHelper
 
 # Local modules
 from hubmap_commons.hubmap_const import HubmapConst
-from hubmap_sdk import EntitySdk, Entity
+from hubmap_sdk import EntitySdk
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
@@ -176,11 +176,11 @@ class DatasetHelper:
 
             try:
                 self.handle_thumbnail_file(thumbnail_file_abs_path,
-                                                     entity_api,
-                                                     dataset_uuid,
-                                                     extra_headers,
-                                                     temp_file_id,
-                                                     file_upload_temp_dir)
+                                           entity_api,
+                                           dataset_uuid,
+                                           extra_headers,
+                                           temp_file_id,
+                                           file_upload_temp_dir)
 
                 # Now add the thumbnail file by making a call to entity-api
                 # And the entity-api will execute the trigger method defined
@@ -277,7 +277,8 @@ class DatasetHelper:
             Path(temp_file_dir).mkdir(parents=True, exist_ok=True)
         except Exception as e:
             self.logger.exception(
-                f"Failed to create the thumbnail temp upload dir {temp_file_dir} for thumbnail file attched to Dataset {dataset_uuid}")
+                f"Failed to create the thumbnail temp upload dir {temp_file_dir} for thumbnail file attched to Dataset {dataset_uuid}: {e}"
+            )
 
         # Then copy the source thumbnail file to the temp file dir
         # shutil.copy2 is identical to shutil.copy() method
@@ -287,12 +288,13 @@ class DatasetHelper:
     def get_dataset_ingest_update_record(self, json_data):
         """ expect something like this:
         #{'dataset_id' : '4d3eb2a87cda705bde38495bb564c8dc', 'status': '<status>', 'message': 'the process ran', 'metadata': [maybe some metadata stuff], 'thumbnail_file_abs_path': 'full file path'}
-        files: [{ "relativePath" : "/path/to/file/example.txt",
-           "type":"filetype",
-           "size":filesize,
-           "checksum":"file-checksum"
-         }]
-         """
+        files: [{
+            "relativePath" : "/path/to/file/example.txt",
+            "type":"filetype",
+            "size":filesize,
+            "checksum":"file-checksum"
+        }]
+        """
 
         if 'dataset_id' not in json_data:
             raise ValueError('cannot find dataset_id')
@@ -316,7 +318,7 @@ class DatasetHelper:
         if update_status == 'error' or update_status == 'invalid' or update_status == 'new':
             return update_record
         metadata = None
-        if not 'metadata' in json_data:
+        if 'metadata' not in json_data:
             raise ValueError('top level metadata field required')
 
         metadata = json_data['metadata']
@@ -378,9 +380,9 @@ class DatasetHelper:
 
         update_record['metadata'] = metadata
 
-        if not antibodies is None:
+        if antibodies is not None:
             update_record['antibodies'] = antibodies
-        if not contributors is None:
+        if contributors is not None:
             update_record['contributors'] = contributors
             contacts = []
             for contrib in contributors:
@@ -398,7 +400,9 @@ class DatasetHelper:
         return update_record
 
     def __is_true(self, val):
-        if val is None: return False
+        if val is None:
+            return False
+
         if isinstance(val, str):
             uval = val.upper().strip()
             if uval in ['TRUE', 'T', '1', 'Y', 'YES']:
@@ -421,20 +425,20 @@ class DatasetHelper:
                     return data['files']
                 else:
                     raise ValueError('Cannot find the \'files\' attribute in: ' + file_path)
-        except json.JSONDecodeError as jde:
+        except json.JSONDecodeError:
             print('Cannot decode JSON in file: ' + file_path)
             raise
-        except FileNotFoundError as fnfe:
+        except FileNotFoundError:
             print('Cannot find file: ' + file_path)
             raise
-        except PermissionError as pe:
+        except PermissionError:
             print('Cannot access file: ' + file_path)
             raise
-        except:
+        except Exception:
             print('A general error occurred: ', sys.exc_info()[0])
             raise
         finally:
-            if f != None:
+            if f is not None:
                 f.close()
 
     # Determines if a dataset is Primary. If the list returned from the neo4j query is empty, the dataset is not primary
