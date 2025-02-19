@@ -24,7 +24,6 @@ from jobs import JobResult, JobSubject, update_job_progress
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
 from routes.auth import get_auth_header_dict
-from submodules.ingest_validation_tools.src.ingest_validation_tools.schema_loader import SchemaVersion
 
 logger = logging.getLogger(__name__)
 
@@ -204,7 +203,7 @@ def validate_tsv(
         )
 
         schema_name = schema
-        if isinstance(schema, SchemaVersion):
+        if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
             schema_version = schema.version
             if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
