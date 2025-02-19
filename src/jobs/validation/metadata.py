@@ -37,7 +37,7 @@ def validate_uploaded_metadata(
         validate_uuids = data.get("validate_uuids")
         tsv_row = data.get("tsv_row")
 
-        if spec_supported(entity_type, upload) is False:
+        if spec_supported(upload) is False:
             logger.error(f"Unsupported spec: {entity_type} {sub_type}")
             update_job_progress(100)
             return JobResult(
