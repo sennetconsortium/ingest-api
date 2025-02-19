@@ -1260,8 +1260,7 @@ def validate_tsv_with_ivt():
             file = file.get('file')
             pathname = file_id + os.sep + file.filename
             result = set_file_details(pathname)
-            schema = determine_schema(entity_type, sub_type)
-            validation_results = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
+            validation_results = validate_tsv(token=auth_token, path=result.get('fullpath'))
             return json.dumps(validation_results)
         else:
             return json.dumps(file_upload)
