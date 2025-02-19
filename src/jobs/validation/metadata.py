@@ -67,9 +67,8 @@ def validate_uploaded_metadata(
                 },
             )
 
-        schema = determine_schema(entity_type, sub_type)
         validation_results = validate_tsv(
-            token=token, path=upload.get("fullpath"), schema=schema
+            token=token, path=upload.get("fullpath")
         )
         if validation_results.get('code') != StatusCodes.OK:
             _errors = validation_results.get('description')
@@ -164,7 +163,7 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str, schema: str = "metadata", latest_schema_name: str = "isLatestVersion", path: Optional[str] = None
+    token: str, latest_schema_name: str = "isLatestVersion", path: Optional[str] = None
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -172,8 +171,6 @@ def validate_tsv(
     ----------
     token : str
         The groups_token to use for validation.
-    schema : str
-        Name of the schema to validate against. Defaults to "metadata".
     latest_schema_name : str
         Used to specify which version to check against. Values include:
             isLatestVersion,
@@ -191,9 +188,7 @@ def validate_tsv(
 
     try:
         schema = (
-            schema
-            if schema != "metadata"
-            else iv_utils.get_schema_version(
+            iv_utils.get_schema_version(
                 path=path,
                 encoding="ascii",
                 entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
@@ -202,7 +197,6 @@ def validate_tsv(
             )
         )
 
-        schema_name = schema
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
             schema_version = schema.version
