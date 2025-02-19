@@ -112,3 +112,6 @@ APPLICATION_CONTEXT = 'SENNET'
 
 # URI from which to load the assay classifier rules.
 RULE_CHAIN_URI = 'https://raw.githubusercontent.com/sennetconsortium/ingest-api/main/src/routes/assayclassifier/testing_rule_chain.json'
+
+# Used for checking schema versions in the IVT
+CEDAR_API_KEY = ''

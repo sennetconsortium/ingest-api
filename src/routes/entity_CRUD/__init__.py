@@ -15,7 +15,7 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.decorator import User, require_data_admin, require_json
 from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, \
-    abort_not_found, rest_response
+    abort_not_found, rest_response, rest_bad_req, rest_server_err
 from atlas_consortia_commons.string import equals
 from rq.exceptions import NoSuchJobError
 from rq.job import JobStatus
@@ -26,7 +26,7 @@ from jobs.submission.datasets import submit_datasets
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
-from lib.file import set_file_details
+from lib.file import set_file_details, ln_err
 from lib.file_upload_helper import UploadFileHelper
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
@@ -41,7 +41,7 @@ from lib.file import get_csv_records, check_upload
 from lib.services import obj_to_dict, entity_json_dumps, get_entity_by_id
 from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_PREFIX, update_datasets_datastatus
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
-from jobs.validation.metadata import validate_tsv, determine_schema
+from jobs.validation.metadata import validate_tsv
 
 entity_CRUD_blueprint = Blueprint('entity_CRUD', __name__)
 logger = logging.getLogger(__name__)
@@ -1220,6 +1220,22 @@ def reorganize_upload(upload_uuid):
 
 @entity_CRUD_blueprint.route('/validate-tsv', methods=['POST'])
 def validate_tsv_with_ivt():
+    """
+    Uploads and handles tsv for validation with IVT submodule.
+
+    Sample data flow from client:
+
+    From portal-ui (Epi)Collection edit form:
+    > Makes a POST to this /validate-tsv
+    > This calls validate_tsv which in turn calls get_tsv_errors IVT method
+
+    Returns
+    -------
+    dict
+        A dictionary containing validation results in
+        format of atlas_consortia_commons.rest.rest_response {code, name, description}
+
+    """
     result: dict = {
         'error': None
     }
@@ -1233,25 +1249,23 @@ def validate_tsv_with_ivt():
     sub_type = data.get('sub_type')
 
     file_upload = check_upload(attribute)
-    if file_upload.get('code') is StatusCodes.OK:
-        auth_helper_instance = AuthHelper.instance()
-        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    try:
+        if file_upload.get('code') is StatusCodes.OK:
+            auth_helper_instance = AuthHelper.instance()
+            auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
 
-        file = file_upload.get('description')
-        file_id = file.get('id')
-        file = file.get('file')
-        pathname = file_id + os.sep + file.filename
-        result = set_file_details(pathname)
-        schema = determine_schema(entity_type, sub_type)
-        records = validate_tsv(token=auth_token, schema=schema, path=result.get('fullpath'))
-        code = StatusCodes.UNACCEPTABLE
-        if len(records) == 0:
-            records = get_csv_records(result.get('fullpath'))
-            code = StatusCodes.OK
-        return rest_response(code, 'TSV validation results',
-                             records, False)
-    else:
-        return json.dumps(file_upload)
+            file = file_upload.get('description')
+            file_id = file.get('id')
+            file = file.get('file')
+            pathname = file_id + os.sep + file.filename
+            result = set_file_details(pathname)
+            validation_results = validate_tsv(token=auth_token, entity_type=entity_type, sub_type=sub_type,
+                                              attribute=attribute, path=result.get('fullpath'))
+            return json.dumps(validation_results)
+        else:
+            return json.dumps(file_upload)
+    except Exception as e:
+        return rest_server_err(e, False)
 
 
 def get_entity_type_instanceof(type_a, type_b, auth_header=None) -> bool:
