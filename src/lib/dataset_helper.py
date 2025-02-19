@@ -46,8 +46,8 @@ class DatasetHelper:
     def get_group_uuid_by_dataset_uuid(self, uuid):
         with self.neo4j_driver_instance.session() as session:
             # query Neo4j db to get the group_uuid
-            stmt = "match (d:Dataset {uuid:'" + uuid.strip() + "'}) return d.group_uuid as group_uuid"
-            records = session.run(stmt)
+            stmt = "MATCH (d:Dataset {uuid: $uuid}) return d.group_uuid as group_uuid"
+            records = session.run(stmt, uuid=uuid.strip())
             # this assumes there is only one result returned, but we use the for loop
             # here because standard list (len, [idx]) operators don't work with
             # the neo4j record list object
@@ -440,9 +440,8 @@ class DatasetHelper:
     # Determines if a dataset is Primary. If the list returned from the neo4j query is empty, the dataset is not primary
     def dataset_is_primary(self, dataset_uuid):
         with self.neo4j_driver_instance.session() as neo_session:
-            q = (
-                f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid")
-            result = neo_session.run(q).data()
+            q = "MATCH (ds:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'create dataset activity' RETURN ds.uuid"
+            result = neo_session.run(q, uuid=dataset_uuid).data()
             if len(result) == 0:
                 return False
             return True

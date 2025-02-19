@@ -770,8 +770,13 @@ def publish_datastage(identifier):
             # look at all of the ancestors
             # gather uuids of ancestors that need to be switched to public access_level
             # grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
-            rval = neo_session.run(q).data()
+            q = (
+                "MATCH (dataset:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) "
+                "RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, "
+                "all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, "
+                "all_ancestors.metadata as metadata"
+            )
+            rval = neo_session.run(q, uuid=dataset_uuid).data()
             uuids_for_public = []
             has_source = False
             for node in rval:
@@ -818,7 +823,7 @@ def publish_datastage(identifier):
 
             # get info for the dataset to be published
             q = (
-                f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN "
+                "MATCH (e:Dataset {uuid: $uuid}) RETURN "
                 "e.uuid as uuid, e.entity_type as entitytype, e.status as status, "
                 "e.data_access_level as data_access_level, e.group_uuid as group_uuid, "
                 "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
@@ -826,7 +831,7 @@ def publish_datastage(identifier):
             if is_primary:
                 q += ", e.metadata as metadata"
 
-            rval = neo_session.run(q).data()
+            rval = neo_session.run(q, uuid=dataset_uuid).data()
             dataset_status = rval[0]['status']
             dataset_entitytype = rval[0]['entitytype']
             dataset_data_access_level = rval[0]['data_access_level']
@@ -1001,9 +1006,8 @@ def publish_datastage(identifier):
 
 def dataset_has_entity_lab_processed_data_type(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (
-            f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid")
-        result = neo_session.run(q).data()
+        q = "MATCH (ds:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid"
+        result = neo_session.run(q, uuid=dataset_uuid).data()
         if len(result) == 0:
             return False
         return True

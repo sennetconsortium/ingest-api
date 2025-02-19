@@ -53,8 +53,11 @@ def register_collections_doi(collection_id):
 
         # Sources/Samples need to have `data_access_level` of "public", Dataset needs a status of "Published"
         with Neo4jHelper.get_instance().session() as session:
-            q = f"MATCH (collection:Collection {{uuid: '{collection_uuid}'}})<-[:IN_COLLECTION]-(entity:Entity) RETURN distinct entity.uuid AS uuid, entity.data_access_level as data_access_level, entity.entity_type as entity_type, entity.status AS status"
-            rval = session.run(q).data()
+            q = (
+                "MATCH (collection:Collection {uuid: $uuid})<-[:IN_COLLECTION]-(entity:Entity) "
+                "RETURN distinct entity.uuid AS uuid, entity.data_access_level as data_access_level, entity.entity_type as entity_type, entity.status AS status"
+            )
+            rval = session.run(q, uuid=collection_uuid).data()
             unpublished_entities = []
             for node in rval:
                 uuid = node['uuid']
@@ -71,8 +74,8 @@ def register_collections_doi(collection_id):
                         "error": f"Collection with uuid {collection_uuid} has one more associated entities that have not been Published.",
                         "entity_uuids": ', '.join(unpublished_entities)}), 422
             # get info for the collection to be published
-            q = f"MATCH (e:Collection {{uuid: '{collection_uuid}'}}) RETURN e.uuid as uuid, e.contacts as contacts, e.contributors as contributors "
-            rval = session.run(q).data()
+            q = "MATCH (e:Collection {uuid: $uuid}) RETURN e.uuid as uuid, e.contacts as contacts, e.contributors as contributors"
+            rval = session.run(q, uuid=collection_uuid).data()
             collection_contacts = rval[0]['contacts']
             collection_contributors = rval[0]['contributors']
             if collection_contributors is None or collection_contacts is None:
