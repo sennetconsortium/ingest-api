@@ -10,7 +10,6 @@ from rq import get_current_connection, get_current_job
 
 from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
-from lib.dataset_helper import DatasetHelper
 from lib.file import files_exist
 from lib.ontology import Ontology
 
@@ -58,14 +57,16 @@ def update_datasets_datastatus(schedule_next_job=True):
         neo4j_driver_instance = neo4j_driver.instance(current_app.config['NEO4J_SERVER'],
                                                       current_app.config['NEO4J_USERNAME'],
                                                       current_app.config['NEO4J_PASSWORD'])
+
         all_datasets_query = (
-            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ancestor) "
             "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
-            "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, ds.data_access_level AS data_access_level, "
-            "ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets, "
-            "COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, "
-            "ancestor.entity_type AS ancestor_entity_type"
+            "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, "
+            "ds.data_access_level AS data_access_level, ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, "
+            "COLLECT(DISTINCT ds.uuid) AS datasets, COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, "
+            "COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, ancestor.entity_type AS ancestor_entity_type, "
+            "a.creation_action AS activity_creation_action"
         )
 
         organ_query = (
@@ -85,7 +86,9 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         processed_datasets_query = (
             "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
-            "a.creation_action in ['Central Process', 'Lab Process'] RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
+            "a.creation_action in ['Central Process', 'Lab Process'] "
+            "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, "
+            "data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
         )
 
         upload_query = (
@@ -134,43 +137,43 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         for dataset in all_datasets_result:
             output_dict[dataset['uuid']] = dataset
+
         for dataset in organ_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['organ'] = dataset['organ']
                 output_dict[dataset['uuid']]['organ_sennet_id'] = dataset['organ_sennet_id']
                 output_dict[dataset['uuid']]['organ_uuid'] = dataset['organ_uuid']
+
         for dataset in source_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['source_sennet_id'] = dataset['source_sennet_id']
                 output_dict[dataset['uuid']]['source_type'] = dataset['source_type']
-                # output_dict[dataset['uuid']]['source_submission_id'] = dataset['source_submission_id']
                 output_dict[dataset['uuid']]['source_lab_id'] = dataset['source_lab_id']
                 output_dict[dataset['uuid']]['has_donor_metadata'] = dataset['has_donor_metadata']
+
         for dataset in processed_datasets_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['processed_datasets'] = dataset['processed_datasets']
+
         for dataset in upload_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['upload'] = dataset['upload']
+
         for dataset in has_rui_result:
             if output_dict.get(dataset['uuid']):
                 output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
 
-        combined_results = []
-        for uuid in output_dict:
-            combined_results.append(output_dict[uuid])
-
+        combined_results = list(output_dict.values())
         if current_job is not None:
             update_job_progress(75, current_job)
 
-        dataset_helper = DatasetHelper(current_app.config)
+        organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
         for dataset in combined_results:
-            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'),
-                                        dataset.get('uuid'))
+            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'), dataset.get('uuid'))
             dataset['globus_url'] = globus_url
 
             dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
-            dataset['is_primary'] = dataset_helper.dataset_is_primary(dataset.get('uuid'))
+            dataset['is_primary'] = 'True' if dataset.pop('activity_creation_action').lower() == 'create dataset activity' else 'False'
 
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             has_dataset_metadata = files_exist(dataset.get('uuid'),
@@ -221,12 +224,12 @@ def update_datasets_datastatus(schedule_next_job=True):
                     dataset.get('source_type') and dataset['source_type'].upper() in ['MOUSE', 'MOUSE ORGANOID']):
                 dataset['has_rui_info'] = "not-applicable"
 
-            organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
             if dataset.get('organ') and dataset.get('organ') in organ_types_dict:
                 dataset['organ'] = organ_types_dict[dataset['organ']]
 
         if current_job is not None:
             update_job_progress(100, current_job)
+
         logger.info(f"Finished updating datasets datastatus in {time.perf_counter() - start:.2f} seconds")
 
         return JobResult(success=True, results={
