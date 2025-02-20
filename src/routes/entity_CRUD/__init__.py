@@ -23,6 +23,7 @@ from rq.job import JobStatus
 from jobs import JOBS_PREFIX, JobQueue, JobVisibility
 from jobs.modification.datasets import update_datasets_uploads
 from jobs.submission.datasets import submit_datasets
+from lib.commons import get_as_obj
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
@@ -445,12 +446,14 @@ def get_file_system_relative_path():
             logger.error(e, exc_info=True)
             error_id = {'id': ds_uuid, 'message': str(e), 'status_code': 500}
             error_id_list.append(error_id)
+
     if len(error_id_list) > 0:
         status_code = 400
         for each in error_id_list:
             if each['status_code'] == 500:
                 status_code = 500
         return jsonify(error_id_list), status_code
+
     return jsonify(out_list), 200
 
 
@@ -769,8 +772,13 @@ def publish_datastage(identifier):
             # look at all of the ancestors
             # gather uuids of ancestors that need to be switched to public access_level
             # grab the id of the source ancestor to use for reindexing
-            q = f"MATCH (dataset:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, all_ancestors.metadata as metadata"
-            rval = neo_session.run(q).data()
+            q = (
+                "MATCH (dataset:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) "
+                "RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, "
+                "all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, "
+                "all_ancestors.metadata as metadata"
+            )
+            rval = neo_session.run(q, uuid=dataset_uuid).data()
             uuids_for_public = []
             has_source = False
             for node in rval:
@@ -792,7 +800,7 @@ def publish_datastage(identifier):
                         metadata_dict = json.loads(metadata)
                         if 'Mouse' in source_type:
                             if not metadata_dict:
-                                return jsonify({"error": f"source.metadata required."}), 400
+                                return jsonify({"error": "source.metadata required."}), 400
                         else:
                             living_donor = True
                             organ_donor = True
@@ -817,7 +825,7 @@ def publish_datastage(identifier):
 
             # get info for the dataset to be published
             q = (
-                f"MATCH (e:Dataset {{uuid: '{dataset_uuid}'}}) RETURN "
+                "MATCH (e:Dataset {uuid: $uuid}) RETURN "
                 "e.uuid as uuid, e.entity_type as entitytype, e.status as status, "
                 "e.data_access_level as data_access_level, e.group_uuid as group_uuid, "
                 "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
@@ -825,7 +833,7 @@ def publish_datastage(identifier):
             if is_primary:
                 q += ", e.metadata as metadata"
 
-            rval = neo_session.run(q).data()
+            rval = neo_session.run(q, uuid=dataset_uuid).data()
             dataset_status = rval[0]['status']
             dataset_entitytype = rval[0]['entitytype']
             dataset_data_access_level = rval[0]['data_access_level']
@@ -911,49 +919,63 @@ def publish_datastage(identifier):
 
             doi_update_clause = ""
             if doi_info is not None:
-                doi_update_clause = f", e.registered_doi = '{doi_info['registered_doi']}', e.doi_url = '{doi_info['doi_url']}'"
+                doi_update_clause = ", e.registered_doi = $registered_doi, e.doi_url = $doi_url"
 
             # set up a status_history list to add a "Published" entry to below
             status_history_list = []
             status_history_str = rval[0].get('status_history')
             if status_history_str is not None:
-                status_history_list = string_helper.convert_str_literal(status_history_str)
+                status_history_list = get_as_obj(status_history_str)
 
             # add Published status change to status history
+
             status_update = {
                 "status": "Published",
-                "changed_by_email": user_info['email'],
-                "change_timestamp": "@#TIMESTAMP#@"
+                "changed_by_email": user_info["email"],
+                "change_timestamp": int(time.time()*1000),
             }
             status_history_list.append(status_update)
             # convert from list to string that is used for storage in database
-            new_status_history_str = string_helper.convert_py_obj_to_string(status_history_list)
-            # substitute the TIMESTAMP function to let Neo4j set the change_timestamp value of this status change record
-            status_history_with_timestamp = new_status_history_str.replace("'@#TIMESTAMP#@'", '" + TIMESTAMP() + "')
-            status_history_update_clause = f', e.status_history = "{status_history_with_timestamp}"'
+            new_status_history_str = json.dumps(status_history_list)
 
             # set dataset status to published and set the last modified user info and user who published
             # also reset ingest_task and assigned_to_group_name
-            update_q = "match (e:Entity {uuid:'" + dataset_uuid + "'}) set e.status = 'Published', e.last_modified_user_sub = '" + \
-                       user_info['sub'] + "', e.last_modified_user_email = '" + user_info[
-                           'email'] + "', e.last_modified_user_displayname = '" + user_info[
-                           'name'] + "', e.last_modified_timestamp = TIMESTAMP(), e.published_timestamp = TIMESTAMP(), e.published_user_email = '" + \
-                       user_info['email'] + "', e.published_user_sub = '" + user_info[
-                           'sub'] + "', e.published_user_displayname = '" + user_info[
-                           'name'] + "', e.ingest_task = '', e.assigned_to_group_name=''" + doi_update_clause + status_history_update_clause
+            update_q = (
+                "MATCH (e:Entity {uuid: $uuid}) SET e.status = 'Published', "
+                "e.last_modified_user_sub = $last_modified_user_sub, e.last_modified_user_email = $last_modified_user_email, "
+                "e.last_modified_user_displayname = $last_modified_user_displayname, e.last_modified_timestamp = TIMESTAMP(), "
+                "e.published_user_sub = $published_user_sub, e.published_user_email = $published_user_email, "
+                "e.published_user_displayname = $published_user_displayname, e.published_timestamp = TIMESTAMP(), "
+                "e.ingest_task = $ingest_task, e.assigned_to_group_name = $assigned_to_group_name, "
+                "e.status_history = $status_history" + doi_update_clause
+            )
 
             logger.info(dataset_uuid + "\t" + dataset_uuid + "\tNEO4J-update-base-dataset\t" + update_q)
-            neo_session.run(update_q)
+
+            neo_session.run(
+                update_q,
+                uuid=dataset_uuid,
+                last_modified_user_sub=user_info["sub"],
+                last_modified_user_email=user_info["email"],
+                last_modified_user_displayname=user_info["name"],
+                published_user_sub=user_info["sub"],
+                published_user_email=user_info["email"],
+                published_user_displayname=user_info["name"],
+                ingest_task="",
+                assigned_to_group_name="",
+                status_history=new_status_history_str,
+                registered_doi=doi_info.get("registered_doi") if doi_info is not None else None,
+                doi_url=doi_info.get("doi_url") if doi_info is not None else None,
+            )
 
             # triggers a call to entity-api/flush-cache
             entity_instance.clear_cache(dataset_uuid)
 
             # if all else worked set the list of ids to public that need to be public
             if len(uuids_for_public) > 0:
-                id_list = string_helper.listToCommaSeparated(uuids_for_public, quoteChar="'")
-                update_q = "match (e:Entity) where e.uuid in [" + id_list + "] set e.data_access_level = 'public'"
+                update_q = "MATCH (e:Entity) WHERE e.uuid IN $uuids SET e.data_access_level = 'public'"
                 logger.info(identifier + "\t" + dataset_uuid + "\tNEO4J-update-ancestors\t" + update_q)
-                neo_session.run(update_q)
+                neo_session.run(update_q, uuids=uuids_for_public)
                 for e_id in uuids_for_public:
                     entity_instance.clear_cache(e_id)
 
@@ -1001,12 +1023,12 @@ def publish_datastage(identifier):
 
 def dataset_has_entity_lab_processed_data_type(dataset_uuid):
     with Neo4jHelper.get_instance().session() as neo_session:
-        q = (
-            f"MATCH (ds:Dataset {{uuid: '{dataset_uuid}'}})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid")
-        result = neo_session.run(q).data()
+        q = "MATCH (ds:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(a:Activity) WHERE toLower(a.creation_action) = 'lab process' RETURN ds.uuid"
+        result = neo_session.run(q, uuid=dataset_uuid).data()
         if len(result) == 0:
             return False
         return True
+
 
 def get_primary_ancestor_globus_path(entity_dict):
     ancestor = None
