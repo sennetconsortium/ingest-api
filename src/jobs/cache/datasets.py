@@ -59,7 +59,7 @@ def update_datasets_datastatus(schedule_next_job=True):
                                                       current_app.config['NEO4J_PASSWORD'])
 
         all_datasets_query = (
-            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(:Activity)-[:USED]->(ancestor) "
+            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ancestor) "
             "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
             "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, "
@@ -173,7 +173,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             dataset['globus_url'] = globus_url
 
             dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
-            dataset['is_primary'] = 'True' if dataset['activity_creation_action'].lower() == 'create dataset activity' else 'False'
+            dataset['is_primary'] = 'True' if dataset.pop('activity_creation_action').lower() == 'create dataset activity' else 'False'
 
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             has_dataset_metadata = files_exist(dataset.get('uuid'),
