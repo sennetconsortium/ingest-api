@@ -282,21 +282,16 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
     status = job.get_status()
     results = None
     errors = None
+
     if status == JobStatus.FINISHED:
         result: JobResult = job.result
         status = "complete" if result.success else "error"
         errors = result.results if not result.success else None
-        results = None
-        if result.success and job.meta.get("omit_results", False):
+        results = result.results if result.success else None
+        if results is not None and job.meta.get("omit_results", False):
             results = "omitted"
-        elif result.success:
-            result.results
 
-    logger.info("Job ID: %s", job_id)
-    logger.info("Job results: %s", results)
-    logger.info("Job errors: %s", errors)
-    logger.info("Job meta: %s", job.meta)
-    if status == JobStatus.FAILED:
+    elif status == JobStatus.FAILED:
         if admin:
             # Give admins the stack trace
             errors = {"message": str(job.exc_info)}
@@ -307,6 +302,11 @@ def job_to_response(job: Job, admin: bool = False) -> dict:
                     "If the problem persists, contact support."
                 )
             }
+
+    logger.info("Job ID: %s", job_id)
+    logger.info("Job results: %s", results)
+    logger.info("Job errors: %s", errors)
+    logger.info("Job meta: %s", job.meta)
 
     result = {
         "job_id": job_id,
