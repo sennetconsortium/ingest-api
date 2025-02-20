@@ -10,7 +10,6 @@ from rq import get_current_connection, get_current_job
 
 from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
-from lib.dataset_helper import DatasetHelper
 from lib.file import files_exist
 from lib.ontology import Ontology
 
