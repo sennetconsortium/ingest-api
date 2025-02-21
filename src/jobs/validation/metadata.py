@@ -37,7 +37,7 @@ def validate_uploaded_metadata(
         validate_uuids = data.get("validate_uuids")
         tsv_row = data.get("tsv_row")
 
-        if spec_supported(entity_type, upload) is False:
+        if spec_supported(upload) is False:
             logger.error(f"Unsupported spec: {entity_type} {sub_type}")
             update_job_progress(100)
             return JobResult(
@@ -49,35 +49,15 @@ def validate_uploaded_metadata(
                     )
                 },
             )
-
-        if check_cedar(entity_type, sub_type, upload) is False:
-            logger.error(
-                f"Error validating metadata: {entity_type} {sub_type} does not match metadata_schema_id"
-            )
-            id = get_cedar_schema_ids().get(sub_type)
-            update_job_progress(100)
-            return JobResult(
-                success=False,
-                results={
-                    "message": (
-                        f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
-                        f'Valid id for "{sub_type}": {id}. '
-                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
-                    )
-                },
-            )
-
-        schema = determine_schema(entity_type, sub_type)
         validation_results = validate_tsv(
-            token=token, path=upload.get("fullpath"), schema=schema
+            token=token, entity_type=entity_type, sub_type=sub_type, path=upload.get("fullpath")
         )
-        if len(validation_results) > 0:
-            if not isinstance(validation_results, list):
-                validation_results = [validation_results]
+        if validation_results.get('code') != StatusCodes.OK:
+            _errors = validation_results.get('description')
 
-            logger.error(f"Error validating metadata: {validation_results}")
+            logger.error(f"Error validating metadata: {_errors}")
             update_job_progress(100)
-            return JobResult(success=False, results=validation_results)
+            return JobResult(success=False, results=_errors)
         else:
             records = get_metadata(upload.get("fullpath"))
             response = _get_response(
@@ -165,7 +145,8 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str, schema: str = "metadata", path: Optional[str] = None
+        token: str, entity_type: str, sub_type: str, attribute: Optional[str]="",
+        latest_schema_name: Optional[str] = "isLatestVersion", path: Optional[str] = None
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -173,29 +154,54 @@ def validate_tsv(
     ----------
     token : str
         The groups_token to use for validation.
-    schema : str
-        Name of the schema to validate against. Defaults to "metadata".
+    entity_type : str
+        The entity type the user asserts this file is to be validated against.
+    sub_type : str
+        The sub type (block, section, suspension)  the user asserts this file is to be validated against.
+    attribute : str, optional
+        Used to check against the schema returned by the IVT in the case of 'contributors'
+    latest_schema_name : str, optional
+        Used to specify which version to check against. Values include:
+            isLatestVersion,
+            isLatestPublishedVersion,
+            isLatestDraftVersion
     path : str, optional
         The path of the tsv for Ingest Validation Tools. Defaults to None.
 
     Returns
     -------
     dict
-        A dictionary containing validation results.
+        A dictionary containing validation results in
+        format of atlas_consortia_commons.rest.rest_response {code, name, description}
     """
 
     try:
-        schema_name = (
-            schema
-            if schema != "metadata"
-            else iv_utils.get_schema_version(
-                path=path,
-                encoding="ascii",
-                entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
-                ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
-                globus_token=token
-            ).schema_name
+        schema = iv_utils.get_schema_version(
+            path=path,
+            encoding="ascii",
+            entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
+            ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
+            globus_token=token
         )
+
+        # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
+        entity_type_info = schema.entity_type_info
+        # First check if the schema is for contributors
+        if not equals(entity_type_info.entity_type.value, attribute.lower()):
+            if not equals(entity_type_info.entity_type.value, entity_type.lower()) or not equals(entity_type_info.entity_sub_type, sub_type.lower()):
+                return rest_bad_req(
+                    f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
+                    f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
+
+        if isinstance(schema, schema_loader.SchemaVersion):
+            schema_name = schema.schema_name
+            schema_version = schema.version
+            if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
+                schema_version=schema_version,
+                cedar_api_key=current_app.config['CEDAR_API_KEY'],
+                latest_version_name=latest_schema_name):
+                return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True)
+
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
             "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
@@ -203,19 +209,52 @@ def validate_tsv(
             "constraints_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}constraints/"
 
         }
-        result = iv_utils.get_tsv_errors(
+        validation_results = iv_utils.get_tsv_errors(
             path,
             schema_name=schema_name,
             report_type=table_validator.ReportType.JSON,
             globus_token=token,
             app_context=app_context,
         )
-    except schema_loader.PreflightError as e:
-        result = rest_server_err({"Preflight": str(e)}, True)
-    except Exception as e:
-        result = rest_server_err(e, True)
+        if len(validation_results) == 0:
+            validation_results = get_csv_records(path)
+            return rest_response(StatusCodes.OK, 'TSV validation results',
+                                 validation_results, True)
+        else:
+            final_results = []
+            def parse_results(record):
+                if isinstance(record, dict):
+                    if 'description' in record:
+                        parse_results(record['description'])
+                    if 'column' in record and 'error' in record and 'row' in record:
+                        # TODO: remove logic if it ever starts at the usual 0 from IVT
+                        # IVT returns rows beginning at 1, reduce for regular reading on client end
+                        record['row'] = record['row'] - 1 if record['row'] > 0 else None
+                        final_results.append(record)
+                    else:
+                        # some unexpected dict, just str it and append to results
+                        final_results.append(ln_err(str(record)))
+                elif isinstance(record, list):
+                    for item in record:
+                        parse_results(item)
+                elif isinstance(record, Exception):
+                    ex = record.args[0]
+                    final_results.append(ln_err(f"{ex.get('message', '')} {ex.get('cause', '')} {ex.get('fixSuggestion', '')}"))
+                else:
+                    # some other instance, maybe str or some other object
+                    final_results.append(ln_err(str(record)))
 
-    return result
+            for r in validation_results:
+                parse_results(r)
+
+            return rest_bad_req(final_results, True)
+
+    except schema_loader.PreflightError as e:
+        validation_results = rest_server_err({"Preflight": str(e)}, True)
+    except Exception as e:
+        validation_results = rest_server_err(e, True)
+
+    return validation_results
 
 
 def create_tsv_from_path(path: str, row: int) -> dict:
@@ -251,56 +290,14 @@ def create_tsv_from_path(path: str, row: int) -> dict:
     return result
 
 
-def get_cedar_schema_ids() -> dict:
-    """Returns the CEDAR schema ids for the different source and sample sub types.
-
-    Returns
-    -------
-    dict
-        A dictionary containing the schema ids for each source/sample sub type.
-    """
-    return {
-        "Block": "3e98cee6-d3fb-467b-8d4e-9ba7ee49eeff",
-        "Section": "01e9bc58-bdf2-49f4-9cf9-dd34f3cc62d7",
-        "Suspension": "ea4fb93c-508e-4ec4-8a4b-89492ba68088",
-        "Mouse": "44662059-aa73-4756-a4a7-990489ca2f43",
-    }
-
-
-def spec_supported(entity_type, upload):
+def spec_supported(upload):
     fullpath = upload.get("fullpath")
     records = get_metadata(fullpath)
     return len(records) and "metadata_schema_id" in records[0]
 
 
-def check_cedar(entity_type, sub_type, upload):
-    fullpath = upload.get("fullpath")
-    records = get_metadata(fullpath)
-    if len(records) > 0 and "metadata_schema_id" in records[0]:
-        cedar_sample_sub_type_ids = get_cedar_schema_ids()
-        return equals(
-            records[0]["metadata_schema_id"], cedar_sample_sub_type_ids[sub_type]
-        )
-
-    return False
-
-
-def determine_schema(entity_type, sub_type):
-    if equals(entity_type, Ontology.ops().entities().SOURCE):
-        schema = "source-murine"
-    elif equals(entity_type, Ontology.ops().entities().SAMPLE):
-        if not sub_type:
-            return rest_bad_req("`sub_type` for schema name required.")
-        schema = f"sample-{sub_type}"
-    else:
-        schema = "metadata"
-
-    schema = schema.lower()
-    return schema
-
-
 def _get_response(
-    metadata, entity_type, sub_type, validate_uuids, token, pathname=None
+        metadata, entity_type, sub_type, validate_uuids, token, pathname=None
 ):
     if validate_uuids == "1":
         response = validate_records_uuids(
