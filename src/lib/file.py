@@ -106,7 +106,8 @@ def files_exist(uuid, data_access_level, group_name, metadata=False):
         if not metadata:
             return True
         else:
-            return any(glob.iglob(os.path.join(file_path, "**", "*metadata.tsv"), recursive=True))
+            # check from top level *metadata.tsv file
+            return any(glob.iglob(os.path.join(file_path, "*metadata.tsv")))
     else:
         return False
 
