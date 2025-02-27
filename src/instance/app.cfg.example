@@ -105,7 +105,7 @@ DATACITE_SENNET_PREFIX = ''
 
 UBKG_SERVER = 'https://ontology.api.hubmapconsortium.org/'
 UBKG_ENDPOINT_VALUESET = 'valueset?parent_sab=SENNET&parent_code={code}&child_sabs=SENNET'
-UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020"}'
+UBKG_CODES = '{"specimen_categories":"C020076", "organ_types":{"code": "C000008", "key": "organs", "endpoint": "organs?application_context=SENNET"}, "entities": "C000012", "source_types":"C050020", "dataset_types": {"code": "C003041", "key": "dataset_types", "endpoint": "dataset-types?application_context=SENNET"}}'
 
 # UBKG Integration Configs for Rule Chain
 APPLICATION_CONTEXT = 'SENNET'
