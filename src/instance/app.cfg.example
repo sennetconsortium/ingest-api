@@ -23,6 +23,8 @@ SECRET_KEY = ''
 # Need the trailing slash /
 FLASK_APP_BASE_URI = 'https://ingest-api.dev.sennetconsortium.org/'
 
+CHECK_RUI_ON_PUBLISH = True
+
 # React app name and deployment URI (default value used for docker dev environment)
 GLOBUS_CLIENT_APP_NAME = 'SenNet Data Portal'
 
