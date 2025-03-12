@@ -782,6 +782,7 @@ def publish_datastage(identifier):
             has_source = False
             organ = None
             has_rui_location = False
+            rui_exempt = False
             for node in rval:
                 uuid = node['uuid']
                 entity_type = node['entity_type']
@@ -795,6 +796,8 @@ def publish_datastage(identifier):
                         organ = node['organ']
                     if node.get('rui_location'):
                         has_rui_location = True
+                    if node.get('rui_exemption'):
+                        rui_exempt = node['rui_exemption']
                 elif entity_type == 'Source':
                     source_type = node['source_type']
                     has_source = True
@@ -830,9 +833,14 @@ def publish_datastage(identifier):
 
             # Organs not supported by the CCF-RUI Tool are:
             # Adipose, Blood, Bone Marrow, Breast, Bone, Muscle, and Other
-            if current_app.config['CHECK_RUI_ON_PUBLISH'] and organ not in ['AD', 'BD', 'BM', 'BS', 'BX', 'MU', 'OT'] and has_rui_location is False:
-                # organ is rui supported and has no rui location
-                abort_bad_req(f"{dataset_uuid}: dataset of organ {organ} must have a rui_location associated with it. Will not Publish")
+            if (
+                current_app.config['CHECK_RUI_ON_PUBLISH'] and
+                organ not in ['AD', 'BD', 'BM', 'BS', 'BX', 'MU', 'OT'] and
+                rui_exempt is False and
+                has_rui_location is False
+            ):
+                # organ is rui supported, has no exemption, and has no rui location
+                abort_bad_req(f"{dataset_uuid}: dataset of organ {organ} must have a rui_location associated with it or have an exemption. Will not Publish")
 
             # get info for the dataset to be published
             q = (
