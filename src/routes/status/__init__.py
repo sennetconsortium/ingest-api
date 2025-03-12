@@ -22,18 +22,21 @@ json
 
 @status_blueprint.route('/status', methods=['GET'])
 def get_status():
-    response_code = 200
-
-    response_data = {
-        # Use strip() to remove leading and trailing spaces, newlines, and tabs
-        'version': (Path(__file__).absolute().parent.parent.parent.parent / 'VERSION').read_text().strip(),
-        'build': (Path(__file__).absolute().parent.parent.parent.parent / 'BUILD').read_text().strip()
-    }
-
-    if current_app.config.get("REDIS_MODE"):
-        response_data['redis_connection'] = JobQueue.is_connected(current_app.config['REDIS_SERVER'])
-
     try:
+        response_code = 200
+
+        response_data = {
+            # Use strip() to remove leading and trailing spaces, newlines, and tabs
+            'version': (Path(__file__).absolute().parent.parent.parent.parent / 'VERSION').read_text().strip(),
+            'build': (Path(__file__).absolute().parent.parent.parent.parent / 'BUILD').read_text().strip()
+        }
+
+        if current_app.config.get("REDIS_MODE"):
+            redis_connected = JobQueue.is_connected(current_app.config['REDIS_SERVER'])
+            response_data['redis_connection'] = redis_connected
+            if not redis_connected:
+                response_code = 500
+
         # if ?check-ws-dependencies=true is present in the url request params
         # set a flag to check these other web services
         check_ws_calls = string_helper.isYes(request.args.get('check-ws-dependencies'))
@@ -73,7 +76,8 @@ def get_status():
             uuid_ws_check = net_helper.check_hm_ws(uuid_ws_url)
             entity_ws_check = net_helper.check_hm_ws(current_app.config['ENTITY_WEBSERVICE_URL'])
             search_ws_check = net_helper.check_hm_ws(current_app.config['SEARCH_WEBSERVICE_URL'])
-            if not uuid_ws_check or not entity_ws_check or not search_ws_check: response_code = 500
+            if not uuid_ws_check or not entity_ws_check or not search_ws_check:
+                response_code = 500
             response_data['uuid_ws'] = uuid_ws_check
             response_data['entity_ws'] = entity_ws_check
             response_data['search_ws_check'] = search_ws_check
