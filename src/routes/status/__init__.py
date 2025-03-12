@@ -1,6 +1,4 @@
-import json
-
-from flask import Blueprint, current_app, Response, request
+from flask import Blueprint, current_app, jsonify, request
 from pathlib import Path
 import logging
 
@@ -44,14 +42,9 @@ def get_status():
         # check the neo4j connection
         try:
             with Neo4jHelper.get_instance().session() as session:
-                recds = session.run("Match () Return 1 Limit 1")
-                for recd in recds:
-                    if recd[0] == 1:
-                        is_connected = True
-                    else:
-                        is_connected = False
+                res = session.run("MATCH () RETURN TRUE AS connected LIMIT 1").single()
+                is_connected = res['connected']
 
-                is_connected = True
         # the neo4j connection will often fail via exception so
         # catch it here, flag as failure and track the returned error message
         except Exception as e:
@@ -87,4 +80,4 @@ def get_status():
         response_code = 500
         response_data['exception_message'] = str(e)
     finally:
-        return Response(json.dumps(response_data), response_code, mimetype='application/json')
+        return jsonify(response_data), response_code
