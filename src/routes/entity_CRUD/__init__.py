@@ -775,7 +775,7 @@ def publish_datastage(identifier):
                 "MATCH (dataset:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) "
                 "RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, "
                 "all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, "
-                "all_ancestors.metadata as metadata, all_ancestors.organ as organ, all_ancestors.rui_location as rui_location"
+                "all_ancestors.metadata as metadata, all_ancestors.organ as organ, all_ancestors.rui_location as rui_location, all_ancestors.rui_exemption as rui_exemption"
             )
             rval = neo_session.run(q, uuid=dataset_uuid).data()
             uuids_for_public = []
