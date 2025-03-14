@@ -98,7 +98,6 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         has_rui_query = (
            f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
-            "WHERE s.sample_category = 'Block' "
             "RETURN ds.uuid AS uuid, COLLECT( "
             "CASE "
             "WHEN s.rui_exemption = true THEN 'Exempt' "
@@ -164,13 +163,13 @@ def update_datasets_datastatus(schedule_next_job=True):
                 output_dict[dataset['uuid']]['upload'] = dataset['upload']
 
         for dataset in has_rui_result:
+            has_rui = str(False)
             if output_dict.get(dataset['uuid']):
                 if "True" in dataset['has_rui_info']:
-                    output_dict[dataset['uuid']]['has_rui_info'] = str(True)
+                    has_rui = str(True)
                 elif "Exempt" in dataset['has_rui_info']:
-                    output_dict[dataset['uuid']]['has_rui_info'] = "Exempt"
-                else:
-                    output_dict[dataset['uuid']]['has_rui_info'] = str(False)
+                    has_rui = "Exempt"
+            output_dict[dataset['uuid']]['has_rui_info'] = has_rui
 
         combined_results = list(output_dict.values())
         if current_job is not None:
