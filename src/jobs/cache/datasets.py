@@ -97,10 +97,13 @@ def update_datasets_datastatus(schedule_next_job=True):
         )
 
         has_rui_query = (
-            "MATCH (ds:Dataset) "
-            "WHERE (ds)-[:WAS_GENERATED_BY]->(:Activity) "
-            "WITH ds, [(ds)-[*]->(s:Sample) | s.rui_location] AS rui_locations "
-            "RETURN ds.uuid AS uuid, any(rui_location IN rui_locations WHERE rui_location IS NOT NULL) AS has_rui_info"
+           f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
+            "RETURN ds.uuid AS uuid, COLLECT( "
+            "CASE "
+            "WHEN s.rui_exemption = true THEN 'Exempt' "
+            "WHEN s.rui_location IS NOT NULL AND NOT TRIM(s.rui_location) = '' THEN 'True' "
+            "ELSE 'False' "
+            "END) as has_rui_info"
         )
 
         displayed_fields = [
@@ -160,8 +163,13 @@ def update_datasets_datastatus(schedule_next_job=True):
                 output_dict[dataset['uuid']]['upload'] = dataset['upload']
 
         for dataset in has_rui_result:
+            has_rui = str(False)
             if output_dict.get(dataset['uuid']):
-                output_dict[dataset['uuid']]['has_rui_info'] = dataset['has_rui_info']
+                if "True" in dataset['has_rui_info']:
+                    has_rui = str(True)
+                elif "Exempt" in dataset['has_rui_info']:
+                    has_rui = "Exempt"
+            output_dict[dataset['uuid']]['has_rui_info'] = has_rui
 
         combined_results = list(output_dict.values())
         if current_job is not None:
