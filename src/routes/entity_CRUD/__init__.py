@@ -15,7 +15,7 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from atlas_consortia_commons.decorator import User, require_data_admin, require_json
 from atlas_consortia_commons.rest import StatusCodes, abort_bad_req, abort_forbidden, abort_internal_err, \
-    abort_not_found, rest_response, rest_bad_req, rest_server_err
+    abort_not_found, rest_server_err
 from atlas_consortia_commons.string import equals
 from rq.exceptions import NoSuchJobError
 from rq.job import JobStatus
@@ -27,18 +27,17 @@ from lib.commons import get_as_obj
 from lib.dataset_helper import DatasetHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.exceptions import ResponseException
-from lib.file import set_file_details, ln_err
+from lib.file import set_file_details
 from lib.file_upload_helper import UploadFileHelper
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.request_validation import get_validated_uuids
 
 # Local modules
-# from routes.entity_CRUD.constraints_helper import *
 from routes.auth import get_auth_header_dict
 
 from lib.ontology import Ontology
-from lib.file import get_csv_records, check_upload
+from lib.file import check_upload
 from lib.services import obj_to_dict, entity_json_dumps, get_entity_by_id
 from jobs.cache.datasets import DATASETS_DATASTATUS_JOB_PREFIX, update_datasets_datastatus
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
@@ -776,11 +775,14 @@ def publish_datastage(identifier):
                 "MATCH (dataset:Dataset {uuid: $uuid})-[:WAS_GENERATED_BY]->(e1)-[:USED|WAS_GENERATED_BY*]->(all_ancestors:Entity) "
                 "RETURN distinct all_ancestors.uuid as uuid, all_ancestors.entity_type as entity_type, all_ancestors.source_type as source_type, "
                 "all_ancestors.dataset_type as dataset_type, all_ancestors.data_access_level as data_access_level, all_ancestors.status as status, "
-                "all_ancestors.metadata as metadata"
+                "all_ancestors.metadata as metadata, all_ancestors.organ as organ, all_ancestors.rui_location as rui_location, all_ancestors.rui_exemption as rui_exemption"
             )
             rval = neo_session.run(q, uuid=dataset_uuid).data()
             uuids_for_public = []
             has_source = False
+            organ = None
+            has_rui_location = False
+            rui_exempt = False
             for node in rval:
                 uuid = node['uuid']
                 entity_type = node['entity_type']
@@ -790,6 +792,12 @@ def publish_datastage(identifier):
                 if entity_type == 'Sample':
                     if data_access_level != 'public':
                         uuids_for_public.append(uuid)
+                    if node.get('organ') is not None:
+                        organ = node['organ']
+                    if node.get('rui_location'):
+                        has_rui_location = True
+                    if node.get('rui_exemption'):
+                        rui_exempt = node['rui_exemption']
                 elif entity_type == 'Source':
                     source_type = node['source_type']
                     has_source = True
@@ -822,6 +830,17 @@ def publish_datastage(identifier):
 
             if has_source is False:
                 abort_bad_req(f"{dataset_uuid}: no source found for dataset, will not Publish")
+
+            # Organs not supported by the CCF-RUI Tool are:
+            # Adipose, Blood, Bone Marrow, Breast, Bone, Muscle, and Other
+            if (
+                current_app.config['CHECK_RUI_ON_PUBLISH'] and
+                organ not in ['AD', 'BD', 'BM', 'BS', 'BX', 'MU', 'OT'] and
+                rui_exempt is False and
+                has_rui_location is False
+            ):
+                # organ is rui supported, has no exemption, and has no rui location
+                abort_bad_req(f"{dataset_uuid}: dataset of organ {organ} must have a rui_location associated with it or have an exemption. Will not Publish")
 
             # get info for the dataset to be published
             q = (
