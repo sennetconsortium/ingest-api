@@ -186,12 +186,16 @@ def validate_tsv(
 
         # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
         entity_type_info = schema.entity_type_info
-        # First check if the schema is for contributors
+
+        # First check is to handle `contributors` as `attribute` and the `entity_type_info.entity_type` will both equal "contributor"
         if not equals(entity_type_info.entity_type.value, attribute.lower()):
-            if not equals(entity_type_info.entity_type.value, entity_type.lower()) or not equals(entity_type_info.entity_sub_type, sub_type.lower()):
-                return rest_bad_req(
-                    f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
-                    f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
+            # Check that the entity type/subtype specified by the user and what is determined by IV Utils are same
+            if equals(entity_type_info.entity_type.value, entity_type.lower()):
+                # Source (mouse) has no entity_type_info.entity_sub_type
+                if not equals(entity_type_info.entity_sub_type, "") and not equals(entity_type_info.entity_sub_type, sub_type.lower()):
+                    return rest_bad_req(
+                        f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
+                        f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
 
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
