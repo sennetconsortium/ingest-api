@@ -196,6 +196,11 @@ def validate_tsv(
                     return rest_bad_req(
                         f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
                         f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
+            else:
+                return rest_bad_req(
+                    f'Mismatch of "{entity_type}" and "metadata_schema_id". '
+                    f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas',
+                    True)
 
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
