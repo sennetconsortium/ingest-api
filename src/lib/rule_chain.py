@@ -2,7 +2,7 @@ import json
 import logging
 import urllib.request
 from pathlib import Path
-from typing import Union
+from typing import Union, Callable
 
 import yaml
 from flask import current_app
@@ -50,8 +50,12 @@ pre_integration_keys = [
     "process_state"
 ]
 
+pre_rule_chain = None
+body_rule_chain = None
+post_rule_chain = None
 
-def initialize_rule_chain():
+
+def initialize_rule_chains():
     """Initialize the rule chain from the source URI.
 
     Raises
@@ -59,16 +63,22 @@ def initialize_rule_chain():
     RuleSyntaxException
         If the JSON rules are not well-formed.
     """
-    global rule_chain
+    global pre_rule_chain, body_rule_chain, post_rule_chain
     rule_src_uri = current_app.config["RULE_CHAIN_URI"]
     try:
-        json_rules = urllib.request.urlopen(rule_src_uri)
+        rule_json = urllib.request.urlopen(rule_src_uri)
     except json.decoder.JSONDecodeError as excp:
         raise RuleSyntaxException(excp) from excp
-    rule_chain = RuleLoader(json_rules).load()
+    rule_chain_dict = RuleLoader(rule_json).load()
+    pre_rule_chain = rule_chain_dict["pre"]
+    body_rule_chain = rule_chain_dict["body"]
+    post_rule_chain = rule_chain_dict["post"]
 
 
-def calculate_assay_info(metadata: dict) -> dict:
+def calculate_assay_info(metadata: dict,
+                         source_is_human: bool,
+                         lookup_ubkg: Callable[[str], dict]
+                         ) -> dict:
     """Calculate the assay information for the given metadata.
 
     Parameters
@@ -81,15 +91,32 @@ def calculate_assay_info(metadata: dict) -> dict:
     dict
         The assay information for the entity.
     """
-    if not rule_chain:
-        initialize_rule_chain()
+    if any(elt is None
+           for elt in [pre_rule_chain, body_rule_chain, post_rule_chain]):
+        initialize_rule_chains()
     for key, value in metadata.items():
         if type(value) is str:
             if value.isdigit():
                 metadata[key] = int(value)
-    rslt = rule_chain.apply(metadata)
-    # TODO: check that rslt has the expected parts
-    return rslt
+    try:
+        pre_values = pre_rule_chain.apply(metadata)
+        body_values = body_rule_chain.apply(metadata, ctx=pre_values)
+        assert "ubkg_code" in body_values, ("Rule matched but lacked ubkg_code:"
+                                            f" {body_values}")
+        ubkg_values = lookup_ubkg(body_values.get("ubkg_code", "NO_CODE")).get("value", {})
+        rslt = post_rule_chain.apply(
+            {},
+            ctx={
+                "source_is_human": source_is_human,
+                "values": body_values,
+                "ubkg_values": ubkg_values,
+                "pre_values": pre_values,
+                # "DEBUG": True
+            }
+        )
+        return rslt
+    except NoMatchException:
+        return {}
 
 
 def calculate_data_types(entity: Entity) -> list[str]:
@@ -128,12 +155,12 @@ def calculate_data_types(entity: Entity) -> list[str]:
     return data_types
 
 
-def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
+def build_entity_metadata(entity_json: dict) -> dict:
     """Build the metadata for the given entity.
 
     Parameters
     ----------
-    entity : Union[hubmap_sdk.Entity, dict]
+    entity_json : dict
         The entity
 
     Returns
@@ -141,54 +168,40 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     dict
         The metadata for the entity.
     """
-    if isinstance(entity, dict):
-        entity = Entity(entity)
-
     metadata = {}
     dag_prov_list = []
+    if "ingest_metadata" in entity_json:
+        # This if block should catch primary datasets because primary datasets should
+        # have their metadata ingested as part of the reorganization.
+        if "metadata" in entity_json and not isinstance(entity_json["metadata"], list):
+            metadata = entity_json["metadata"]
+        else:
+            # If there is no ingest-metadata, then it must be a derived dataset
+            metadata["data_types"] = calculate_data_types(entity_json)
 
-    # This if block should catch primary datasets because primary datasets should
-    # their metadata ingested as part of the reorganization.
-    if hasattr(entity, "metadata"):
-        metadata = entity.metadata
+        dag_prov_list = [
+            elt['origin'] + ':' + elt['name']
+            for elt in entity_json["ingest_metadata"].get('dag_provenance_list', [])
+            if 'origin' in elt and 'name' in elt
+        ]
+
+        # In the case of Publications, we must also set the data_types.
+        # The primary publication will always have metadata,
+        # so we have to do the association here.
+        if entity_json["entity_type"] == "Publication":
+            metadata["data_types"] = calculate_data_types(entity_json)
+
+    # If there is no ingest_metadata, then it must be a derived dataset
     else:
-        # If there is no ingest-metadata, then it must be a derived dataset
-        metadata["data_types"] = calculate_data_types(entity)
+        metadata["data_types"] = calculate_data_types(entity_json)
 
-    if hasattr(entity, "ingest_metadata"):
-        dag_prov_list = [elt['origin'] + ':' + elt['name']
-                         for elt in entity.ingest_metadata.get('dag_provenance_list',
-                                                               [])
-                         if 'origin' in elt and 'name' in elt
-                         ]
-
-    # In the case of Publications, we must also set the data_types.
-    # The primary publication will always have metadata,
-    # so we have to do the association here.
-    if entity.entity_type == "Publication":
-        metadata["data_types"] = calculate_data_types(entity)
-
-    # If there is no metadata, then it must be a derived dataset
-    else:
-        metadata["data_types"] = calculate_data_types(entity)
-
-    metadata["entity_type"] = entity.entity_type
-    if metadata["entity_type"].upper() in ["SOURCE", "SAMPLE"]:
+    metadata["entity_type"] = entity_json["entity_type"]
+    if metadata["entity_type"].upper() in ["DONOR", "SAMPLE"]:
         raise ValueError(f"Entity is a {metadata['entity_type']}")
-    logger.info(f"Entity type is {metadata['entity_type']}")
     metadata["dag_provenance_list"] = dag_prov_list
-    metadata["creation_action"] = entity.creation_action
+    metadata["creation_action"] = entity_json.get("creation_action")
 
     return metadata
-
-
-def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
-    # If we get more complicated transformations we should consider refactoring.
-    # For now, this should suffice.
-    if source_type.upper() == "MOUSE":
-        rule_value_set["contains-pii"] = False
-
-    return rule_value_set
 
 
 def get_data_from_ubkg(ubkg_code: str) -> dict:
@@ -203,21 +216,6 @@ def get_data_from_ubkg(ubkg_code: str) -> dict:
         return {}
 
     return json.loads(response_data)
-
-
-def standardize_results(rule_chain_json: dict, ubkg_json: dict) -> dict:
-    # Initialize this with conditional logic to set 'primary' true or false.
-    ubkg_transformed_json = {
-        "primary": ubkg_json.get("process_state") == "primary"
-    }
-
-    for pre_integration_key in pre_integration_keys:
-        ubkg_key = pre_integration_to_ubkg_translation.get(pre_integration_key, pre_integration_key)
-        ubkg_value = ubkg_json.get(ubkg_key)
-        if ubkg_value is not None:
-            ubkg_transformed_json[pre_integration_key] = ubkg_value
-
-    return rule_chain_json | ubkg_transformed_json
 
 
 class NoMatchException(Exception):
