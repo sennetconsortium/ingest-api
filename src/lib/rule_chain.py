@@ -123,12 +123,12 @@ def calculate_assay_info(metadata: dict,
         return {}
 
 
-def calculate_data_types(entity: Entity) -> list[str]:
+def calculate_data_types(entity_json: dict) -> list[str]:
     """Calculate the data types for the given entity.
 
     Parameters
     ----------
-    entity : hubmap_sdk.Entity
+    entity_json : dict
         The entity
 
     Returns
@@ -141,19 +141,15 @@ def calculate_data_types(entity: Entity) -> list[str]:
     # Historically, we have used the data_types field. So check to make sure that
     # the data_types field is not empty and not a list of empty strings
     # If it has a value it must be an old derived dataset so use that to match the rules
-    if (
-            hasattr(entity, "data_types")
-            and entity.data_types
-            and set(entity.data_types) != {""}
-    ):
-        data_types = entity.data_types
+    if ("data_types" in entity_json and entity_json["data_types"]
+            and set(entity_json["data_types"]) != {""}):
+        data_types = entity_json["data_types"]
     # Moving forward (2024) we are no longer using data_types for derived datasets.
-    # Rather, we are going to use the dataset_info attribute which stores similar
-    # information to match the rules. dataset_info is delimited by "__", so we can grab
-    # the first item when splitting by that delimiter and pass that through to the
-    # rules.
-    elif hasattr(entity, "dataset_info") and entity.dataset_info:
-        data_types = [entity.dataset_info.split("__")[0]]
+    # Rather, we are going to use the dataset_info attribute which stores similar information
+    # to match the rules. dataset_info is delimited by "__", so we can grab the first
+    # item when splitting by that delimiter and pass that through to the rules.
+    elif "dataset_info" in entity_json and entity_json["dataset_info"]:
+        data_types = [entity_json["dataset_info"].split("__")[0]]
 
     # Else case is covered by the initial data_types instantiation.
     return data_types
