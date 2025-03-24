@@ -1,11 +1,9 @@
 import logging
-from typing import Optional
+import urllib
 
 from atlas_consortia_commons.decorator import require_json, require_valid_token, User
-from flask import Blueprint, Response, jsonify, request
+from flask import Blueprint, Response, jsonify
 from hubmap_commons.exceptions import HTTPException
-from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
 from lib.exceptions import ResponseException
@@ -54,10 +52,15 @@ def get_ds_assaytype(ds_uuid: str):
         return Response(f"Error applying classification rules: {excp}", 500)
     except WerkzeugException as excp:
         return excp
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
             f"Error while getting assay type for {ds_uuid}: " + hte.get_description(),
             hte.get_status_code(),
+        )
+    except urllib.error.HTTPError as hte:
+        return Response(
+            f"Error while getting assay type for {ds_uuid}: {hte}",
+            hte.status,
         )
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -81,16 +84,21 @@ def get_ds_rule_metadata(ds_uuid: str):
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
-    except NoMatchException:
+    except NoMatchException as excp:
         return {}
     except (RuleSyntaxException, RuleLogicException) as excp:
         return Response(f"Error applying classification rules: {excp}", 500)
     except WerkzeugException as excp:
         return excp
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
             f"Error while getting assay type for {ds_uuid}: " + hte.get_description(),
             hte.get_status_code(),
+        )
+    except urllib.error.HTTPError as hte:
+        return Response(
+            f"Error while getting assay type for {ds_uuid}: {hte}",
+            hte.status,
         )
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -114,40 +122,44 @@ def get_assaytype_from_metadata(token: str, user: User, metadata: dict):
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
-    except NoMatchException:
+    except NoMatchException as excp:
         return {}
     except (RuleSyntaxException, RuleLogicException) as excp:
         return Response(f"Error applying classification rules: {excp}", 500)
     except WerkzeugException as excp:
         return excp
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
-            "Error while getting assay type from metadata: " + hte.get_description(),
+            f"Error while getting assay type from metadata: " + hte.get_description(),
             hte.get_status_code(),
+        )
+    except urllib.error.HTTPError as hte:
+        return Response(
+            f"Error while getting assay type from metadata: {hte}",
+            hte.status,
         )
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response(
-            "Unexpected error while getting assay type from metadata: " + str(e), 500
+            f"Unexpected error while getting assay type from metadata: " + str(e), 500
         )
 
 
 @assayclassifier_blueprint.route("/reload-assaytypes", methods=["PUT"])
 def reload_chain():
     try:
-        initialize_rule_chain()
+        initialize_rule_chains()
         return jsonify({})
     except ResponseException as re:
         logger.error(re, exc_info=True)
         return re.response
     except (RuleSyntaxException, RuleLogicException) as excp:
         return Response(f"Error applying classification rules: {excp}", 500)
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
             "Error while getting assay types: " + hte.get_description(),
             hte.get_status_code(),
         )
     except Exception as e:
         logger.error(e, exc_info=True)
-        return Response("Unexpected error while reloading rule chain: " + str(e), 500)
-
+        return Response(f"Unexpected error while reloading rule chain: " + str(e), 500)
