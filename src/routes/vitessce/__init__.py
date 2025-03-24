@@ -15,9 +15,11 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
+    get_data_from_ubkg
 )
 from lib.services import get_entity
 from lib.vitessce import VitessceConfigCache, strip_extras
+from routes.assayclassifier.source_is_human import source_is_human
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
 logger = logging.getLogger(__name__)
@@ -45,7 +47,11 @@ def get_vitessce_config(ds_uuid: str):
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
             metadata = build_entity_metadata(entity)
-            return calculate_assay_info(metadata)
+            is_human = source_is_human(
+                [ds_uuid],
+                groups_token
+            )
+            return calculate_assay_info(metadata, is_human, get_data_from_ubkg)
 
         parent = None
         assaytype = get_assaytype(entity)

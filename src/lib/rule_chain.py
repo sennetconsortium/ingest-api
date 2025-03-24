@@ -85,6 +85,10 @@ def calculate_assay_info(metadata: dict,
     ----------
     metadata : dict
         The metadata for the entity.
+    source_is_human: bool
+        Boolean for if the source_type is Human
+    lookup_ubkg: Callable[[str], dict]
+        Method for calling the UBKG lookup function
 
     Returns
     -------
