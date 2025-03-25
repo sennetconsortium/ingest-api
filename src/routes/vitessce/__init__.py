@@ -1,9 +1,9 @@
 import logging
+import urllib
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk.sdk_helper import HTTPException
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
+from hubmap_commons.exceptions import HTTPException
 from portal_visualization.builder_factory import get_view_config_builder, has_visualization
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
@@ -96,10 +96,15 @@ def get_vitessce_config(ds_uuid: str):
         return Response(f"Error applying classification rules: {excp}", 500)
     except WerkzeugException as excp:
         return excp
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
-            f"Error while getting assay type for {ds_uuid}: " + hte.get_description(),
+            f"Error while getting assay type from metadata: " + hte.get_description(),
             hte.get_status_code(),
+        )
+    except urllib.error.HTTPError as hte:
+        return Response(
+            f"Error while getting assay type from metadata: {hte}",
+            hte.status,
         )
     except Exception as e:
         logger.error(e, exc_info=True)
