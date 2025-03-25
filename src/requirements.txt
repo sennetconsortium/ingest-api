@@ -31,5 +31,4 @@ rq==1.16.2
 pytest==7.3.1
 
 # For vitessce config generation
-boto3==1.28.17
 git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.1#egg=portal-visualization
