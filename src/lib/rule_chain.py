@@ -2,7 +2,7 @@ import json
 import logging
 import urllib.request
 from pathlib import Path
-from typing import Union
+from typing import Union, Callable
 
 import yaml
 from flask import current_app
@@ -50,8 +50,12 @@ pre_integration_keys = [
     "process_state"
 ]
 
+pre_rule_chain = None
+body_rule_chain = None
+post_rule_chain = None
 
-def initialize_rule_chain():
+
+def initialize_rule_chains():
     """Initialize the rule chain from the source URI.
 
     Raises
@@ -59,45 +63,72 @@ def initialize_rule_chain():
     RuleSyntaxException
         If the JSON rules are not well-formed.
     """
-    global rule_chain
+    global pre_rule_chain, body_rule_chain, post_rule_chain
     rule_src_uri = current_app.config["RULE_CHAIN_URI"]
     try:
-        json_rules = urllib.request.urlopen(rule_src_uri)
+        rule_json = urllib.request.urlopen(rule_src_uri)
     except json.decoder.JSONDecodeError as excp:
         raise RuleSyntaxException(excp) from excp
-    rule_chain = RuleLoader(json_rules).load()
+    rule_chain_dict = RuleLoader(rule_json).load()
+    pre_rule_chain = rule_chain_dict["pre"]
+    body_rule_chain = rule_chain_dict["body"]
+    post_rule_chain = rule_chain_dict["post"]
 
 
-def calculate_assay_info(metadata: dict) -> dict:
+def calculate_assay_info(metadata: dict,
+                         source_is_human: bool,
+                         lookup_ubkg: Callable[[str], dict]
+                         ) -> dict:
     """Calculate the assay information for the given metadata.
 
     Parameters
     ----------
     metadata : dict
         The metadata for the entity.
+    source_is_human: bool
+        Boolean for if the source_type is Human
+    lookup_ubkg: Callable[[str], dict]
+        Method for calling the UBKG lookup function
 
     Returns
     -------
     dict
         The assay information for the entity.
     """
-    if not rule_chain:
-        initialize_rule_chain()
+    if any(elt is None
+           for elt in [pre_rule_chain, body_rule_chain, post_rule_chain]):
+        initialize_rule_chains()
     for key, value in metadata.items():
         if type(value) is str:
             if value.isdigit():
                 metadata[key] = int(value)
-    rslt = rule_chain.apply(metadata)
-    # TODO: check that rslt has the expected parts
-    return rslt
+    try:
+        pre_values = pre_rule_chain.apply(metadata)
+        body_values = body_rule_chain.apply(metadata, ctx=pre_values)
+        assert "ubkg_code" in body_values, ("Rule matched but lacked ubkg_code:"
+                                            f" {body_values}")
+        ubkg_values = lookup_ubkg(body_values.get("ubkg_code", "NO_CODE")).get("value", {})
+        rslt = post_rule_chain.apply(
+            {},
+            ctx={
+                "source_is_human": source_is_human,
+                "values": body_values,
+                "ubkg_values": ubkg_values,
+                "pre_values": pre_values,
+                # "DEBUG": True
+            }
+        )
+        return rslt
+    except NoMatchException:
+        return {}
 
 
-def calculate_data_types(entity: Entity) -> list[str]:
+def calculate_data_types(entity_json: dict) -> list[str]:
     """Calculate the data types for the given entity.
 
     Parameters
     ----------
-    entity : hubmap_sdk.Entity
+    entity_json : dict
         The entity
 
     Returns
@@ -110,30 +141,26 @@ def calculate_data_types(entity: Entity) -> list[str]:
     # Historically, we have used the data_types field. So check to make sure that
     # the data_types field is not empty and not a list of empty strings
     # If it has a value it must be an old derived dataset so use that to match the rules
-    if (
-            hasattr(entity, "data_types")
-            and entity.data_types
-            and set(entity.data_types) != {""}
-    ):
-        data_types = entity.data_types
+    if ("data_types" in entity_json and entity_json["data_types"]
+            and set(entity_json["data_types"]) != {""}):
+        data_types = entity_json["data_types"]
     # Moving forward (2024) we are no longer using data_types for derived datasets.
-    # Rather, we are going to use the dataset_info attribute which stores similar
-    # information to match the rules. dataset_info is delimited by "__", so we can grab
-    # the first item when splitting by that delimiter and pass that through to the
-    # rules.
-    elif hasattr(entity, "dataset_info") and entity.dataset_info:
-        data_types = [entity.dataset_info.split("__")[0]]
+    # Rather, we are going to use the dataset_info attribute which stores similar information
+    # to match the rules. dataset_info is delimited by "__", so we can grab the first
+    # item when splitting by that delimiter and pass that through to the rules.
+    elif "dataset_info" in entity_json and entity_json["dataset_info"]:
+        data_types = [entity_json["dataset_info"].split("__")[0]]
 
     # Else case is covered by the initial data_types instantiation.
     return data_types
 
 
-def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
+def build_entity_metadata(entity_json: dict) -> dict:
     """Build the metadata for the given entity.
 
     Parameters
     ----------
-    entity : Union[hubmap_sdk.Entity, dict]
+    entity_json : dict
         The entity
 
     Returns
@@ -141,54 +168,40 @@ def build_entity_metadata(entity: Union[Entity, dict]) -> dict:
     dict
         The metadata for the entity.
     """
-    if isinstance(entity, dict):
-        entity = Entity(entity)
-
     metadata = {}
     dag_prov_list = []
+    if "ingest_metadata" in entity_json:
+        # This if block should catch primary datasets because primary datasets should
+        # have their metadata ingested as part of the reorganization.
+        if "metadata" in entity_json and not isinstance(entity_json["metadata"], list):
+            metadata = entity_json["metadata"]
+        else:
+            # If there is no ingest-metadata, then it must be a derived dataset
+            metadata["data_types"] = calculate_data_types(entity_json)
 
-    # This if block should catch primary datasets because primary datasets should
-    # their metadata ingested as part of the reorganization.
-    if hasattr(entity, "metadata"):
-        metadata = entity.metadata
+        dag_prov_list = [
+            elt['origin'] + ':' + elt['name']
+            for elt in entity_json["ingest_metadata"].get('dag_provenance_list', [])
+            if 'origin' in elt and 'name' in elt
+        ]
+
+        # In the case of Publications, we must also set the data_types.
+        # The primary publication will always have metadata,
+        # so we have to do the association here.
+        if entity_json["entity_type"] == "Publication":
+            metadata["data_types"] = calculate_data_types(entity_json)
+
+    # If there is no ingest_metadata, then it must be a derived dataset
     else:
-        # If there is no ingest-metadata, then it must be a derived dataset
-        metadata["data_types"] = calculate_data_types(entity)
+        metadata["data_types"] = calculate_data_types(entity_json)
 
-    if hasattr(entity, "ingest_metadata"):
-        dag_prov_list = [elt['origin'] + ':' + elt['name']
-                         for elt in entity.ingest_metadata.get('dag_provenance_list',
-                                                               [])
-                         if 'origin' in elt and 'name' in elt
-                         ]
-
-    # In the case of Publications, we must also set the data_types.
-    # The primary publication will always have metadata,
-    # so we have to do the association here.
-    if entity.entity_type == "Publication":
-        metadata["data_types"] = calculate_data_types(entity)
-
-    # If there is no metadata, then it must be a derived dataset
-    else:
-        metadata["data_types"] = calculate_data_types(entity)
-
-    metadata["entity_type"] = entity.entity_type
-    if metadata["entity_type"].upper() in ["SOURCE", "SAMPLE"]:
+    metadata["entity_type"] = entity_json["entity_type"]
+    if metadata["entity_type"].upper() in ["DONOR", "SAMPLE"]:
         raise ValueError(f"Entity is a {metadata['entity_type']}")
-    logger.info(f"Entity type is {metadata['entity_type']}")
     metadata["dag_provenance_list"] = dag_prov_list
-    metadata["creation_action"] = entity.creation_action
+    metadata["creation_action"] = entity_json.get("creation_action")
 
     return metadata
-
-
-def apply_source_type_transformations(source_type: str, rule_value_set: dict) -> dict:
-    # If we get more complicated transformations we should consider refactoring.
-    # For now, this should suffice.
-    if source_type.upper() == "MOUSE":
-        rule_value_set["contains-pii"] = False
-
-    return rule_value_set
 
 
 def get_data_from_ubkg(ubkg_code: str) -> dict:
@@ -205,21 +218,6 @@ def get_data_from_ubkg(ubkg_code: str) -> dict:
     return json.loads(response_data)
 
 
-def standardize_results(rule_chain_json: dict, ubkg_json: dict) -> dict:
-    # Initialize this with conditional logic to set 'primary' true or false.
-    ubkg_transformed_json = {
-        "primary": ubkg_json.get("process_state") == "primary"
-    }
-
-    for pre_integration_key in pre_integration_keys:
-        ubkg_key = pre_integration_to_ubkg_translation.get(pre_integration_key, pre_integration_key)
-        ubkg_value = ubkg_json.get(ubkg_key)
-        if ubkg_value is not None:
-            ubkg_transformed_json[pre_integration_key] = ubkg_value
-
-    return rule_chain_json | ubkg_transformed_json
-
-
 class NoMatchException(Exception):
     pass
 
@@ -233,41 +231,46 @@ class RuleSyntaxException(Exception):
 
 
 class RuleLoader:
-    def __init__(self, stream, format="yaml"):
+    def __init__(self, stream, format='yaml'):
         self.stream = stream
-        assert format in ["yaml", "json"], f"unknown format {format}"
+        assert format in ['yaml', 'json'], f"unknown format {format}"
         self.format = format
-
     def load(self):
-        rule_chain = RuleChain()
-        if self.format == "yaml":
-            json_recs = yaml.safe_load(self.stream)
-        elif self.format == "json":
+        rule_chain_dict = {}
+        if self.format == 'yaml':
+            json_dict = yaml.safe_load(self.stream)
+        elif self.format == 'json':
             if isinstance(self.stream, str):
-                json_recs = json.loads(self.stream)
+                json_dict = json.loads(self.stream)
             else:
-                json_recs = json.load(self.stream)
+                json_dict = json.load(self.stream)
         else:
             raise RuntimeError(f"Unknown format {self.format} for input stream")
-        check_json_matches_schema(
-            json_recs, SCHEMA_FILE, str(Path(__file__).parent), SCHEMA_BASE_URI
-        )
-        for rec in json_recs:
-            for rule in [rec[key] for key in ["match", "value"]]:
-                assert Rule.is_valid(rule), f"Syntax error in rule string {rule}"
-            try:
-                rule_cls = {"note": NoteRule, "match": MatchRule}[rec["type"].lower()]
-            except KeyError:
-                raise RuleSyntaxException(f"Unknown rule type {rec['type']}")
-            rule_chain.add(rule_cls(rec["match"], rec["value"]))
-        return rule_chain
+        check_json_matches_schema(json_dict,
+                                  SCHEMA_FILE,
+                                  str(Path(__file__).parent),
+                                  SCHEMA_BASE_URI)
+        for key in json_dict:
+            rule_chain = RuleChain()
+            json_recs = json_dict[key]
+            for rec in json_recs:
+                for rule in [rec[key2] for key2 in ['match', 'value']]:
+                    assert Rule.is_valid(rule), f"Syntax error in rule string {rule}"
+                try:
+                    rule_cls = {'note': NoteRule,
+                                'match': MatchRule}[rec['type'].lower()]
+                    rule_chain.add(rule_cls(rec['match'], rec['value']))
+                except KeyError:
+                    raise RuleSyntaxException(f"Unknown rule type {rec['type']}")
+            rule_chain_dict[key] = rule_chain
+        return rule_chain_dict
+
 
 
 class _RuleChainIter:
     def __init__(self, rule_chain):
         self.offset = 0
         self.rule_chain = rule_chain
-
     def __next__(self):
         if self.offset < len(self.rule_chain.links):
             rslt = self.rule_chain.links[self.offset]
@@ -275,7 +278,6 @@ class _RuleChainIter:
             return rslt
         else:
             raise StopIteration
-
     def __iter__(self):
         return self
 
@@ -283,50 +285,48 @@ class _RuleChainIter:
 class RuleChain:
     def __init__(self):
         self.links = []
-
     def add(self, link):
         self.links.append(link)
-
     def dump(self, ofile):
-        print(f"START DUMP of {len(list(iter(self)))} rules")
+        ofile.write(f"START DUMP of {len(list(iter(self)))} rules\n")
         for idx, elt in enumerate(iter(self)):
-            print(f"{idx}: {elt}")
-        print("END DUMP of rules")
-
+            ofile.write(f"{idx}: {elt}\n")
+        ofile.write(f"END DUMP of rules\n")
     def __iter__(self):
         return _RuleChainIter(self)
-
     @classmethod
     def cleanup(cls, val):
         """
         Convert val to JSON-appropriate data types
         """
-        if isinstance(val, dict):  # includes OrderedDict
+        if isinstance(val, dict): # includes OrderedDict
             return dict({cls.cleanup(key): cls.cleanup(val[key]) for key in val})
         elif isinstance(val, list):
             return list(cls.cleanup(elt) for elt in val)
         else:
             return val
-
-    def apply(self, rec):
-        ctx = {}  # so rules can leave notes for later rules
+    def apply(self, rec, ctx = None):
+        if ctx is None:
+            ctx = {}  # so rules can leave notes for later rules
         for elt in iter(self):
-            rec_dict = rec | ctx
+            if ctx.get("DEBUG"):
+                logger.debug(f"applying {elt} to rec:{rec}  ctx:{ctx}")
+            rec_dict = rec | ctx;
             try:
                 if elt.match_rule.matches(rec_dict):
                     val = elt.val_rule.evaluate(rec_dict)
                     if isinstance(elt, MatchRule):
                         return self.cleanup(val)
                     elif isinstance(elt, NoteRule):
-                        assert isinstance(
-                            val, dict
-                        ), f"Rule {elt} applied to {rec_dict} did not produce a dict"
+                        assert isinstance(val, dict), f"Rule {elt} applied to {rec_dict} did not produce a dict"
                         ctx.update(val)
                     else:
                         raise NotImplementedError(f"Unknown rule type {type(elt)}")
             except EngineError as excp:
-                print(f"ENGINE_ERROR {type(excp)} {excp}")
+                logger.error(f"ENGINE_ERROR {type(excp)} {excp}")
                 raise RuleLogicException(excp) from excp
+            if ctx.get("DEBUG"):
+                logger.debug("done")
         raise NoMatchException(f"No rule matched record {rec}")
 
 

@@ -1,9 +1,9 @@
 import logging
+import urllib
 
 from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk.sdk_helper import HTTPException
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
+from hubmap_commons.exceptions import HTTPException
 from portal_visualization.builder_factory import get_view_config_builder, has_visualization
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
@@ -15,9 +15,11 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
+    get_data_from_ubkg
 )
 from lib.services import get_entity
 from lib.vitessce import VitessceConfigCache, strip_extras
+from routes.assayclassifier.source_is_human import source_is_human
 
 vitessce_blueprint = Blueprint("vitessce", __name__)
 logger = logging.getLogger(__name__)
@@ -45,7 +47,11 @@ def get_vitessce_config(ds_uuid: str):
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
             metadata = build_entity_metadata(entity)
-            return calculate_assay_info(metadata)
+            is_human = source_is_human(
+                [ds_uuid],
+                groups_token
+            )
+            return calculate_assay_info(metadata, is_human, get_data_from_ubkg)
 
         parent = None
         assaytype = get_assaytype(entity)
@@ -90,10 +96,15 @@ def get_vitessce_config(ds_uuid: str):
         return Response(f"Error applying classification rules: {excp}", 500)
     except WerkzeugException as excp:
         return excp
-    except (HTTPException, SDKException) as hte:
+    except HTTPException as hte:
         return Response(
-            f"Error while getting assay type for {ds_uuid}: " + hte.get_description(),
+            f"Error while getting assay type from metadata: " + hte.get_description(),
             hte.get_status_code(),
+        )
+    except urllib.error.HTTPError as hte:
+        return Response(
+            f"Error while getting assay type from metadata: {hte}",
+            hte.status,
         )
     except Exception as e:
         logger.error(e, exc_info=True)
