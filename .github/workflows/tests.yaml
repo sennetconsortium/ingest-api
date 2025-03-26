@@ -29,6 +29,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r src/requirements.txt
+          pip install -r src/requirements.dev.txt
           pip install -r src/submodules/ingest_validation_tools/requirements.in
       - name: Setup test config file
         run: |
