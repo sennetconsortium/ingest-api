@@ -1,5 +1,5 @@
 # Parent image
-FROM sennet/api-base-image:1.0.0
+FROM sennet/api-base-image:1.2.1
 ENV LANG=en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
@@ -9,6 +9,11 @@ LABEL description="SenNet Ingest API Service"
 # The commons branch to be used in requirements.txt during image build
 # Default is master branch specified in docker-compose.yml if not set before the build
 ARG COMMONS_BRANCH
+
+# Specify the Python version to be installed. Default is 3.11.
+# Override with --build-arg PYTHON_VERSION=3.12 or args: PYTHON_VERSION=3.12 in docker-compose
+# Note: RHEL only has certain versions of Python available. If the version is not available, the build will fail.
+ARG PYTHON_VERSION=3.11
 
 # Change to directory that contains the Dockerfile
 WORKDIR /usr/src/app
@@ -43,8 +48,9 @@ RUN yum install -y yum-utils && \
     rm /etc/nginx/conf.d/default.conf && \
     mv nginx/nginx.conf /etc/nginx/nginx.conf && \
     rm -rf nginx && \
-    pip install --upgrade pip -r src/requirements.txt && \
-    pip install -r src/submodules/ingest_validation_tools/requirements.txt && \
+    python${PYTHON_VERSION} -m pip install --upgrade pip && \
+    python${PYTHON_VERSION} -m pip install -r src/requirements.txt && \
+    python${PYTHON_VERSION} -m pip install -r src/submodules/ingest_validation_tools/requirements.txt && \
     chmod +x start.sh && \
     dnf install langpacks-en glibc-all-langpacks -y && \
     yum clean all
