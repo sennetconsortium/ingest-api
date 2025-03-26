@@ -9,6 +9,8 @@ jsonschema==3.2.0
 neo4j==5.20.0
 selenium==3.141.0
 PyYAML==6.0
+
+# Explitly set numpy version to avoid conflicts with IVT
 numpy==1.24.3
 
 # The commons package requires requests>=2.22.0
@@ -27,9 +29,6 @@ rule_engine==4.1.0
 # Job queue
 redis==5.0.3
 rq==1.16.2
-
-# Testing
-pytest==7.3.1
 
 # For vitessce config generation
 git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.1#egg=portal-visualization
