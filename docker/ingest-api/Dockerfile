@@ -49,7 +49,7 @@ RUN yum install -y yum-utils && \
     mv nginx/nginx.conf /etc/nginx/nginx.conf && \
     rm -rf nginx && \
     python${PYTHON_VERSION} -m pip install --upgrade pip && \
-    python${PYTHON_VERSION} -m pip -r src/requirements.txt && \
+    python${PYTHON_VERSION} -m pip install -r src/requirements.txt && \
     python${PYTHON_VERSION} -m pip install -r src/submodules/ingest_validation_tools/requirements.txt && \
     chmod +x start.sh && \
     dnf install langpacks-en glibc-all-langpacks -y && \
