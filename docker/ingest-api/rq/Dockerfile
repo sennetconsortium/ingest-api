@@ -26,4 +26,4 @@ RUN groupadd -r -g 100008 codcc && \
 
 USER codcc
 
-CMD ["python", "src/worker.py"]
+CMD ["python${PYTHON_VERSION}", "src/worker.py"]
