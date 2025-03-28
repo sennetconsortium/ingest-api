@@ -123,7 +123,7 @@ def _login(redirect_uri, key = 'tokens', redirect_failure_uri = '/logout'):
                                 max_age=86400,
                                 samesite='Lax')
         else:
-            print('setting domain cookie')
+            logger.info('setting domain cookie')
             response.set_cookie('info',
                                 base64_json_str,
                                 max_age=86400,
