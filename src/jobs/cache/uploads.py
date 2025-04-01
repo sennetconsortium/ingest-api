@@ -52,12 +52,13 @@ def update_uploads_datastatus(schedule_next_job=True):
             "up.title AS title, up.assigned_to_group_name AS assigned_to_group_name, "
             "up.intended_source_type AS intended_source_type, "
             "up.intended_organ AS intended_organ, up.intended_dataset_type AS intended_dataset_type, "
+            "up.anticipated_complete_upload_month AS anticipated_complete_upload_month, up.anticipated_dataset_count AS anticipated_dataset_count, "
             "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
         )
 
         displayed_fields = [
             "uuid", "group_name", "sennet_id", "status", "title", "datasets", "intended_source_type", "intended_organ",
-            "intended_dataset_type", "assigned_to_group_name", "ingest_task"
+            "intended_dataset_type", "assigned_to_group_name", "anticipated_complete_upload_month", "anticipated_dataset_count", "ingest_task"
         ]
 
         current_job = get_current_job()
