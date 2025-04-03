@@ -2,15 +2,14 @@ import json
 import logging
 import time
 from typing import Callable, List, Optional, Union
-from urllib import request
 
 import requests
 from atlas_consortia_commons.file import ensure_trailing_slash_url
 from flask import current_app, request
+from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.file_helper import removeTrailingSlashURL, ensureTrailingSlashURL
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
-from hubmap_sdk.sdk_helper import HTTPException as SDKException
 from hubmap_sdk.sdk_helper import make_entity
 from requests.adapters import HTTPAdapter, Retry
 
@@ -27,6 +26,7 @@ def get_token() -> Optional[str]:
         token = None
     return token
 
+
 def get_entity_by_id(identifier, token=None):
     service_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{service_url}entities/{identifier}"
@@ -34,6 +34,11 @@ def get_entity_by_id(identifier, token=None):
         response = requests.get(url)
     else:
         response = requests.get(url, headers=get_auth_header_dict(token))
+
+    if not response.ok:
+        msg = response.json().get("error", "Unknown error")
+        raise HTTPException(msg, response.status_code)
+
     output = response.json()
     entity = {}
     if output is not None and 'entity_type' in output:
@@ -63,15 +68,10 @@ def get_entity(
 
     Raises
     ------
-    hubmap_sdk.sdk_helper.HTTPException
+    hubmap_commons.exceptions.HTTPException
         If the entity-api request fails.
     """
-    entity = None
-    try:
-        entity = get_entity_by_id(entity_id, token)
-    except Exception as e:
-        logger.error(f"Failed to get entity: {e}")
-
+    entity = get_entity_by_id(entity_id, token)
     if as_dict:
         return vars(entity)
     return entity
@@ -98,35 +98,31 @@ def get_entity_from_search_api(
 
     Raises
     ------
-    hubmap_sdk.sdk_helper.HTTPException
+    hubmap_commons.exceptions.HTTPException
         If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
     search_api = SearchSdk(token=token, service_url=search_api_url)
-    try:
-        query = {
-            "size": 1,
-            "query": {
-                "bool": {
-                    "should": [
-                        {"term": {"uuid.keyword": entity_id}},
-                        {"term": {"sennet_id.keyword": entity_id}},
-                    ]
-                }
-            },
-        }
-        res = search_api.search_by_index(query, "entities")
-        hits = res.get("hits", {}).get("hits", [])
-        if len(hits) == 0 or not hits[0]["_source"]:
-            raise SDKException("No entity found", 404)
+    query = {
+        "size": 1,
+        "query": {
+            "bool": {
+                "should": [
+                    {"term": {"uuid.keyword": entity_id}},
+                    {"term": {"sennet_id.keyword": entity_id}},
+                ]
+            }
+        },
+    }
+    res = search_api.search_by_index(query, "entities")
+    hits = res.get("hits", {}).get("hits", [])
+    if len(hits) == 0 or not hits[0]["_source"]:
+        raise HTTPException("No entity found", 404)
 
-        entity = hits[0]["_source"]
-        if as_dict:
-            return entity
-        return Entity(entity)
-
-    except SDKException:
-        raise
+    entity = hits[0]["_source"]
+    if as_dict:
+        return entity
+    return Entity(entity)
 
 
 def get_associated_sources_from_dataset(
@@ -150,7 +146,7 @@ def get_associated_sources_from_dataset(
 
     Raises
     ------
-    hubmap_sdk.sdk_helper.HTTPException
+    hubmap_commons.exceptions.HTTPException
         If the entiti-api request fails or entity not found.
     """
     entity_api_url = ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
@@ -160,7 +156,7 @@ def get_associated_sources_from_dataset(
         headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers)
     if not res.ok:
-        raise SDKException(f"Failed to get associated source for dataset {dataset_id}")
+        raise HTTPException(f"Failed to get associated source for dataset {dataset_id}")
     body = res.json()
 
     if as_dict:
@@ -184,7 +180,7 @@ def reindex_entities(entity_ids: list, token: str) -> None:
 
     Raises
     ------
-    hubmap_sdk.sdk_helper.HTTPException
+    hubmap_commons.exceptions.HTTPException
         If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
@@ -193,12 +189,12 @@ def reindex_entities(entity_ids: list, token: str) -> None:
     for entity_id in entity_ids:
         try:
             search_api.reindex(entity_id)
-        except SDKException as e:
+        except HTTPException as e:
             errors[entity_id] = str(e)
 
     if len(errors) > 0:
         msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
-        raise SDKException(msg)
+        raise HTTPException(msg)
 
 
 def bulk_update_entities(
