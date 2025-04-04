@@ -780,6 +780,7 @@ def publish_datastage(identifier):
             rval = neo_session.run(q, uuid=dataset_uuid).data()
             uuids_for_public = []
             has_source = False
+            source_type = None
             organ = None
             has_rui_location = False
             rui_exempt = False
@@ -835,6 +836,7 @@ def publish_datastage(identifier):
             # Adipose, Blood, Bone Marrow, Breast, Bone, Muscle, and Other
             if (
                 current_app.config['CHECK_RUI_ON_PUBLISH'] and
+                source_type in ['Human', 'Human Organoid'] and
                 organ not in ['AD', 'BD', 'BM', 'BS', 'BX', 'MU', 'OT'] and
                 rui_exempt is False and
                 has_rui_location is False
