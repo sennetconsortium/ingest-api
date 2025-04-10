@@ -121,7 +121,6 @@ def get_ds_rule_metadata(ds_uuid: str):
 
 
 @assayclassifier_blueprint.route("/assaytype", methods=["POST"])
-@require_valid_token()
 @require_json(param="metadata")
 def get_assaytype_from_metadata(token: str, metadata: dict):
     try:
