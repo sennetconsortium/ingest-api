@@ -122,8 +122,9 @@ def get_ds_rule_metadata(ds_uuid: str):
 
 @assayclassifier_blueprint.route("/assaytype", methods=["POST"])
 @require_json(param="metadata")
-def get_assaytype_from_metadata(token: str, metadata: dict):
+def get_assaytype_from_metadata(metadata: dict):
     try:
+        token = get_token()
         if parent_sample_ids := metadata.get("parent_sample_id"):
             is_human = source_is_human(parent_sample_ids.split(","), token)
         else:
