@@ -31,6 +31,7 @@ from routes.admin import admin_blueprint
 from routes.sources import sources_blueprint
 from routes.samples import samples_blueprint
 from routes.collections import collections_blueprint
+from routes.sankey_data import sankey_data_blueprint
 
 # Local Modules
 from lib.file_upload_helper import UploadFileHelper
@@ -73,6 +74,7 @@ app.register_blueprint(admin_blueprint)
 app.register_blueprint(sources_blueprint)
 app.register_blueprint(samples_blueprint)
 app.register_blueprint(collections_blueprint)
+app.register_blueprint(sankey_data_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
