@@ -51,7 +51,8 @@ logging.basicConfig(format='[%(asctime)s] %(levelname)s in %(module)s: %(message
 logger = logging.getLogger(__name__)
 
 # Specify the absolute path of the instance folder and use the config file relative to the instance path
-app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'), instance_relative_config=True)
+app = Flask(__name__, instance_path=os.path.join(os.path.abspath(os.path.dirname(__file__)), 'instance'),
+            instance_relative_config=True)
 app.config.from_pyfile('app.cfg')
 app.app_context().push()
 app.url_map.converters["entity_uuid"] = EntityUUIDConverter
@@ -78,7 +79,6 @@ app.register_blueprint(sankey_data_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
-
 
 ####################################################################################################
 ## UBKG Ontology and REST initialization
@@ -172,7 +172,8 @@ if app.config.get("REDIS_MODE", True):
 
         app.vitessce_cache = VitessceConfigCache(redis_client_instance)
 
-        logger.info(f'Connected to Redis server {redis_client_instance.execute_command("INFO")["redis_version"]} successfully :)')
+        logger.info(
+            f'Connected to Redis server {redis_client_instance.execute_command("INFO")["redis_version"]} successfully :)')
     except Exception:
         msg = 'Failed to connect to the Redis cluster'
         # Log the full stack trace, prepend a line with our message
@@ -191,8 +192,8 @@ if app.config.get("REDIS_MODE"):
     job_queue = JobQueue.instance()
     schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_uploads_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
-    schedule_update_dataset_sankey_data(authorized=False, job_queue=job_queue, delta=datetime.timedelta(seconds=30))
-    schedule_update_dataset_sankey_data(authorized=True, job_queue=job_queue, delta=datetime.timedelta(seconds=30))
+    schedule_update_dataset_sankey_data(job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=False)
+    schedule_update_dataset_sankey_data(job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=True)
 
 # For local development/testing
 if __name__ == '__main__':
