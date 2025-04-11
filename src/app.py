@@ -38,7 +38,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.vitessce import VitessceConfigCache
 from jobs import JobQueue
-from jobs.cache.datasets import schedule_update_datasets_datastatus
+from jobs.cache.datasets import schedule_update_datasets_datastatus, schedule_update_dataset_sankey_data
 from jobs.cache.uploads import schedule_update_uploads_datastatus
 
 # Set logging format and level (default is warning)
@@ -191,7 +191,8 @@ if app.config.get("REDIS_MODE"):
     job_queue = JobQueue.instance()
     schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_uploads_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
-
+    schedule_update_dataset_sankey_data(authorized=False, job_queue=job_queue, delta=datetime.timedelta(seconds=30))
+    schedule_update_dataset_sankey_data(authorized=True, job_queue=job_queue, delta=datetime.timedelta(seconds=30))
 
 # For local development/testing
 if __name__ == '__main__':
