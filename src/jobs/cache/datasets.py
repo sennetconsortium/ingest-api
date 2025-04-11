@@ -365,7 +365,7 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
             # If the status is QA or Published then grab the 'modality' from UBKG
             # Otherwise just return dataset_type
             internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset['dataset_type']
-            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset['dataset_type']
+            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
                 if dataset['dataset_status'] in ['QA', 'Published'] and dataset['dataset_metadata']:
                     rules_json = calculate_assay_info(json.loads(dataset['dataset_metadata']), is_human,
