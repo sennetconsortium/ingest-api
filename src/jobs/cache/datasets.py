@@ -1,22 +1,30 @@
+import collections
+import json
 import logging
 import time
 from datetime import timedelta
 from threading import Thread
 from uuid import uuid4
 
-from flask import current_app
-from hubmap_commons import neo4j_driver, string_helper
+from hubmap_commons import string_helper
 from rq import get_current_connection, get_current_job
 
 from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
 from lib.file import files_exist
 from lib.ontology import Ontology
+from lib.neo4j_helper import Neo4jHelper
+from lib.rule_chain import (
+    calculate_assay_info,
+    get_data_from_ubkg
+)
 
 logger = logging.getLogger(__name__)
 
 DATASETS_DATASTATUS_JOB_ID = 'update_datasets_datastatus'
 DATASETS_DATASTATUS_JOB_PREFIX = 'update_datasets_datastatus'
+DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX = 'update_dataset_sankey_data_public'
+DATASETS_SANKEYDATA_JOB_CONSORTIUM_PREFIX = 'update_dataset_sankey_data_consortium'
 
 
 def schedule_update_datasets_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
@@ -54,9 +62,6 @@ def update_datasets_datastatus(schedule_next_job=True):
     try:
         logger.info("Starting update datasets datastatus")
         start = time.perf_counter()
-        neo4j_driver_instance = neo4j_driver.instance(current_app.config['NEO4J_SERVER'],
-                                                      current_app.config['NEO4J_USERNAME'],
-                                                      current_app.config['NEO4J_PASSWORD'])
 
         all_datasets_query = (
             "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ancestor) "
@@ -97,7 +102,7 @@ def update_datasets_datastatus(schedule_next_job=True):
         )
 
         has_rui_query = (
-           f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
+            f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
             "RETURN ds.uuid AS uuid, COLLECT( "
             "CASE "
             "WHEN s.rui_exemption = true THEN 'Exempt' "
@@ -117,7 +122,7 @@ def update_datasets_datastatus(schedule_next_job=True):
         results = [None] * len(queries)
         threads = []
         for i, query in enumerate(queries):
-            thread = Thread(target=run_query, args=(neo4j_driver_instance, query, results, i))
+            thread = Thread(target=run_query, args=(Neo4jHelper.get_instance(), query, results, i))
             thread.name = query
             thread.start()
             threads.append(thread)
@@ -177,11 +182,14 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         organ_types_dict = Ontology.ops(as_data_dict=True, key='rui_code', val_key='term').organ_types()
         for dataset in combined_results:
-            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'), dataset.get('uuid'))
+            globus_url = get_globus_url(dataset.get('data_access_level'), dataset.get('group_name'),
+                                        dataset.get('uuid'))
             dataset['globus_url'] = globus_url
 
-            dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset['published_timestamp']
-            dataset['is_primary'] = 'True' if dataset.pop('activity_creation_action').lower() == 'create dataset activity' else 'False'
+            dataset['last_touch'] = dataset['last_touch'] if dataset['published_timestamp'] is None else dataset[
+                'published_timestamp']
+            dataset['is_primary'] = 'True' if dataset.pop(
+                'activity_creation_action').lower() == 'create dataset activity' else 'False'
 
             has_data = files_exist(dataset.get('uuid'), dataset.get('data_access_level'), dataset.get('group_name'))
             has_dataset_metadata = files_exist(dataset.get('uuid'),
@@ -199,9 +207,9 @@ def update_datasets_datastatus(schedule_next_job=True):
                     dataset[prop] = str(dataset[prop])
 
                 if (
-                    isinstance(dataset[prop], str)
-                    and len(dataset[prop]) >= 2
-                    and dataset[prop][0] == "[" and dataset[prop][-1] == "]"
+                        isinstance(dataset[prop], str)
+                        and len(dataset[prop]) >= 2
+                        and dataset[prop][0] == "[" and dataset[prop][-1] == "]"
                 ):
                     # For cases like `"ingest_task": "[Empty directory]"` we should not
                     # convert to a list. Converting will cause a ValueError. Leave it
@@ -247,6 +255,160 @@ def update_datasets_datastatus(schedule_next_job=True):
 
     except Exception as e:
         logger.error(f"Failed to update datasets datastatus: {e}", exc_info=True)
+        raise e
+    finally:
+        if schedule_next_job:
+            # Schedule the next cache job
+            connection = get_current_connection()
+            job_queue = JobQueue(connection)
+            schedule_update_datasets_datastatus(job_queue)
+
+
+def schedule_update_dataset_sankey_data(authorized: False, job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
+    job_id = uuid4()
+    id_email = DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX
+    if authorized:
+        id_email = DATASETS_SANKEYDATA_JOB_CONSORTIUM_PREFIX
+
+    job = job_queue.enqueue_job(
+        job_id=job_id,
+        job_func=update_dataset_sankey_data,
+        job_kwargs={authorized: authorized},
+        user={'id': id_email, 'email': id_email},
+        description='Update datasets sankey data',
+        metadata={
+            'omit_results': True,  # omit results from job endpoints
+            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
+            'referrer': {'type': JobType.CACHE.value, 'path': ''},
+        },
+        visibility=JobVisibility.ADMIN,
+        at_datetime=delta,
+    )
+
+    status = job.get_status()
+    if status == JobStatus.FAILED:
+        logger.error(f'Failed to schedule update datasets sankey data job: {job_id}: {job.get_error()}')
+
+
+def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
+    try:
+        logger.info("Starting update datasets sankey data")
+        start = time.perf_counter()
+
+        # String constants
+        HEADER_DATASET_GROUP_NAME = 'dataset_group_name'
+        HEADER_ORGAN_TYPE = 'organ_type'
+        HEADER_DATASET_TYPE_HIERARCHY = 'dataset_type_hierarchy'
+        HEADER_DATASET_TYPE_DESCRIPTION = 'dataset_type_description'
+        HEADER_DATASET_STATUS = 'dataset_status'
+        ORGAN_TYPES = Ontology.ops(as_data_dict=True, data_as_val=True, val_key='rui_code').organ_types()
+        HEADER_DATASET_SOURCE_TYPE = 'dataset_source_type'
+
+        data_access_level = 'public' if authorized is False else None
+
+        # Instantiation of the list dataset_prov_list
+        dataset_sankey_list = []
+
+        ####################################################################################################
+        ## Neo4j query
+        ####################################################################################################
+        ds_predicate = ''
+        organ_predicate = ''
+        # We want to get primary datasets for this response
+        creation_action = "{creation_action: 'Create Dataset Activity'}"
+
+        if data_access_level:
+            ds_predicate = "{status: 'Published'}"
+            organ_predicate = f", data_access_level: '{data_access_level}'"
+
+        query = (f"MATCH (ds:Dataset {ds_predicate})-[]->(a:Activity {creation_action})-[*]->(:Sample) "
+                 f"MATCH (source:Source)<-[:USED]-(oa)<-[:WAS_GENERATED_BY]-(organ:Sample {{sample_category:'{Ontology.ops().specimen_categories().ORGAN}'{organ_predicate}}})<-[*]-(ds) "
+                 f"WHERE NOT EXISTS((ds)<-[:REVISION_OF*]-(:Entity)) "  # We want to exclude previous revisions since we hide those on the portal search
+                 f"RETURN distinct ds.group_name, COLLECT(DISTINCT organ.organ), ds.dataset_type, ds.status, ds.uuid, ds.metadata, source.source_type order by ds.group_name")
+        with Neo4jHelper.get_instance().session() as session:
+            result = session.run(query)
+            list_of_dictionaries = []
+            for record in result:
+                record_dict = {}
+                record_contents = []
+                # Individual items within a record are non subscriptable. By putting then in a small list, we can address
+                # Each item in a record.
+                for item in record:
+                    record_contents.append(item)
+                record_dict['dataset_group_name'] = record_contents[0]
+                record_dict['organ_type'] = record_contents[1]
+                record_dict['dataset_type'] = record_contents[2]
+                record_dict['dataset_status'] = record_contents[3]
+                record_dict['dataset_metadata'] = record_contents[5]
+                record_dict['dataset_source_type'] = record_contents[6]
+                list_of_dictionaries.append(record_dict)
+            sankey_info = list_of_dictionaries
+        ####################################################################################################
+        ## Build response for sankey graph
+        ####################################################################################################
+
+        current_job = get_current_job()
+        percent_delta = 100 / len(sankey_info) if sankey_info else 100
+
+        for index, dataset in enumerate(sankey_info):
+            internal_dict = collections.OrderedDict()
+            internal_dict[HEADER_DATASET_GROUP_NAME] = dataset[HEADER_DATASET_GROUP_NAME]
+            internal_dict[HEADER_DATASET_SOURCE_TYPE] = dataset[HEADER_DATASET_SOURCE_TYPE]
+            is_human = dataset[HEADER_DATASET_SOURCE_TYPE].upper() == 'HUMAN'
+            internal_dict[HEADER_ORGAN_TYPE] = []
+            for organ_type in ORGAN_TYPES:
+                for organ in dataset[HEADER_ORGAN_TYPE]:
+                    if ORGAN_TYPES[organ_type]['rui_code'] == organ:
+                        internal_dict[HEADER_ORGAN_TYPE].append(ORGAN_TYPES[organ_type]['term'])
+                        break
+
+            # If the status is QA or Published then grab the 'modality' from UBKG
+            # Otherwise just return dataset_type
+            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset['dataset_type']
+            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset['dataset_type']
+            try:
+                if dataset['dataset_status'] in ['QA', 'Published'] and dataset['dataset_metadata']:
+                    rules_json = calculate_assay_info(json.loads(dataset['dataset_metadata']), is_human,
+                                                      get_data_from_ubkg)
+
+                    if "assaytype" in rules_json:
+                        desc = rules_json["description"]
+                        assay_type = rules_json["assaytype"]
+
+                        def prop_callback(d):
+                            return d["assaytype"]
+
+                        def val_callback(d):
+                            return d["dataset_type"]["fig2"]["modality"]
+
+                        assay_classes = Ontology.ops(prop_callback=prop_callback, val_callback=val_callback,
+                                                     as_data_dict=True).assay_classes()
+                        if assay_type in assay_classes:
+                            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = assay_classes[assay_type]
+                            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = desc
+
+            except Exception as e:
+                logger.error(e)
+                logger.error(dataset['dataset_type'])
+
+            internal_dict[HEADER_DATASET_STATUS] = dataset['dataset_status']
+
+            # Each dataset's dictionary is added to the list to be returned
+            dataset_sankey_list.append(internal_dict)
+            if current_job is not None:
+                update_job_progress(percent_delta * (index + 1), current_job)
+
+        if current_job is not None:
+            update_job_progress(100, current_job)
+
+        logger.info(f"Finished updating datasets sankey data in {time.perf_counter() - start:.2f} seconds")
+
+        return JobResult(success=True, results={
+            'data': dataset_sankey_list,
+            'last_updated': int(time.time() * 1000)
+        })
+    except Exception as e:
+        logger.error(f"Failed to update datasets sankey data: {e}", exc_info=True)
         raise e
     finally:
         if schedule_next_job:
