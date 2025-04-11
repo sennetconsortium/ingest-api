@@ -9,6 +9,7 @@ from rq import get_current_connection, get_current_job
 
 from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
 from lib import get_globus_url
+from lib.neo4j_helper import Neo4jHelper
 
 logger = logging.getLogger(__name__)
 
@@ -42,9 +43,7 @@ def update_uploads_datastatus(schedule_next_job=True):
     try:
         logger.info("Starting update uploads datastatus")
         start = time.perf_counter()
-        neo4j_driver_instance = neo4j_driver.instance(current_app.config['NEO4J_SERVER'],
-                                                      current_app.config['NEO4J_USERNAME'],
-                                                      current_app.config['NEO4J_PASSWORD'])
+
         all_uploads_query = (
             "MATCH (up:Upload) "
             "OPTIONAL MATCH (up)<-[:IN_UPLOAD]-(ds:Dataset) "
@@ -62,7 +61,7 @@ def update_uploads_datastatus(schedule_next_job=True):
         ]
 
         current_job = get_current_job()
-        with neo4j_driver_instance.session() as session:
+        with Neo4jHelper.get_instance().session() as session:
             results = session.run(all_uploads_query).data()
             percent_delta = 100 / len(results) if results else 100
             for idx, upload in enumerate(results):
