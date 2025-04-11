@@ -264,7 +264,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             schedule_update_datasets_datastatus(job_queue)
 
 
-def schedule_update_dataset_sankey_data(authorized: bool, job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
+def schedule_update_dataset_sankey_data(job_queue: JobQueue, delta: timedelta = timedelta(hours=1), authorized=False):
     job_id = uuid4()
     id_email = DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX
     if authorized:
