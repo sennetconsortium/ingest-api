@@ -8,10 +8,7 @@ jsonref==0.3.0
 jsonschema==3.2.0
 neo4j==5.20.0
 selenium==3.141.0
-PyYAML==6.0
-
-# Explitly set numpy version to avoid conflicts with IVT
-numpy==1.24.3
+PyYAML==6.0.2
 
 # The commons package requires requests>=2.22.0
 requests==2.32.3
