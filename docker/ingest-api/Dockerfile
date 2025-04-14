@@ -58,7 +58,7 @@ RUN touch /var/run/nginx.pid && \
     rm -rf nginx && \
     rm -rf rq && \
     rm entrypoint.sh && \
-    chown -R codcc:codcc /usr/local/bin/entrypoint.sh && \
+    chmod +x /usr/local/bin/entrypoint.sh && \
     chown -R codcc:codcc /usr/src/app
 
 USER codcc

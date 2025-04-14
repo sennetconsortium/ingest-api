@@ -27,5 +27,8 @@ rule_engine==4.1.0
 redis==5.0.3
 rq==1.16.2
 
+# Temporary to fix https://github.com/zarr-developers/zarr-python/issues/2963
+zarr>=2.18.7,<2.19
+
 # For vitessce config generation
 git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.1#egg=portal-visualization
