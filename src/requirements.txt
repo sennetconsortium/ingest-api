@@ -10,6 +10,9 @@ neo4j==5.20.0
 selenium==3.141.0
 PyYAML==6.0.2
 
+# Explitly set numpy version to avoid conflicts with Pandas version used by IVT
+numpy==1.26.4
+
 # The commons package requires requests>=2.22.0
 requests==2.32.3
 
