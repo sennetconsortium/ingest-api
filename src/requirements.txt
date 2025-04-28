@@ -34,4 +34,4 @@ rq==1.16.2
 zarr>=2.18.7,<2.19
 
 # For vitessce config generation
-git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.1#egg=portal-visualization
+git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.4#egg=portal-visualization
