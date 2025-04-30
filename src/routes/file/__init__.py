@@ -88,14 +88,17 @@ def commit_file():
     # Parse incoming json string into json data(python dict object)
     json_data_dict = request.get_json()
 
-    temp_file_id = json_data_dict['temp_file_id']
-    entity_uuid = json_data_dict['entity_uuid']
+    entity_uuid = secure_filename(json_data_dict['entity_uuid'])
+    if not is_uuid(entity_uuid):
+        abort_bad_req(f"Invalid entity uuid: {entity_uuid}")
+
+    temp_file_id = secure_filename(json_data_dict['temp_file_id'])
     user_token = json_data_dict['user_token']
 
     file_upload_helper_instance: UploadFileHelper = get_upload_file_helper_instance()
     file_uuid_info = file_upload_helper_instance.commit_file(temp_file_id, entity_uuid, user_token)
-    filename = file_uuid_info['filename']
-    file_uuid = file_uuid_info['file_uuid']
+    filename = secure_filename(file_uuid_info['filename'])
+    file_uuid = secure_filename(file_uuid_info['file_uuid'])
 
     # Link the uploaded file uuid dir to assets
     # /hive/hubmap/hm_uploads/<entity_uuid>/<file_uuid>/<filename> (for PROD)
