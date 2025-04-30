@@ -1,10 +1,12 @@
-from flask import Blueprint, jsonify, request, current_app, abort
+from flask import Blueprint, jsonify, request, current_app
+from werkzeug.utils import secure_filename
 from shutil import rmtree
 from pathlib import Path
 import os
 import logging
 
 from lib.file_upload_helper import UploadFileHelper
+from lib.request_validation import get_validated_uuids, is_uuid
 from atlas_consortia_commons.rest import *
 
 file_blueprint = Blueprint('file', __name__)
@@ -137,8 +139,16 @@ def remove_file():
     # Parse incoming json string into json data(python dict object)
     json_data_dict = request.get_json()
 
-    entity_uuid = json_data_dict['entity_uuid']
-    file_uuids = json_data_dict['file_uuids']
+    entity_uuid = secure_filename(json_data_dict['entity_uuid'])
+    if not is_uuid(entity_uuid):
+        abort_bad_req(f"Invalid entity uuid: {entity_uuid}")
+
+    try:
+        file_uuids = [secure_filename(file_uuid) for file_uuid in json_data_dict['file_uuids']]
+        file_uuids = get_validated_uuids(file_uuids)
+    except ValueError:
+        abort_bad_req(f"Invalid file uuids: {json_data_dict['file_uuids']}")
+
     files_info_list = json_data_dict['files_info_list']
 
     file_upload_helper_instance: UploadFileHelper = get_upload_file_helper_instance()

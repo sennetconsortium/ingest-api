@@ -9,7 +9,6 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 # from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
-import os
 from werkzeug.utils import secure_filename
 
 # HuBMAP commons
@@ -154,8 +153,8 @@ class UploadFileHelper:
         for file_info in files_info_list:
             if file_info['file_uuid'] == file_uuid:
                 # Remove from file system
-                file_dir = file_helper.ensureTrailingSlash(file_dir) + file_info['file_uuid']
-                path_to_file = file_dir + os.sep + file_info['filename']
+                file_dir = file_helper.ensureTrailingSlash(file_dir) + secure_filename(file_info['file_uuid'])
+                path_to_file = file_dir + os.sep + secure_filename(file_info['filename'])
                 os.remove(path_to_file)
                 os.rmdir(file_dir)
 
