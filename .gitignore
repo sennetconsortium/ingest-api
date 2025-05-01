@@ -5,6 +5,7 @@ src/instance/*.cfg
 ingest-venv
 
 # Ignore docker copied stuff
+docker/.env
 docker/ingest-api/src
 docker/ingest-api/VERSION
 docker/ingest-api/BUILD
@@ -34,6 +35,7 @@ venv
 *.DS_Store
 *venv*
 .vscode/
+.ignore
 
 # Testing
 .pytest_cache/
