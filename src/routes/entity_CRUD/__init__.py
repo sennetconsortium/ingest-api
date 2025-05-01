@@ -95,10 +95,42 @@ def create_dataset():
         return Response("Unexpected error while creating a dataset: " + str(e) + "  Check the logs", 500)
 
 
+def normalize_globus_path(path: str) -> str:
+    """Normalizes the given path using os.path.normpath and checks if it starts with
+       any of the allowed Globus prefixes defined in the configuration.
+
+    Parameters
+    ----------
+    path : str
+        Globus path
+
+    Returns
+    -------
+    str
+        Normalized and validated globus path
+
+    Raises
+    ------
+    ValueError
+        If the path does not start with any of the allowed Globus prefixes.
+    """
+    prefixes = [
+        current_app.config["GLOBUS_PUBLIC_ENDPOINT_FILEPATH"],
+        current_app.config["GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH"],
+        current_app.config["GLOBUS_PROTECTED_ENDPOINT_FILEPATH"]
+    ]
+    normalized_path = os.path.normpath(path)
+    if not any(normalized_path.startswith(prefix) for prefix in prefixes):
+        raise ValueError(f"The path '{path}' is not within an allowed Globus directory.")
+
+    return normalized_path
+
+
 @entity_CRUD_blueprint.route('/datasets/components', methods=['POST'])
 def multiple_components():
     if not request.is_json:
         return Response("json request required", 400)
+
     try:
         component_request = request.json
         auth_helper = AuthHelper.configured_instance(current_app.config['APP_CLIENT_ID'],
@@ -108,22 +140,21 @@ def multiple_components():
             return auth_tokens
         elif isinstance(auth_tokens, str):
             token = auth_tokens
-        elif 'nexus_token' in auth_tokens:
-            token = auth_tokens['nexus_token']
         else:
-            return Response("Valid nexus auth token required", 401)
+            return Response("Valid globus groups token required", 401)
 
         # Check that `dataset_link_abs_dir` exists for both datasets and that it is a valid directory
         json_data_dict = request.get_json()
         for dataset in json_data_dict.get('datasets'):
             if 'dataset_link_abs_dir' in dataset:
-                if not os.path.exists(dataset['dataset_link_abs_dir']):
+                path = normalize_globus_path(dataset['dataset_link_abs_dir'])
+                if not os.path.exists(path):
                     return Response(
-                        f"The filepath specified with 'dataset_link_abs_dir' does not exist: {dataset['dataset_link_abs_dir']}",
+                        f"The filepath specified with 'dataset_link_abs_dir' does not exist: {path}",
                         400)
-                if not os.path.isdir(dataset['dataset_link_abs_dir']):
+                if not os.path.isdir(path):
                     return Response(
-                        f"The filepath specified with 'dataset_link_abs_dir is not a directory: {dataset['dataset_link_abs_dir']}",
+                        f"The filepath specified with 'dataset_link_abs_dir is not a directory: {path}",
                         400)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
@@ -145,23 +176,29 @@ def multiple_components():
                                  verify=False)
         if response.status_code != 200:
             return Response(response.text, response.status_code)
+
         new_datasets_list = response.json()
 
         for dataset in new_datasets_list:
             # The property `dataset_link_abs_dir` will contain the filepath to the existing directory located inside the primary multi-assay
-            # directory. We need to create a symlink to the aforementioned directory at the path for the newly created datsets.
+            # directory. We need to create a symlink to the aforementioned directory at the path for the newly created datasets.
             if 'dataset_link_abs_dir' in dataset:
-                new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset, requested_group_uuid,
+                # dataset_link_abs_dir is coming from entity-api so it should be valid. check anyway
+                path = normalize_globus_path(dataset['dataset_link_abs_dir'])
+                new_directory_path = ingest_helper.get_dataset_directory_absolute_path(dataset,
+                                                                                       requested_group_uuid,
                                                                                        dataset['uuid'])
-                logger.info(
-                    f"Creating a directory as: {new_directory_path} with a symbolic link to: {dataset['dataset_link_abs_dir']}")
-                os.symlink(dataset['dataset_link_abs_dir'], new_directory_path, True)
+                logger.info(f"Creating a directory as: {new_directory_path} with a symbolic link to: {path}")
+                os.symlink(path, new_directory_path, True)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
 
         return jsonify(new_datasets_list)
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
+    except ValueError as ve:
+        logger.error(str(ve))
+        return Response("Invalid path specified: " + str(ve), 400)
     except Exception as e:
         logger.error(e, exc_info=True)
         return Response("Unexpected error while creating a dataset: " + str(e) + " Check the logs", 500)
