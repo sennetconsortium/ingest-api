@@ -140,10 +140,8 @@ def multiple_components():
             return auth_tokens
         elif isinstance(auth_tokens, str):
             token = auth_tokens
-        elif 'nexus_token' in auth_tokens:
-            token = auth_tokens['nexus_token']
         else:
-            return Response("Valid nexus auth token required", 401)
+            return Response("Valid globus groups token required", 401)
 
         # Check that `dataset_link_abs_dir` exists for both datasets and that it is a valid directory
         json_data_dict = request.get_json()
