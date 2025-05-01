@@ -92,6 +92,15 @@ class UploadFileHelper:
 
         return rid
 
+    def validate_temp_file_id(self, temp_file_id: str):
+        if len(temp_file_id) != 20:
+            return False
+
+        if temp_file_id.strip(''.join(ID_CHARS)) != '':
+            return False
+
+        return True
+
     def commit_file(self, temp_file_id, entity_uuid, user_token):
         logger.debug(temp_file_id)
 
