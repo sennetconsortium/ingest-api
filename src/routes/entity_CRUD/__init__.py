@@ -119,9 +119,13 @@ def normalize_globus_path(path: str) -> str:
         current_app.config["GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH"],
         current_app.config["GLOBUS_PROTECTED_ENDPOINT_FILEPATH"]
     ]
-    normalized_path = os.path.normpath(path)
+    normalized_path = os.path.realpath(path)
+
     if not any(normalized_path.startswith(prefix) for prefix in prefixes):
-        raise ValueError(f"The path '{path}' is not within an allowed Globus directory.")
+        raise ValueError(f"The path '{normalized_path}' is not within an allowed Globus directory.")
+
+    if any(normalized_path == prefix for prefix in prefixes):
+        raise ValueError(f"The path '{normalized_path}' is not within an allowed Globus directory.")
 
     return normalized_path
 
