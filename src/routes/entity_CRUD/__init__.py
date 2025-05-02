@@ -194,6 +194,9 @@ def multiple_components():
                                                                                        requested_group_uuid,
                                                                                        dataset['uuid'])
                 logger.info(f"Creating a directory as: {new_directory_path} with a symbolic link to: {path}")
+                parent_dir = os.path.dirname(new_directory_path)
+                if not os.path.exists(parent_dir):
+                    os.makedirs(parent_dir)
                 os.symlink(path, new_directory_path, True)
             else:
                 return Response("Required field 'dataset_link_abs_dir' is missing from dataset", 400)
