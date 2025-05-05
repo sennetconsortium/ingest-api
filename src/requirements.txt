@@ -8,10 +8,10 @@ jsonref==0.3.0
 jsonschema==3.2.0
 neo4j==5.20.0
 selenium==3.141.0
-PyYAML==6.0
+PyYAML==6.0.2
 
-# Explitly set numpy version to avoid conflicts with IVT
-numpy==1.24.3
+# Explitly set numpy version to avoid conflicts with Pandas version used by IVT
+numpy==1.26.4
 
 # The commons package requires requests>=2.22.0
 requests==2.32.3
@@ -29,6 +29,9 @@ rule_engine==4.1.0
 # Job queue
 redis==5.0.3
 rq==1.16.2
+
+# Temporary to fix https://github.com/zarr-developers/zarr-python/issues/2963
+zarr>=2.18.7,<2.19
 
 # For vitessce config generation
 git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.4#egg=portal-visualization

@@ -1,29 +1,33 @@
-FROM sennet/api-base-image:1.2.1
-ENV LANG=en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
+FROM sennet/api-base-image:1.3.1
 
 LABEL description="SenNet Ingest API RQ Service"
 
-# Specify the Python version to be installed. Default is 3.11.
-# Override with --build-arg PYTHON_VERSION=3.12 or args: PYTHON_VERSION=3.12 in docker-compose
-# Note: RHEL only has certain versions of Python available. If the version is not available, the build will fail.
-ARG PYTHON_VERSION=3.11
+ARG HOST_GID
+ARG HOST_UID
 
-# Output right away
-ENV PYTHONUNBUFFERED 1
-
+# Change to directory that contains the Dockerfile
 WORKDIR /usr/src/app
+
+EXPOSE 5000 8080
+
+USER root
 
 # Copy from host to image
 COPY .. .
 
-RUN groupadd -r -g 100008 codcc && \
-    useradd -r -u 100008 -g 100008 -m codcc && \
-    python${PYTHON_VERSION} -m pip install --upgrade pip && \
-    python${PYTHON_VERSION} -m pip install -r ./src/requirements.txt && \
-    python${PYTHON_VERSION} -m pip install -r ./src/submodules/ingest_validation_tools/requirements.txt
+# Update outdated packages and install Python packages
+RUN apt-get update -y && \
+    apt-get dist-upgrade -y && \
+    sed -i '/^git+https/d' ./src/requirements.txt && \
+    pip install --upgrade pip setuptools wheel uwsgi && \
+    pip install -r ./src/requirements.txt && \
+    pip install -r ./src/submodules/ingest_validation_tools/requirements.txt
+
+# Modify the UID and GID of codcc to match the host
+RUN groupmod --gid $HOST_GID codcc && \
+    usermod --uid $HOST_UID codcc && \
+    chown -R codcc:codcc /usr/src/app 
 
 USER codcc
 
-CMD ["python3.11", "src/worker.py"]
+ENTRYPOINT ["python", "src/worker.py"]
