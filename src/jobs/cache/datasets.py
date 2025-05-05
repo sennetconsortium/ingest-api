@@ -65,6 +65,7 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         all_datasets_query = (
             "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ancestor) "
+            "WHERE NOT (ds)<-[:REVISION_OF]-() "
             "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
             "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, "
