@@ -175,7 +175,7 @@ def update_datasets_datastatus(schedule_next_job=True):
                     has_rui = str(True)
                 elif "Exempt" in dataset['has_rui_info']:
                     has_rui = "Exempt"
-            output_dict[dataset['uuid']]['has_rui_info'] = has_rui
+                output_dict[dataset['uuid']]['has_rui_info'] = has_rui
 
         combined_results = list(output_dict.values())
         if current_job is not None:
