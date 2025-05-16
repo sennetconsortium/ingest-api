@@ -29,9 +29,7 @@ def app():
 @pytest.fixture(scope="session", autouse=True)
 def ontology_mock():
     """Automatically add ontology mock functions to all tests"""
-    with patch(
-        "atlas_consortia_commons.ubkg.ubkg_sdk.UbkgSDK", new=test_utils.MockOntology
-    ):
+    with patch("atlas_consortia_commons.ubkg.ubkg_sdk.UbkgSDK", new=test_utils.MockOntology):
         yield
 
 
@@ -46,9 +44,7 @@ def auth_helper_mock():
     }
     auth_mock.has_data_admin_privs.return_value = False
 
-    with patch(
-        "hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=auth_mock
-    ):
+    with patch("hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=auth_mock):
         yield
 
 
@@ -126,9 +122,7 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
     def get_responses():
         if not test_data.get("ancestor_response"):
             return None
-        return [
-            test_utils.create_response(200, i) for i in test_data["ancestor_response"]
-        ]
+        return [test_utils.create_response(200, i) for i in test_data["ancestor_response"]]
 
     with (
         open(tsv_filename, "rb") as tsv_file,
@@ -168,9 +162,7 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
 def test_validate_entity_constraints(app, name):
     """Test validate entity constraints returns the correct response"""
 
-    with open(
-        os.path.join(test_data_dir, "validate_entity_constraints.json"), "r"
-    ) as f:
+    with open(os.path.join(test_data_dir, "validate_entity_constraints.json"), "r") as f:
         test_data = json.load(f)[name]
 
     file_is_valid, error_msg, post_response, expected_result = test_data.values()
@@ -189,9 +181,7 @@ def test_validate_entity_constraints(app, name):
 # Validate Ancestor Id
 
 
-@pytest.mark.parametrize(
-    "name", ["valid_ancestor_id", "failing_uuid_response", "ancestor_saved"]
-)
+@pytest.mark.parametrize("name", ["valid_ancestor_id", "failing_uuid_response", "ancestor_saved"])
 def test_validate_ancestor_id(app, name):
     """Test validate ancestor id returns the correct response"""
 
