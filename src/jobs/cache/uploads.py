@@ -3,18 +3,24 @@ import time
 from datetime import timedelta
 from uuid import uuid4
 
-from flask import current_app
-from hubmap_commons import neo4j_driver, string_helper
+from hubmap_commons import string_helper
 from rq import get_current_connection, get_current_job
 
-from jobs import JobQueue, JobResult, JobStatus, JobType, JobVisibility, update_job_progress
+from jobs import (
+    JobQueue,
+    JobResult,
+    JobStatus,
+    JobType,
+    JobVisibility,
+    update_job_progress,
+)
 from lib import get_globus_url
 from lib.neo4j_helper import Neo4jHelper
 
 logger = logging.getLogger(__name__)
 
-UPLOADS_DATASTATUS_JOB_ID = 'update_uploads_datastatus'
-UPLOADS_DATASTATUS_JOB_PREFIX = 'update_uploads_datastatus'
+UPLOADS_DATASTATUS_JOB_ID = "update_uploads_datastatus"
+UPLOADS_DATASTATUS_JOB_PREFIX = "update_uploads_datastatus"
 
 
 def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = timedelta(hours=1)):
@@ -23,12 +29,12 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = t
         job_id=job_id,
         job_func=update_uploads_datastatus,
         job_kwargs={},
-        user={'id': UPLOADS_DATASTATUS_JOB_PREFIX, 'email': UPLOADS_DATASTATUS_JOB_PREFIX},
-        description='Update uploads datastatus',
+        user={"id": UPLOADS_DATASTATUS_JOB_PREFIX, "email": UPLOADS_DATASTATUS_JOB_PREFIX},
+        description="Update uploads datastatus",
         metadata={
-            'omit_results': True,  # omit results from job endpoints
-            'scheduled_for_timestamp': int((time.time() + delta.total_seconds()) * 1000),
-            'referrer': {'type': JobType.CACHE.value, 'path': ''},
+            "omit_results": True,  # omit results from job endpoints
+            "scheduled_for_timestamp": int((time.time() + delta.total_seconds()) * 1000),
+            "referrer": {"type": JobType.CACHE.value, "path": ""},
         },
         visibility=JobVisibility.ADMIN,
         at_datetime=delta,
@@ -36,7 +42,9 @@ def schedule_update_uploads_datastatus(job_queue: JobQueue, delta: timedelta = t
 
     status = job.get_status()
     if status == JobStatus.FAILED:
-        logger.error(f'Failed to schedule update uploads datastatus job: {job_id}: {job.get_error()}')
+        logger.error(
+            f"Failed to schedule update uploads datastatus job: {job_id}: {job.get_error()}"
+        )
 
 
 def update_uploads_datastatus(schedule_next_job=True):
@@ -56,8 +64,19 @@ def update_uploads_datastatus(schedule_next_job=True):
         )
 
         displayed_fields = [
-            "uuid", "group_name", "sennet_id", "status", "title", "datasets", "intended_source_type", "intended_organ",
-            "intended_dataset_type", "assigned_to_group_name", "anticipated_complete_upload_month", "anticipated_dataset_count", "ingest_task"
+            "uuid",
+            "group_name",
+            "sennet_id",
+            "status",
+            "title",
+            "datasets",
+            "intended_source_type",
+            "intended_organ",
+            "intended_dataset_type",
+            "assigned_to_group_name",
+            "anticipated_complete_upload_month",
+            "anticipated_dataset_count",
+            "ingest_task",
         ]
 
         current_job = get_current_job()
@@ -65,8 +84,10 @@ def update_uploads_datastatus(schedule_next_job=True):
             results = session.run(all_uploads_query).data()
             percent_delta = 100 / len(results) if results else 100
             for idx, upload in enumerate(results):
-                globus_url = get_globus_url('protected', upload.get('group_name'), upload.get('uuid'))
-                upload['globus_url'] = globus_url
+                globus_url = get_globus_url(
+                    "protected", upload.get("group_name"), upload.get("uuid")
+                )
+                upload["globus_url"] = globus_url
                 for prop in upload:
                     if isinstance(upload[prop], list):
                         upload[prop] = ", ".join(upload[prop])
@@ -77,7 +98,8 @@ def update_uploads_datastatus(schedule_next_job=True):
                     if (
                         isinstance(upload[prop], str)
                         and len(upload[prop]) >= 2
-                        and upload[prop][0] == "[" and upload[prop][-1] == "]"
+                        and upload[prop][0] == "["
+                        and upload[prop][-1] == "]"
                     ):
                         # For cases like `"ingest_task": "[Empty directory]"` we should not
                         # convert to a list. Converting will cause a ValueError. Leave it
@@ -103,12 +125,13 @@ def update_uploads_datastatus(schedule_next_job=True):
 
         if current_job is not None:
             update_job_progress(100, current_job)
-        logger.info(f"Finished updating uploads datastatus in {time.perf_counter() - start:.2f} seconds")
+        logger.info(
+            f"Finished updating uploads datastatus in {time.perf_counter() - start:.2f} seconds"
+        )
 
-        return JobResult(success=True, results={
-            'data': results,
-            'last_updated': int(time.time() * 1000)
-        })
+        return JobResult(
+            success=True, results={"data": results, "last_updated": int(time.time() * 1000)}
+        )
 
     except Exception as e:
         logger.error(f"Failed to update uploads datastatus: {e}", exc_info=True)

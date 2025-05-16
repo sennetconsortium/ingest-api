@@ -41,9 +41,7 @@ def get_csv_records(path: str, records_as_arr=False, is_ordered=False):
 
 
 def get_base_path():
-    return commons_file_helper.ensureTrailingSlash(
-        current_app.config["FILE_UPLOAD_TEMP_DIR"]
-    )
+    return commons_file_helper.ensureTrailingSlash(current_app.config["FILE_UPLOAD_TEMP_DIR"])
 
 
 def check_upload(key: str = "file"):

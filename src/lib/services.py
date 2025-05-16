@@ -7,7 +7,7 @@ import requests
 from atlas_consortia_commons.file import ensure_trailing_slash_url
 from flask import current_app, request
 from hubmap_commons.exceptions import HTTPException
-from hubmap_commons.file_helper import removeTrailingSlashURL, ensureTrailingSlashURL
+from hubmap_commons.file_helper import ensureTrailingSlashURL, removeTrailingSlashURL
 from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import Entity, EntitySdk, SearchSdk
 from hubmap_sdk.sdk_helper import make_entity
@@ -41,17 +41,15 @@ def get_entity_by_id(identifier, token=None):
 
     output = response.json()
     entity = {}
-    if output is not None and 'entity_type' in output:
-        if output['entity_type'].lower() == 'source':
+    if output is not None and "entity_type" in output:
+        if output["entity_type"].lower() == "source":
             entity = Source(output)
         else:
             entity = make_entity(output)
     return entity
 
 
-def get_entity(
-        entity_id: str, token: Optional[str], as_dict: bool = False
-) -> Union[Entity, dict]:
+def get_entity(entity_id: str, token: Optional[str], as_dict: bool = False) -> Union[Entity, dict]:
     """Get the entity from entity-api for the given uuid.
 
     Parameters
@@ -78,7 +76,7 @@ def get_entity(
 
 
 def get_entity_from_search_api(
-        entity_id: str, token: Optional[str], as_dict: bool = False
+    entity_id: str, token: Optional[str], as_dict: bool = False
 ) -> Union[Entity, dict]:
     """Get the entity from search-api for the given uuid.
 
@@ -126,7 +124,7 @@ def get_entity_from_search_api(
 
 
 def get_associated_sources_from_dataset(
-        dataset_id: str, token: str = None, as_dict: bool = False
+    dataset_id: str, token: str = None, as_dict: bool = False
 ) -> Union[List[Entity], dict]:
     """Get the associated sources for the given dataset.
 
@@ -198,12 +196,12 @@ def reindex_entities(entity_ids: list, token: str) -> None:
 
 
 def bulk_update_entities(
-        entity_updates: dict,
-        token: str,
-        total_tries: int = 3,
-        throttle: float = 5,
-        entity_api_url: Optional[str] = None,
-        after_each_callback: Optional[Callable[[int], None]] = None,
+    entity_updates: dict,
+    token: str,
+    total_tries: int = 3,
+    throttle: float = 5,
+    entity_api_url: Optional[str] = None,
+    after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> dict:
     """Bulk update the entities in the entity-api.
 
@@ -281,13 +279,13 @@ def bulk_update_entities(
 
 
 def bulk_create_entities(
-        entity_type: str,
-        entities: list,
-        token: str,
-        total_tries: int = 3,
-        throttle: float = 5,
-        entity_api_url: Optional[str] = None,
-        after_each_callback: Optional[Callable[[int], None]] = None,
+    entity_type: str,
+    entities: list,
+    token: str,
+    total_tries: int = 3,
+    throttle: float = 5,
+    entity_api_url: Optional[str] = None,
+    after_each_callback: Optional[Callable[[int], None]] = None,
 ) -> list:
     """Bulk create the entities in the entity-api.
 
@@ -395,9 +393,7 @@ def obj_to_dict(obj) -> dict:
     Note: The Python builtin 'vars()' does not work here because of the way that some of the classes
     are defined.
     """
-    return json.loads(
-        json.dumps(obj, default=lambda o: getattr(o, '__dict__', str(o)))
-    )
+    return json.loads(json.dumps(obj, default=lambda o: getattr(o, "__dict__", str(o))))
 
 
 def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file: False):
@@ -409,14 +405,14 @@ def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file
     """
     dataset_uuid = entity.get_uuid()
     entity = obj_to_dict(entity)
-    entity['organs'] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
-    entity['samples'] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
-    entity['sources'] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
+    entity["organs"] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
+    entity["samples"] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
+    entity["sources"] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
 
     # Return as a string to be fed into a file
     if to_file:
         json_object = json.dumps(entity, indent=4)
-        json_object += '\n'
+        json_object += "\n"
         return json_object
     # Return as a dict for JSON response
     else:

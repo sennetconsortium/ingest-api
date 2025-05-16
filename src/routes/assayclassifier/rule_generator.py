@@ -8,8 +8,12 @@ import yaml
 
 ASSAY_TYPES_YAML = "assay_types.yaml"
 
-INGEST_VALIDATION_TABLE_PATH = "../../submodules/ingest_validation_tools/src/ingest_validation_tools/table-schemas/assays"
-INGEST_VALIDATION_DIR_SCHEMA_PATH = "../../submodules/ingest_validation_tools/src/ingest_validation_tools/directory-schemas"
+INGEST_VALIDATION_TABLE_PATH = (
+    "../../submodules/ingest_validation_tools/src/ingest_validation_tools/table-schemas/assays"
+)
+INGEST_VALIDATION_DIR_SCHEMA_PATH = (
+    "../../submodules/ingest_validation_tools/src/ingest_validation_tools/directory-schemas"
+)
 
 SCHEMA_SPLIT_REGEX = r"(.+)-v(\d)"
 
@@ -98,18 +102,13 @@ def main() -> None:
             table_schema_version_dict[schema_name].append(schema_version)
         else:
             raise RuntimeError(
-                "Failed to parse schema name from table"
-                f" schema {table_schema_path.name}"
+                "Failed to parse schema name from table" f" schema {table_schema_path.name}"
             )
         is_hca = test_is_hca(table_schema_path)
         assay_lst = get_assay_list(table_schema_path)
         for elt in assay_lst:
-            name_to_schema_name_dict[
-                (elt.lower(), schema_version, is_hca)
-            ] = schema_name
-            schema_name_to_name_list_dict[
-                (schema_name.lower(), schema_version, is_hca)
-            ].append(elt)
+            name_to_schema_name_dict[(elt.lower(), schema_version, is_hca)] = schema_name
+            schema_name_to_name_list_dict[(schema_name.lower(), schema_version, is_hca)].append(elt)
     dir_schema_dir_path = Path(INGEST_VALIDATION_DIR_SCHEMA_PATH)
     for dir_schema_path in dir_schema_dir_path.glob("*.yaml"):
         m = split_regex.match(dir_schema_path.stem)
@@ -117,13 +116,10 @@ def main() -> None:
             schema_name = m.group(1)
             schema_version = int(m.group(2))
             dir_schema_version_dict[schema_name].append(schema_version)
-            schema_name_to_filename_dict[(schema_name, schema_version)] = str(
-                dir_schema_path.stem
-            )
+            schema_name_to_filename_dict[(schema_name, schema_version)] = str(dir_schema_path.stem)
         else:
             raise RuntimeError(
-                "Failed to parse dir schema name from table"
-                f" schema {dir_schema_path.name}"
+                "Failed to parse dir schema name from table" f" schema {dir_schema_path.name}"
             )
 
     print("----- name_to_schema_name_dict follows ------")
@@ -205,9 +201,7 @@ def main() -> None:
                         break
                 else:
                     raise RuntimeError("Final lookup failed")
-                print(
-                    f"{canonical_name} -> {this_name} {max_tbl_version} -> {schema_assay_name}"
-                )
+                print(f"{canonical_name} -> {this_name} {max_tbl_version} -> {schema_assay_name}")
             except Exception as excp:
                 print(f"FAILED for {canonical_name}: {excp}")
                 mapping_failures.append(canonical_name)
@@ -230,9 +224,7 @@ def main() -> None:
             else:
                 dir_schema_str = ""
             if schema_assay_name:
-                tbl_schema_str = (
-                    f"'tbl-schema': '{schema_assay_name}-v'+version.to_str,"
-                )
+                tbl_schema_str = f"'tbl-schema': '{schema_assay_name}-v'+version.to_str,"
             else:
                 tbl_schema_str = ""
             json_block.append(
@@ -612,8 +604,7 @@ def main() -> None:
             {
                 "type": "match",
                 "match": (
-                    f"is_dcwg and dataset_type == 'Histology' "
-                    f" and stain_name == '{stain_name}'"
+                    f"is_dcwg and dataset_type == 'Histology' " f" and stain_name == '{stain_name}'"
                 ),
                 "value": (
                     "{"

@@ -25,16 +25,12 @@ class Neo4jHelper:
             neo4j_driver_instance.close()
             neo4j_driver_instance = None
         else:
-            raise TypeError(
-                "The private module variable '_driver' is not a neo4j.Driver object"
-            )
+            raise TypeError("The private module variable '_driver' is not a neo4j.Driver object")
 
     @staticmethod
     def run_query(query, as_dict: bool = False, **kwargs) -> List[Record]:
         if not isinstance(neo4j_driver_instance, Driver):
-            raise TypeError(
-                "The private module variable '_driver' is not a neo4j.Driver object"
-            )
+            raise TypeError("The private module variable '_driver' is not a neo4j.Driver object")
 
         with neo4j_driver_instance.session() as session:
             result = session.run(query, **kwargs)
@@ -43,7 +39,9 @@ class Neo4jHelper:
             return [Record(record) for record in result]
 
     @staticmethod
-    def get_entities_by_uuid(uuids: Union[str, Iterable], fields: Union[dict, Iterable, None] = None) -> Optional[list]:
+    def get_entities_by_uuid(
+        uuids: Union[str, Iterable], fields: Union[dict, Iterable, None] = None
+    ) -> Optional[list]:
         """Get the entities from the neo4j database with the given uuids.
 
         Parameters
@@ -69,20 +67,18 @@ class Neo4jHelper:
             If fields is not a dict, an iterable, or None.
         """
         if not isinstance(neo4j_driver_instance, Driver):
-            raise TypeError(
-                "The private module variable '_driver' is not a neo4j.Driver object"
-            )
+            raise TypeError("The private module variable '_driver' is not a neo4j.Driver object")
         if isinstance(uuids, str):
             uuids = [uuids]
         if not isinstance(uuids, list):
             uuids = list(uuids)
 
         if fields is None or len(fields) == 0:
-            return_stmt = 'e'
+            return_stmt = "e"
         elif isinstance(fields, dict):
-            return_stmt = ', '.join([f'e.{field} AS {name}' for field, name in fields.items()])
+            return_stmt = ", ".join([f"e.{field} AS {name}" for field, name in fields.items()])
         elif isinstance(fields, Iterable):
-            return_stmt = ', '.join([f'e.{field} AS {field}' for field in fields])
+            return_stmt = ", ".join([f"e.{field} AS {field}" for field in fields])
         else:
             raise ValueError("fields must be a dict or an iterable")
 
