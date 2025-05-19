@@ -109,7 +109,7 @@ def update_datasets_datastatus(schedule_next_job=True):
         )
 
         has_rui_query = (
-            f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
+            "MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
             "RETURN ds.uuid AS uuid, COLLECT( "
             "CASE "
             "WHEN s.rui_exemption = true THEN 'Exempt' "
@@ -160,6 +160,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             processed_datasets_query,
             upload_query,
             has_rui_query,
+            has_source_sample_metadata_query,
         ]
         results = [None] * len(queries)
         threads = []
@@ -220,8 +221,10 @@ def update_datasets_datastatus(schedule_next_job=True):
                 output_dict[dataset["uuid"]]["has_rui_info"] = has_rui
 
         for dataset in has_source_sample_metadata_result:
-            if dataset['uuid'] in output_dict:
-                output_dict[dataset['uuid']]['has_source_sample_metadata'] = str('True' in dataset['has_source_sample_metadata'])
+            if dataset["uuid"] in output_dict:
+                output_dict[dataset["uuid"]]["has_source_sample_metadata"] = str(
+                    "True" in dataset["has_source_sample_metadata"]
+                )
 
         combined_results = list(output_dict.values())
         if current_job is not None:
@@ -326,6 +329,7 @@ def update_datasets_datastatus(schedule_next_job=True):
     except Exception as e:
         logger.error(f"Failed to update datasets datastatus: {e}", exc_info=True)
         raise e
+
     finally:
         if schedule_next_job:
             # Schedule the next cache job
