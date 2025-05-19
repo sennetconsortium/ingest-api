@@ -1,5 +1,6 @@
 import contextlib
 import os
+import urllib.request
 
 from flask import current_app
 from hubmap_commons import file_helper as commons_file_helper
