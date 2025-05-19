@@ -46,9 +46,7 @@ logger = logging.getLogger(__name__)
 def bulk_samples_upload_and_validate(token: str, user: User):
     try:
         referrer = get_validated_referrer(request.form, JobType.VALIDATE)
-        group_uuid = get_validated_group_uuid(
-            request.form, user.group_uuids, user.is_data_admin
-        )
+        group_uuid = get_validated_group_uuid(request.form, user.group_uuids, user.is_data_admin)
     except ValueError as e:
         abort_bad_req(str(e))
 
@@ -110,10 +108,7 @@ def create_samples_from_bulk(body: dict, token: str, user: User):
             # Admin registering for a user
             scan_query = f"{JOBS_PREFIX}*:{validation_job_id}"
             validation_job = job_queue.query_job(scan_query)
-            if (
-                validation_job.meta.get("visibility", JobVisibility.PUBLIC)
-                != JobVisibility.PUBLIC
-            ):
+            if validation_job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
                 raise NoSuchJobError("Job is not marked PUBLIC")
         else:
             # User registering their own job
@@ -147,9 +142,7 @@ def create_samples_from_bulk(body: dict, token: str, user: User):
 
     validation_filepath = validation_result.results.get("file")
     job_id = uuid4()
-    desc = validation_job.description.replace(
-        JobType.VALIDATE.noun, JobType.REGISTER.noun
-    )
+    desc = validation_job.description.replace(JobType.VALIDATE.noun, JobType.REGISTER.noun)
 
     job = job_queue.enqueue_job(
         job_id=job_id,

@@ -36,9 +36,7 @@ def get_validated_job_id(data: dict) -> str:
     return job_id
 
 
-def get_validated_group_uuid(
-    data: dict, user_group_ids: list, user_is_admin: bool
-) -> str:
+def get_validated_group_uuid(data: dict, user_group_ids: list, user_is_admin: bool) -> str:
     """Get the group UUID from the request data and validate it
 
     Parameters
@@ -66,9 +64,7 @@ def get_validated_group_uuid(
         raise ValueError("Missing group UUID")
 
     if group_uuid not in user_group_ids and not user_is_admin:
-        raise ValueError(
-            "Entities can only be registered to groups you are a member of"
-        )
+        raise ValueError("Entities can only be registered to groups you are a member of")
 
     try:
         UUID(group_uuid)

@@ -20,9 +20,9 @@ from atlas_consortia_commons.rest import (
     rest_server_err,
 )
 from atlas_consortia_commons.string import equals
-from flask import Blueprint, jsonify, Response, current_app
-from hubmap_commons.hm_auth import AuthHelper
+from flask import Blueprint, Response, current_app, jsonify
 from hubmap_commons.exceptions import HTTPException as HuBMAPHTTPException
+from hubmap_commons.hm_auth import AuthHelper
 from hubmap_sdk import EntitySdk
 from rq.job import Job, JobStatus, NoSuchJobError
 
@@ -42,9 +42,9 @@ from jobs import (
 from jobs.registration.metadata import register_uploaded_metadata
 from jobs.validation.metadata import validate_uploaded_metadata
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
-from lib.services import entity_json_dumps, get_token, get_entity_by_id
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
+from lib.services import entity_json_dumps, get_entity_by_id, get_token
 
 metadata_blueprint = Blueprint("metadata", __name__)
 logger = logging.getLogger(__name__)
@@ -143,10 +143,7 @@ def register_metadata_upload(body: dict, token: str, user: User):
             # Admin registering for a user
             scan_query = f"{JOBS_PREFIX}*:{validation_job_id}"
             validation_job = job_queue.query_job(scan_query)
-            if (
-                    validation_job.meta.get("visibility", JobVisibility.PUBLIC)
-                    != JobVisibility.PUBLIC
-            ):
+            if validation_job.meta.get("visibility", JobVisibility.PUBLIC) != JobVisibility.PUBLIC:
                 raise NoSuchJobError("Job is not marked PUBLIC")
         else:
             validation_queue_id = create_queue_id(user.uuid, validation_job_id)
@@ -175,9 +172,7 @@ def register_metadata_upload(body: dict, token: str, user: User):
 
     metadata_filepath = validation_result.results.get("file")
     job_id = uuid4()
-    desc = validation_job.description.replace(
-        JobType.VALIDATE.noun, JobType.REGISTER.noun
-    )
+    desc = validation_job.description.replace(JobType.VALIDATE.noun, JobType.REGISTER.noun)
 
     job = job_queue.enqueue_job(
         job_id=job_id,
@@ -205,7 +200,7 @@ def register_metadata_upload(body: dict, token: str, user: User):
 
 # Fetch all Data Provider groups through Hubmap Commons
 # Returns an Array of nested objects containing all groups
-@metadata_blueprint.route('/metadata/data-provider-groups', methods=['GET'])
+@metadata_blueprint.route("/metadata/data-provider-groups", methods=["GET"])
 @require_valid_token()
 def get_all_data_provider_groups(token: str, user: User):
     try:
@@ -213,21 +208,25 @@ def get_all_data_provider_groups(token: str, user: User):
         group_list = auth_helper_instance.getHuBMAPGroupInfo()
         return_list = []
         for group_info in group_list.keys():
-            if group_list[group_info]['data_provider'] == True:
+            if group_list[group_info]["data_provider"] == True:
                 return_list.append(group_list[group_info])
-        return jsonify({'groups': return_list}), 200
+        return jsonify({"groups": return_list}), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
         logger.error(e, exc_info=True)
-        return Response("Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500)
+        return Response(
+            "Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500
+        )
 
 
-@metadata_blueprint.route('/metadata/provenance-metadata/<ds_uuid>', methods=['GET'])
+@metadata_blueprint.route("/metadata/provenance-metadata/<ds_uuid>", methods=["GET"])
 def get_provenance_metadata(ds_uuid: str):
     try:
         token = get_token()
-        entity_instance = EntitySdk(token=token, service_url=current_app.config['ENTITY_WEBSERVICE_URL'])
+        entity_instance = EntitySdk(
+            token=token, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
+        )
         entity = get_entity_by_id(ds_uuid, token=token)
 
         if entity == {}:
@@ -244,7 +243,9 @@ def get_provenance_metadata(ds_uuid: str):
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
         logger.error(e, exc_info=True)
-        return Response("Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500)
+        return Response(
+            "Unexpected error while fetching group list: " + str(e) + "  Check the logs", 500
+        )
 
 
 def check_metadata_upload():

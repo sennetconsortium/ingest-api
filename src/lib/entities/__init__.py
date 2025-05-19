@@ -13,9 +13,7 @@ def common_ln_errs(err: int, val: str) -> dict:
     elif err == 2:
         return ln_err(f" `{val}` is not an accepted field", 1)
     elif err == 3:
-        return ln_err(
-            f"Unable to validate constraints. Entity Api returned the following: {val}"
-        )
+        return ln_err(f"Unable to validate constraints. Entity Api returned the following: {val}")
     elif err == 4:
         return ln_err(
             "This row has too few entries. Check file; verify spaces were not used where a tab should be",
@@ -79,9 +77,7 @@ def append_constraints_list(
         ):
             sub_type_val = get_as_list(ancestor_result["organ"])
 
-    ancestor_to_validate = build_constraint_unit(
-        ancestor_entity_type, sub_type, sub_type_val
-    )
+    ancestor_to_validate = build_constraint_unit(ancestor_entity_type, sub_type, sub_type_val)
 
     dict_to_validate = build_constraint(ancestor_to_validate, entity_to_validate)
     entity_constraint_list.append(dict_to_validate)

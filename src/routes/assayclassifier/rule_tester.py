@@ -1,12 +1,10 @@
 import json
-import re
 import sys
 from os.path import isdir
 from pprint import pprint
 
 import pandas as pd
 import requests
-import yaml
 
 AUTH_TOK = "some_token"
 

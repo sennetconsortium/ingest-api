@@ -4,13 +4,13 @@ import os
 from atlas_consortia_commons.rest import abort_err_handler, get_http_exceptions_classes
 from atlas_consortia_commons.ubkg import initialize_ubkg
 from atlas_consortia_commons.ubkg.ubkg_sdk import init_ontology
-from hubmap_commons import neo4j_driver
-from lib.neo4j_helper import Neo4jHelper
 from flask import Flask
+from hubmap_commons import neo4j_driver
 from redis import from_url as redis_from_url
 from rq import Connection, Queue, Worker
 
 import submodules
+from lib.neo4j_helper import Neo4jHelper
 
 logging.basicConfig(
     format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
@@ -33,9 +33,9 @@ app.config.from_pyfile("app.cfg")
 # This neo4j_driver_instance will be used for application-specific neo4j queries
 # as well as being passed to the schema_manager
 try:
-    neo4j_driver_instance = neo4j_driver.instance(app.config['NEO4J_SERVER'],
-                                                  app.config['NEO4J_USERNAME'],
-                                                  app.config['NEO4J_PASSWORD'])
+    neo4j_driver_instance = neo4j_driver.instance(
+        app.config["NEO4J_SERVER"], app.config["NEO4J_USERNAME"], app.config["NEO4J_PASSWORD"]
+    )
 
     Neo4jHelper.set_instance(neo4j_driver_instance)
 

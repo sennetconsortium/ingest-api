@@ -1,13 +1,18 @@
 import logging
-from flask import Blueprint, current_app, jsonify
-from lib.services import get_token
 
-from hubmap_commons.hm_auth import AuthHelper
-from jobs import JOBS_PREFIX, JobQueue
-from rq.job import JobStatus
-from rq.exceptions import NoSuchJobError
 from atlas_consortia_commons.rest import abort_internal_err
-from jobs.cache.datasets import DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX, DATASETS_SANKEYDATA_JOB_CONSORTIUM_PREFIX, update_dataset_sankey_data
+from flask import Blueprint, current_app, jsonify
+from hubmap_commons.hm_auth import AuthHelper
+from rq.exceptions import NoSuchJobError
+from rq.job import JobStatus
+
+from jobs import JOBS_PREFIX, JobQueue
+from jobs.cache.datasets import (
+    DATASETS_SANKEYDATA_JOB_CONSORTIUM_PREFIX,
+    DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX,
+    update_dataset_sankey_data,
+)
+from lib.services import get_token
 
 sankey_data_blueprint = Blueprint("sankey_data", __name__)
 logger = logging.getLogger(__name__)

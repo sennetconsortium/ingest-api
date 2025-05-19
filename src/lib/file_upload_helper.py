@@ -1,18 +1,19 @@
-import os
-from os import listdir
-import secrets
-import shutil
-import logging
-import pathlib
-import requests
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 # from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import hashlib
-from werkzeug.utils import secure_filename
+import logging
+import os
+import pathlib
+import secrets
+import shutil
+from os import listdir
+
+import requests
 
 # HuBMAP commons
 from hubmap_commons import file_helper
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from werkzeug.utils import secure_filename
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,36 @@ requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 ## UploadFileHelper
 ####################################################################################################
 
-ID_CHARS = ['2', '3', '4', '5', '6', '7', '8', '9', 'b', 'c', 'd', 'e', 'g', 'h', 'j', 'k', 'l', 'm', 'n', 'p', 'q',
-            'r', 's', 't', 'v', 'w', 'x', 'z']
+ID_CHARS = [
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "b",
+    "c",
+    "d",
+    "e",
+    "g",
+    "h",
+    "j",
+    "k",
+    "l",
+    "m",
+    "n",
+    "p",
+    "q",
+    "r",
+    "s",
+    "t",
+    "v",
+    "w",
+    "x",
+    "z",
+]
 
 instance = None
 
@@ -34,7 +63,8 @@ class UploadFileHelper:
     def create(upload_temp_dir, upload_dir, uuid_api_url):
         if instance is not None:
             raise Exception(
-                "An instance of UploadFileHelper exists already. Use the UploadFileHelper.instance() method to retrieve it.")
+                "An instance of UploadFileHelper exists already. Use the UploadFileHelper.instance() method to retrieve it."
+            )
 
         return UploadFileHelper(upload_temp_dir, upload_dir, uuid_api_url)
 
@@ -42,7 +72,8 @@ class UploadFileHelper:
     def instance():
         if instance is None:
             raise Exception(
-                "An instance of UploadFileHelper does not yet exist. Use UploadFileHelper.create(...) to create a new instance")
+                "An instance of UploadFileHelper does not yet exist. Use UploadFileHelper.create(...) to create a new instance"
+            )
 
         return instance
 
@@ -84,7 +115,7 @@ class UploadFileHelper:
     def get_temp_file_id(self, iteration=0):
         if iteration == 100:
             raise Exception("Unable to get a temporary file id after 100 attempts")
-        rid = ''
+        rid = ""
         for _ in range(20):
             rid = rid + secrets.choice(ID_CHARS)
         while os.path.exists(self.__get_temp_file_dir(rid)):
@@ -96,7 +127,7 @@ class UploadFileHelper:
         if len(temp_file_id) != 20:
             return False
 
-        if temp_file_id.strip(''.join(ID_CHARS)) != '':
+        if temp_file_id.strip("".join(ID_CHARS)) != "":
             return False
 
         return True
@@ -106,7 +137,9 @@ class UploadFileHelper:
 
         file_temp_dir = self.__get_temp_file_dir(temp_file_id.strip())
         if not os.path.exists(file_temp_dir):
-            raise Exception("Temporary file with id " + temp_file_id + " does not have a temp directory.")
+            raise Exception(
+                "Temporary file with id " + temp_file_id + " does not have a temp directory."
+            )
 
         fcount = 0
         temp_file_name = None
@@ -117,32 +150,39 @@ class UploadFileHelper:
         if fcount == 0:
             raise Exception("File not found for temporary file with id " + temp_file_id)
         if fcount > 1:
-            raise Exception("Multiple files found in temporary file path for temp file id " + temp_file_id)
+            raise Exception(
+                "Multiple files found in temporary file path for temp file id " + temp_file_id
+            )
 
         file_from_path = file_temp_dir + temp_file_name
         file_to_dir = self.upload_dir + entity_uuid + os.sep
 
         # get a uuid for the file
-        checksum = hashlib.md5(open(file_from_path, 'rb').read()).hexdigest()
+        checksum = hashlib.md5(open(file_from_path, "rb").read()).hexdigest()
         filesize = os.path.getsize(file_from_path)
-        headers = {'Authorization': 'Bearer ' + user_token, 'Content-Type': 'application/json'}
+        headers = {"Authorization": "Bearer " + user_token, "Content-Type": "application/json"}
         data = {}
-        data['entity_type'] = 'FILE'
-        data['parent_ids'] = [entity_uuid]
+        data["entity_type"] = "FILE"
+        data["parent_ids"] = [entity_uuid]
         file_info = {}
-        file_info['path'] = file_to_dir + '<uuid>' + os.sep + temp_file_name
-        file_info['checksum'] = checksum
-        file_info['base_dir'] = 'INGEST_PORTAL_UPLOAD'
-        file_info['size'] = filesize
-        data['file_info'] = [file_info]
-        response = requests.post(self.uuid_api_url + '/uuid', json=data, headers=headers, verify=False)
+        file_info["path"] = file_to_dir + "<uuid>" + os.sep + temp_file_name
+        file_info["checksum"] = checksum
+        file_info["base_dir"] = "INGEST_PORTAL_UPLOAD"
+        file_info["size"] = filesize
+        data["file_info"] = [file_info]
+        response = requests.post(
+            self.uuid_api_url + "/uuid", json=data, headers=headers, verify=False
+        )
         if response is None or response.status_code != 200:
             logger.error(
-                f"POSTed request for file {file_temp_dir}{temp_file_name} returned response.status_code={response.status_code}, response.text = {response.text}.")
-            raise Exception(f"Unable to generate uuid for file {file_temp_dir}{temp_file_name}. See logs.")
+                f"POSTed request for file {file_temp_dir}{temp_file_name} returned response.status_code={response.status_code}, response.text = {response.text}."
+            )
+            raise Exception(
+                f"Unable to generate uuid for file {file_temp_dir}{temp_file_name}. See logs."
+            )
 
         rsjs = response.json()
-        file_uuid = rsjs[0]['uuid']
+        file_uuid = rsjs[0]["uuid"]
 
         file_to_dir = file_to_dir + file_uuid
         file_dest_path = file_to_dir + os.sep + temp_file_name
@@ -160,10 +200,12 @@ class UploadFileHelper:
     # where file_dir = /<base_dir>/<entity_uuid>
     def remove_file(self, file_dir, file_uuid, files_info_list):
         for file_info in files_info_list:
-            if file_info['file_uuid'] == file_uuid:
+            if file_info["file_uuid"] == file_uuid:
                 # Remove from file system
-                file_dir = file_helper.ensureTrailingSlash(file_dir) + secure_filename(file_info['file_uuid'])
-                path_to_file = file_dir + os.sep + secure_filename(file_info['filename'])
+                file_dir = file_helper.ensureTrailingSlash(file_dir) + secure_filename(
+                    file_info["file_uuid"]
+                )
+                path_to_file = file_dir + os.sep + secure_filename(file_info["filename"])
                 os.remove(path_to_file)
                 os.rmdir(file_dir)
 
