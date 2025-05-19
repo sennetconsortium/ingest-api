@@ -1090,7 +1090,6 @@ def publish_datastage(identifier):
                     f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}"
                 )
 
-
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
             entity_instance = EntitySdk(
                 token=auth_tokens, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
