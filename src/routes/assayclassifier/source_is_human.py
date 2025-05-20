@@ -33,6 +33,7 @@ def source_is_human(entity_id_list, token):
     try:
         source_type = None
         for elt in entity_id_list:
+            elt = elt.strip()
             entity_json = get_entity(elt, token, True)
             assert "entity_type" in entity_json, "entity json has no entity_type"
             entity_type = entity_json["entity_type"]
