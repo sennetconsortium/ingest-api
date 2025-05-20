@@ -31,7 +31,6 @@ class SourceTypes:
     MOUSE_ORGANOID: str = "Mouse Organoid"
 
 
-
 @dataclass
 class DatasetTypes:
     HISTOLOGY: str = "Histology"
@@ -49,9 +48,7 @@ class DatasetTypes:
     CONFOCAL: str = "Confocal"
     THICK_SECTION_MULTIPHOTON_MXIF: str = "Thick section Multiphoton MxIF"
     SECOND_HARMONIC_GENERATION_SHG: str = "Second Harmonic Generation (SHG)"
-    ENHANCED_STIMULATED_RAMAN_SPECTROSCOPY_SRS: str = (
-        "Enhanced Stimulated Raman Spectroscopy (SRS)"
-    )
+    ENHANCED_STIMULATED_RAMAN_SPECTROSCOPY_SRS: str = "Enhanced Stimulated Raman Spectroscopy (SRS)"
     SIMS: str = "SIMS"
     CELL_DIVE: str = "Cell DIVE"
     CODEX: str = "CODEX"
@@ -112,7 +109,6 @@ class MockOntology(Ontology):
         if Ontology.Ops.as_data_dict:
             return {e.name: e.default for e in fields(SourceTypes)}
         return SourceTypes
-
 
     @staticmethod
     def organ_types():

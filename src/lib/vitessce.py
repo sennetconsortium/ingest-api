@@ -33,9 +33,7 @@ class VitessceConfigCache:
             # Replace the groups token with a placeholder to avoid caching the token
             config_str = config_str.replace(groups_token, GROUPS_TOKEN_PLACEHOLDER)
 
-        self._redis_client.set(
-            f"{REDIS_VITESSCE_PREFIX}_{uuid}", config_str, ex=REDIS_TTL
-        )
+        self._redis_client.set(f"{REDIS_VITESSCE_PREFIX}_{uuid}", config_str, ex=REDIS_TTL)
 
     def delete(self, uuid: str) -> bool:
         return self._redis_client.delete(f"{REDIS_VITESSCE_PREFIX}_{uuid}")

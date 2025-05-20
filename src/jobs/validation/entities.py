@@ -29,7 +29,9 @@ def validate_uploaded_entities(
     try:
         csv_records = get_csv_records(upload.get("fullpath"))
         if isinstance(csv_records, Response):
-            message = "Unable to read the uploaded file. Please ensure the file is a valid tsv file."
+            message = (
+                "Unable to read the uploaded file. Please ensure the file is a valid tsv file."
+            )
             update_job_progress(100)
             return JobResult(success=False, results={"message": message})
 
@@ -41,9 +43,7 @@ def validate_uploaded_entities(
             header = {"Authorization": f"Bearer {token}"}
             valid_file = validate_samples(file_headers, records, header)
         else:
-            logger.error(
-                f"Validation job submitted for invalid entity type: {entity_type}"
-            )
+            logger.error(f"Validation job submitted for invalid entity type: {entity_type}")
             valid_file = False
 
         if valid_file is True:
@@ -73,9 +73,7 @@ def validate_uploaded_entities(
         raise
 
 
-def save_validation_records(
-    records: dict, entity_type: str, upload: dict, job_id: str
-) -> dict:
+def save_validation_records(records: dict, entity_type: str, upload: dict, job_id: str) -> dict:
     """Save the validated records from the uploaded tsv file to a file named
     <tmp_dir>/<job_id>_{entity_type}_results.json.
 
@@ -99,9 +97,7 @@ def save_validation_records(
     """
     fullpath = upload.get("pathname")
     dir_path = os.path.dirname(fullpath)
-    results_path = os.path.join(
-        dir_path, f"{job_id}_{entity_type.lower()}_results.json"
-    )
+    results_path = os.path.join(dir_path, f"{job_id}_{entity_type.lower()}_results.json")
 
     file_details = set_file_details(results_path)
     with open(file_details.get("fullpath"), "w") as f:
@@ -149,14 +145,10 @@ def validate_sources(headers, records):
             lab_id = data_row["lab_id"]
             if len(lab_id) > 1024:
                 file_is_valid = False
-                error_msg.append(
-                    ln_err("must be fewer than 1024 characters", rownum, "lab_id")
-                )
+                error_msg.append(ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
             if len(lab_id) < 1:
                 file_is_valid = False
-                error_msg.append(
-                    ln_err("must have 1 or more characters", rownum, "lab_id")
-                )
+                error_msg.append(ln_err("must have 1 or more characters", rownum, "lab_id"))
 
             # validate selection_protocol
             protocol = data_row["selection_protocol"]
@@ -219,17 +211,13 @@ def validate_samples(headers, records, header):
             file_is_valid = False
             error_msg.append(common_ln_errs(2, field))
 
-    allowed_categories = Ontology.ops(
-        as_arr=True, cb=enum_val_lower
-    ).specimen_categories()
+    allowed_categories = Ontology.ops(as_arr=True, cb=enum_val_lower).specimen_categories()
     # Get the ontology classes
     SpecimenCategories = Ontology.ops().specimen_categories()
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(
-        Ontology.ops(as_data_dict=True, key="rui_code", val_key="term")
-        .organ_types()
-        .keys()
+        Ontology.ops(as_data_dict=True, key="rui_code", val_key="term").organ_types().keys()
     )
     organ_types_codes.remove("OT")
 
@@ -290,9 +278,7 @@ def validate_samples(headers, records, header):
             lab_id = data_row["lab_id"]
             if len(lab_id) > 1024:
                 file_is_valid = False
-                error_msg.append(
-                    ln_err("must be fewer than 1024 characters", rownum, "lab_id")
-                )
+                error_msg.append(ln_err("must be fewer than 1024 characters", rownum, "lab_id"))
             if len(lab_id) < 1:
                 file_is_valid = False
                 error_msg.append(ln_err("value cannot be blank", rownum, "lab_id"))
@@ -404,9 +390,7 @@ def validate_samples(headers, records, header):
                 if equals(sample_category, SpecimenCategories.ORGAN):
                     sub_type_val = get_as_list(organ_type)
 
-                entity_to_validate = build_constraint_unit(
-                    Entities.SAMPLE, sub_type, sub_type_val
-                )
+                entity_to_validate = build_constraint_unit(Entities.SAMPLE, sub_type, sub_type_val)
                 try:
                     entity_constraint_list = append_constraints_list(
                         entity_to_validate,
@@ -426,22 +410,16 @@ def validate_samples(headers, records, header):
                     )
 
     # validate entity constraints
-    return validate_entity_constraints(
-        file_is_valid, error_msg, header, entity_constraint_list
-    )
+    return validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list)
 
 
-def validate_entity_constraints(
-    file_is_valid, error_msg, header, entity_constraint_list
-):
+def validate_entity_constraints(file_is_valid, error_msg, header, entity_constraint_list):
     url = (
         ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
         + "constraints?match=true&report_type=ln_err"
     )
     try:
-        validate_constraint_result = requests.post(
-            url, headers=header, json=entity_constraint_list
-        )
+        validate_constraint_result = requests.post(url, headers=header, json=entity_constraint_list)
         if not validate_constraint_result.ok:
             constraint_errors = validate_constraint_result.json()
             error_msg.extend(constraint_errors.get("description"))
@@ -455,9 +433,7 @@ def validate_entity_constraints(
         return error_msg
 
 
-def validate_ancestor_id(
-    header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid
-):
+def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid):
     if len(ancestor_id) < 1:
         file_is_valid = False
         error_msg.append(ln_err("cannot be blank", rownum, "ancestor_id"))
@@ -490,9 +466,7 @@ def validate_ancestor_id(
                     error_msg.append(common_ln_errs(7, rownum))
                 if resp.status_code == 400:
                     file_is_valid = False
-                    error_msg.append(
-                        ln_err(f"`{ancestor_id}` is not a valid id format", rownum)
-                    )
+                    error_msg.append(ln_err(f"`{ancestor_id}` is not a valid id format", rownum))
                 if resp.status_code < 300:
                     ancestor_dict = resp.json()
                     valid_ancestor_ids.append(ancestor_dict)

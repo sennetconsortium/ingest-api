@@ -98,6 +98,7 @@ cd docker
 ## Development process
 
 ### To release via TEST infrastructure
+
 - Make new feature or bug fix branches from `main` branch (the default branch)
 - Make PRs to `main`
 - As a codeowner, Zhou (github username `yuanzhou`) is automatically assigned as a reviewer to each PR. When all other reviewers have approved, he will approve as well, merge to TEST infrastructure, and redeploy the TEST instance.
@@ -105,13 +106,33 @@ cd docker
 - When any current changes in the `main` have been approved after test/qa on TEST, Zhou will release to PROD using the same docker image that has been tested on TEST infrastructure.
 
 ### To work on features in the development environment before ready for testing and releasing
+
 - Make new feature branches off the `main` branch
 - Make PRs to `dev-integrate`
 - As a codeowner, Zhou is automatically assigned as a reviewer to each PR. When all other reviewers have approved, he will approve as well, merge to devel, and redeploy the DEV instance.
 - When a feature branch is ready for testing and release, make a PR to `main` for deployment and testing on the TEST infrastructure as above.
 
-
-
 ### Updating API Documentation
 
 The documentation for the API calls is hosted on SmartAPI.  Modifying the `ingest-api-spec.yaml` file and commititng the changes to github should update the API shown on SmartAPI.  SmartAPI allows users to register API documents.  The documentation is associated with this github account: api-developers@sennetconsortium.org. 
+
+## Formatting
+
+Python code in this repository uses [black](https://black.readthedocs.io/en/stable/) for formatting. This development dependency can be installed using `pip install -r src/requirements.dev.txt`. Black provides integration for various IDEs, such as [PyCharm](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) and [VSCode](https://black.readthedocs.io/en/stable/integrations/editors.html#visual-studio-code). Black can also be used in the terminal using the following commands.
+
+```bash
+# Reformat single file (src/app.py)
+black src/app.py
+
+# Reformat multiple files (all files in src/ directory)
+black src/
+
+# Reformat single file within specific line numbers 1 through 10 (src/app.py)
+black --line-ranges=1-10 src/app.py
+
+# Check without reformatting single file (src/app.py)
+black --check src/app.py
+
+# Check without reformatting multiple files (all files in src/ directory)
+black --check src/
+```

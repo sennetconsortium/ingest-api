@@ -28,9 +28,7 @@ from routes.auth import get_auth_header_dict
 logger = logging.getLogger(__name__)
 
 
-def validate_uploaded_metadata(
-    job_id: str, upload: dict, data: dict, token: str
-) -> JobResult:
+def validate_uploaded_metadata(job_id: str, upload: dict, data: dict, token: str) -> JobResult:
     try:
         entity_type = data.get("entity_type")
         sub_type = data.get("sub_type")
@@ -52,8 +50,8 @@ def validate_uploaded_metadata(
         validation_results = validate_tsv(
             token=token, entity_type=entity_type, sub_type=sub_type, path=upload.get("fullpath")
         )
-        if validation_results.get('code') != StatusCodes.OK:
-            _errors = validation_results.get('description')
+        if validation_results.get("code") != StatusCodes.OK:
+            _errors = validation_results.get("description")
 
             logger.error(f"Error validating metadata: {_errors}")
             update_job_progress(100)
@@ -145,8 +143,12 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-        token: str, entity_type: str, sub_type: str, attribute: Optional[str]="",
-        latest_schema_name: Optional[str] = "isLatestVersion", path: Optional[str] = None
+    token: str,
+    entity_type: str,
+    sub_type: str,
+    attribute: Optional[str] = "",
+    latest_schema_name: Optional[str] = "isLatestVersion",
+    path: Optional[str] = None,
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -181,7 +183,7 @@ def validate_tsv(
             encoding="ascii",
             entity_url=f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
             ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
-            globus_token=token
+            globus_token=token,
         )
 
         # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
@@ -192,31 +194,38 @@ def validate_tsv(
             # Check that the entity type/subtype specified by the user and what is determined by IV Utils are same
             if equals(entity_type_info.entity_type.value, entity_type.lower()):
                 # Source (mouse) has no entity_type_info.entity_sub_type
-                if not equals(entity_type_info.entity_sub_type, "") and not equals(entity_type_info.entity_sub_type, sub_type.lower()):
+                if not equals(entity_type_info.entity_sub_type, "") and not equals(
+                    entity_type_info.entity_sub_type, sub_type.lower()
+                ):
                     return rest_bad_req(
                         f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
-                        f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas', True)
+                        f"File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas",
+                        True,
+                    )
             else:
                 return rest_bad_req(
                     f'Mismatch of "{entity_type}" and "metadata_schema_id". '
-                    f'File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas',
-                    True)
+                    f"File does match a valid Cedar schema. For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas",
+                    True,
+                )
 
         if isinstance(schema, schema_loader.SchemaVersion):
             schema_name = schema.schema_name
             schema_version = schema.version
             if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
                 schema_version=schema_version,
-                cedar_api_key=current_app.config['CEDAR_API_KEY'],
-                latest_version_name=latest_schema_name):
-                return rest_bad_req(f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True)
+                cedar_api_key=current_app.config["CEDAR_API_KEY"],
+                latest_version_name=latest_schema_name,
+            ):
+                return rest_bad_req(
+                    f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True
+                )
 
         app_context = {
             "request_header": {"X-SenNet-Application": "ingest-api"},
             "ingest_url": ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
             "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
-            "constraints_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}constraints/"
-
+            "constraints_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}constraints/",
         }
         validation_results = iv_utils.get_tsv_errors(
             path,
@@ -227,18 +236,18 @@ def validate_tsv(
         )
         if len(validation_results) == 0:
             validation_results = get_csv_records(path)
-            return rest_response(StatusCodes.OK, 'TSV validation results',
-                                 validation_results, True)
+            return rest_response(StatusCodes.OK, "TSV validation results", validation_results, True)
         else:
             final_results = []
+
             def parse_results(record):
                 if isinstance(record, dict):
-                    if 'description' in record:
-                        parse_results(record['description'])
-                    if 'column' in record and 'error' in record and 'row' in record:
+                    if "description" in record:
+                        parse_results(record["description"])
+                    if "column" in record and "error" in record and "row" in record:
                         # TODO: remove logic if it ever starts at the usual 0 from IVT
                         # IVT returns rows beginning at 1, reduce for regular reading on client end
-                        record['row'] = record['row'] - 1 if record['row'] > 0 else None
+                        record["row"] = record["row"] - 1 if record["row"] > 0 else None
                         final_results.append(record)
                     else:
                         # some unexpected dict, just str it and append to results
@@ -248,7 +257,11 @@ def validate_tsv(
                         parse_results(item)
                 elif isinstance(record, Exception):
                     ex = record.args[0]
-                    final_results.append(ln_err(f"{ex.get('message', '')} {ex.get('cause', '')} {ex.get('fixSuggestion', '')}"))
+                    final_results.append(
+                        ln_err(
+                            f"{ex.get('message', '')} {ex.get('cause', '')} {ex.get('fixSuggestion', '')}"
+                        )
+                    )
                 else:
                     # some other instance, maybe str or some other object
                     final_results.append(ln_err(str(record)))
@@ -305,13 +318,9 @@ def spec_supported(upload):
     return len(records) and "metadata_schema_id" in records[0]
 
 
-def _get_response(
-        metadata, entity_type, sub_type, validate_uuids, token, pathname=None
-):
+def _get_response(metadata, entity_type, sub_type, validate_uuids, token, pathname=None):
     if validate_uuids == "1":
-        response = validate_records_uuids(
-            metadata, entity_type, sub_type, pathname, token
-        )
+        response = validate_records_uuids(metadata, entity_type, sub_type, pathname, token)
     else:
         response = {"code": StatusCodes.OK, "pathname": pathname, "metadata": metadata}
 
@@ -397,9 +406,7 @@ def fetch_entity(token, entity_id, id_col, idx, errors):
         return resp.json()
     else:
         ln = ln_err(f"Invalid `{id_col}`: `{entity_id}`", idx, id_col)
-        err = rest_response(
-            resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True
-        )
+        err = rest_response(resp.status_code, StatusMsgs.UNACCEPTABLE, ln, dict_only=True)
         errors.append(err)
         return False
 
@@ -459,9 +466,7 @@ def validate_records_uuids(
             related_id_col = get_related_col_id_by_entity_type(entity_type)
             related_entity_id = r.get(related_id_col)
             if related_entity_id is not None:
-                related_entity = fetch_entity(
-                    token, related_entity_id, related_id_col, idx, errors
-                )
+                related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
                 if related_entity is False:
                     ok = False
             else:

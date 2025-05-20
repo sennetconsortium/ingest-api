@@ -2,9 +2,12 @@ import logging
 import urllib
 
 from flask import Blueprint, Response, current_app, jsonify, request
-from hubmap_commons.hm_auth import AuthHelper
 from hubmap_commons.exceptions import HTTPException
-from portal_visualization.builder_factory import get_view_config_builder, has_visualization
+from hubmap_commons.hm_auth import AuthHelper
+from portal_visualization.builder_factory import (
+    get_view_config_builder,
+    has_visualization,
+)
 from werkzeug.exceptions import HTTPException as WerkzeugException
 
 from lib import suppress_print
@@ -15,7 +18,7 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
-    get_data_from_ubkg
+    get_data_from_ubkg,
 )
 from lib.services import get_entity
 from lib.vitessce import VitessceConfigCache, strip_extras
@@ -30,7 +33,7 @@ def get_vitessce_config(ds_uuid: str):
     try:
         groups_token = None
         cache = None
-        if request.headers.get('Authorization') is not None:
+        if request.headers.get("Authorization") is not None:
             auth_helper_instance = AuthHelper.instance()
             groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
             if not isinstance(groups_token, str):
@@ -47,28 +50,30 @@ def get_vitessce_config(ds_uuid: str):
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
             metadata = build_entity_metadata(entity)
-            is_human = source_is_human(
-                [ds_uuid],
-                groups_token
-            )
+            is_human = source_is_human([ds_uuid], groups_token)
             return calculate_assay_info(metadata, is_human, get_data_from_ubkg)
 
         parent = None
         assaytype = get_assaytype(entity)
-        entity['soft_assaytype'] = assaytype['assaytype']
-        entity['vitessce-hints'] = assaytype['vitessce-hints']
+        entity["soft_assaytype"] = assaytype["assaytype"]
+        entity["vitessce-hints"] = assaytype["vitessce-hints"]
         # TODO: May need to add a check for is_seg_mask in vitessce-hints and may also need to pass epic_uuid to this endpoint
         # Adding portal-visualization `builder_factory` vis-lifted image pyramids check to see if we want to pass the parent
-        if 'is_support' in assaytype['vitessce-hints'] and 'is_image' in assaytype['vitessce-hints']:
-            parent = entity['direct_ancestors'][0]
+        if (
+            "is_support" in assaytype["vitessce-hints"]
+            and "is_image" in assaytype["vitessce-hints"]
+        ):
+            parent = entity["direct_ancestors"][0]
 
-        if not has_visualization(entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None):
-           return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
+        if not has_visualization(
+            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
+        ):
+            return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
 
-        Builder = get_view_config_builder(entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None)
-        builder = Builder(
-            entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"]
+        Builder = get_view_config_builder(
+            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
         )
+        builder = Builder(entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"])
         with suppress_print():
             # prevent the config from being logged
             vitessce_conf = builder.get_conf_cells(marker=None)
@@ -108,9 +113,7 @@ def get_vitessce_config(ds_uuid: str):
         )
     except Exception as e:
         logger.error(e, exc_info=True)
-        return Response(
-            f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500
-        )
+        return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
 
 
 @vitessce_blueprint.route("/vitessce/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])

@@ -32,9 +32,7 @@ def submit_datasets(job_id: str, dataset_uuids: list, token: str):
     ]
     for uuid, res in update_status_res.items():
         if not res["success"]:
-            logger.error(
-                f"Failed to set dataset status to processing {uuid}: {res['data']}"
-            )
+            logger.error(f"Failed to set dataset status to processing {uuid}: {res['data']}")
 
     # create the ingest_payload list
     dataset_helper = DatasetHelper(config)
@@ -54,16 +52,12 @@ def submit_datasets(job_id: str, dataset_uuids: list, token: str):
             json=ingest_payload,
             headers={"Authorization": f"Bearer {token}"},
         )
-        logger.info(
-            f"Response from ingest-pipeline {ingest_res.status_code}: {ingest_res.json()}"
-        )
+        logger.info(f"Response from ingest-pipeline {ingest_res.status_code}: {ingest_res.json()}")
     except requests.exceptions.RequestException as e:
         ingest_res = None
         logger.error(f"Failed to submit datasets to pipeline: {e}")
 
-    if ingest_res is not None and (
-        ingest_res.status_code == 200 or ingest_res.status_code == 400
-    ):
+    if ingest_res is not None and (ingest_res.status_code == 200 or ingest_res.status_code == 400):
         # assumes a 200/400 status code with json of the form
         # 200:
         # {
@@ -98,9 +92,7 @@ def submit_datasets(job_id: str, dataset_uuids: list, token: str):
         # update the datasets with the received info from the pipeline
         pipeline_result = ingest_res.json().get("response", {})
         successful = (
-            pipeline_result
-            if ingest_res.status_code == 200
-            else pipeline_result.get("success", [])
+            pipeline_result if ingest_res.status_code == 200 else pipeline_result.get("success", [])
         )
         update_payload = {
             s["submission_id"]: {"ingest_id": s["ingest_id"], "run_id": s["run_id"]}
@@ -153,9 +145,7 @@ def submit_datasets(job_id: str, dataset_uuids: list, token: str):
         # log the datasets that failed to update
         for uuid, res in update_errored_res.items():
             if not res["success"]:
-                logger.error(
-                    f"Failed to set status and pipeline message {uuid}: {res['data']}"
-                )
+                logger.error(f"Failed to set status and pipeline message {uuid}: {res['data']}")
 
         job_results = [
             {

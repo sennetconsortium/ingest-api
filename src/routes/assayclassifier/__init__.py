@@ -1,7 +1,7 @@
 import logging
 import urllib
 
-from atlas_consortia_commons.decorator import require_json, require_valid_token
+from atlas_consortia_commons.decorator import require_json
 from flask import Blueprint, Response, jsonify
 from hubmap_commons.exceptions import HTTPException
 from werkzeug.exceptions import HTTPException as WerkzeugException
@@ -13,8 +13,8 @@ from lib.rule_chain import (
     RuleSyntaxException,
     build_entity_metadata,
     calculate_assay_info,
+    get_data_from_ubkg,
     initialize_rule_chains,
-    get_data_from_ubkg
 )
 from lib.services import get_entity, get_token
 

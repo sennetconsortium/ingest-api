@@ -1,7 +1,9 @@
 import logging
+
 from lib.services import get_entity
 
 LOGGER = logging.getLogger(__name__)
+
 
 def merge_sources(source_type, this_source_type):
     initial_source_type = source_type  # for diagnostics
@@ -50,17 +52,17 @@ def source_is_human(entity_id_list, token):
                 assert "sources" in entity_json, "dataset json has no sources"
                 this_source_type = None
                 for idx, source in enumerate(entity_json["sources"]):
-                    assert "source_type" in source, ("dataset.sources.source[{idx}]"
-                                                     " has no source_type")
+                    assert "source_type" in source, (
+                        "dataset.sources.source[{idx}]" " has no source_type"
+                    )
                     this_this_source_type = source["source_type"]
-                    this_source_type = merge_sources(this_source_type,
-                                                     this_this_source_type)
+                    this_source_type = merge_sources(this_source_type, this_this_source_type)
             else:
                 raise AssertionError(f"Unsupported entity json type {entity_type}")
 
             source_type = merge_sources(source_type, this_source_type)
 
-        return source_type.upper() == "HUMAN" # we trapped partial human earlier
+        return source_type.upper() == "HUMAN"  # we trapped partial human earlier
     except AssertionError as excp:
         LOGGER.debug(f"AssertionError, assuming HUMAN: {excp}")
-        return True # fail safe
+        return True  # fail safe
