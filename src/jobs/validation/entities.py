@@ -219,7 +219,7 @@ def validate_samples(headers, records, header):
     organ_types_codes = list(
         Ontology.ops(as_data_dict=True, key="rui_code", val_key="term").organ_types().keys()
     )
-    organ_types_codes.append("OT")
+    organ_types_codes.remove("OT")
 
     rownum = 0
     valid_ancestor_ids = []
@@ -325,7 +325,7 @@ def validate_samples(headers, records, header):
                     file_is_valid = False
                     error_msg.append(
                         ln_err(
-                            f"value must be an organ code listed at {get_organ_types_ep()}",
+                            f"value must be an organ code listed at {get_organ_types_ep()} and not 'OT'",
                             rownum,
                             "organ_type",
                         )
