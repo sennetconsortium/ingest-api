@@ -103,7 +103,7 @@ def update_datasets_datastatus(schedule_next_job=True):
         )
 
         has_rui_query = (
-            f"MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
+            "MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
             "RETURN ds.uuid AS uuid, COLLECT( "
             "CASE "
             "WHEN s.rui_exemption = true THEN 'Exempt' "
@@ -112,14 +112,26 @@ def update_datasets_datastatus(schedule_next_job=True):
             "END) as has_rui_info"
         )
 
+        # check for metadata in direct ancestor samples (primary datasets only)
+        has_source_sample_metadata_query = (
+            "MATCH (ds:Dataset)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(s:Sample) "
+            "WHERE TOLOWER(a.creation_action) = 'create dataset activity' "
+            "RETURN ds.uuid AS uuid, "
+            "COLLECT( "
+            "CASE "
+            "WHEN s.metadata IS NOT NULL AND NOT TRIM(s.metadata) = '' THEN 'True' "
+            "ELSE 'False' "
+            "END) AS has_source_sample_metadata"
+        )
+
         displayed_fields = [
             "sennet_id", "group_name", "status", "organ", "provider_experiment_id", "last_touch", "has_contacts",
             "has_contributors", "dataset_type", "source_sennet_id", "source_lab_id",
             "has_dataset_metadata", "has_donor_metadata", "upload", "has_rui_info", "globus_url",
-            "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task",
+            "has_data", "organ_sennet_id", "assigned_to_group_name", "ingest_task", "has_source_sample_metadata"
         ]
 
-        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query]
+        queries = [all_datasets_query, organ_query, source_query, processed_datasets_query, upload_query, has_rui_query, has_source_sample_metadata_query]
         results = [None] * len(queries)
         threads = []
         for i, query in enumerate(queries):
@@ -143,6 +155,7 @@ def update_datasets_datastatus(schedule_next_job=True):
         processed_datasets_result = results[3]
         upload_result = results[4]
         has_rui_result = results[5]
+        has_source_sample_metadata_result = results[6]
 
         for dataset in all_datasets_result:
             output_dict[dataset['uuid']] = dataset
@@ -176,6 +189,10 @@ def update_datasets_datastatus(schedule_next_job=True):
                 elif "Exempt" in dataset['has_rui_info']:
                     has_rui = "Exempt"
                 output_dict[dataset['uuid']]['has_rui_info'] = has_rui
+
+        for dataset in has_source_sample_metadata_result:
+            if dataset['uuid'] in output_dict:
+                output_dict[dataset['uuid']]['has_source_sample_metadata'] = str('True' in dataset['has_source_sample_metadata'])
 
         combined_results = list(output_dict.values())
         if current_job is not None:
