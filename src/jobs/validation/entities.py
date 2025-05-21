@@ -443,28 +443,26 @@ def validate_samples(headers, records, token):
                         source_types = Ontology.ops().source_types()
                         valid_source = True
                         valid_organ = True
+
+                        accepted_source_types = [
+                            source_types.HUMAN,
+                            source_types.HUMAN_ORGANOID,
+                        ]
+                        unaccepted_organ = ["AD", "BD", "BM", "BS", "BX", "MU", "OT"]
                         for ancestor in ancestors:
-                            if ancestor["entity_type"] == Entities.SOURCE and ancestor[
-                                "source_type"
-                            ] not in [
-                                source_types.HUMAN,
-                                source_types.HUMAN_ORGANOID,
-                            ]:
+                            if (
+                                ancestor["entity_type"] == Entities.SOURCE
+                                and ancestor["source_type"] not in accepted_source_types
+                            ):
                                 # unsupported rui source type
                                 valid_source = False
 
-                            elif ancestor["entity_type"] == Entities.SAMPLE:
-                                if ancestor.get("organ") in [
-                                    "AD",
-                                    "BD",
-                                    "BM",
-                                    "BS",
-                                    "BX",
-                                    "MU",
-                                    "OT",
-                                ]:
-                                    # unsupported rui organ
-                                    valid_organ = False
+                            elif (
+                                ancestor["entity_type"] == Entities.SAMPLE
+                                and ancestor.get("organ") in unaccepted_organ
+                            ):
+                                # unsupported rui organ
+                                valid_organ = False
 
                         if valid_source is False:
                             file_is_valid = False
