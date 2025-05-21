@@ -75,6 +75,49 @@ def get_entity(entity_id: str, token: Optional[str], as_dict: bool = False) -> U
     return entity
 
 
+def get_ancestors_for_entity(
+    entity_id: str, filter: Optional[dict], token: Optional[str]
+) -> list[dict]:
+    """Get the ancestors for the given entity from entity-api.
+
+    Parameters
+    ----------
+    entity_id : str
+        The uuid of the entity.
+    filter : Optional[dict]
+        The filter to be applied to the request, by default None.
+    token : Optional[str]
+        The groups token for the request if available
+
+    Returns
+    -------
+    list[dict]
+        Data for the ancestors of the entity.
+
+    Raises
+    ------
+    hubmap_commons.exceptions.HTTPException
+        If the entity-api request fails.
+    """
+    try:
+        service_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
+        url = f"{service_url}ancestors/{entity_id}"
+        headers = get_auth_header_dict(token) if token is not None else None
+        if filter is not None:
+            response = requests.post(url, json=filter, headers=headers)
+        else:
+            response = requests.get(url, headers=headers)
+    except Exception as e:
+        logger.error(f"Failed to get ancestors for entity {entity_id}: {e}")
+        raise HTTPException(f"Failed to get ancestors for entity {entity_id}", 500)
+
+    if not response.ok:
+        msg = response.json().get("error", "Unknown error")
+        raise HTTPException(msg, response.status_code)
+
+    return response.json()
+
+
 def get_entity_from_search_api(
     entity_id: str, token: Optional[str], as_dict: bool = False
 ) -> Union[Entity, dict]:
