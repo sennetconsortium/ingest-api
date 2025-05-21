@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from operator import itemgetter
+from urllib.parse import urljoin
 
 import requests
 from atlas_consortia_commons.object import enum_val_lower
@@ -200,6 +201,7 @@ def validate_samples(headers, records, header):
         "lab_id",
         "lab_notes",
         "organ_type",
+        "rui_location",
     ]
     for field in required_headers:
         if field not in headers:
@@ -406,6 +408,85 @@ def validate_samples(headers, records, header):
                         ln_err(
                             f"Unable to access Entity Api during constraint validation. Received response: {e}",
                             rownum,
+                        )
+                    )
+
+            # validate rui_location
+            rui_location = data_row.get("rui_location")
+            if rui_location:
+                if equals(sample_category, SpecimenCategories.BLOCK):
+                    # sample is a block and rui_location is provided
+                    if organ_type not in ["AD", "BD", "BM", "BS", "BX", "MU", "OT"]:
+                        # organ type is supported
+                        try:
+                            # check if rui_location is valid JSON
+                            data_row["rui_location"] = json.loads(rui_location)
+                        except json.JSONDecodeError as e:
+                            logger.error(f"Error decoding JSON: {e}")
+                            file_is_valid = False
+                            error_msg.append(
+                                ln_err(
+                                    "value must be valid JSON",
+                                    rownum,
+                                    "rui_location",
+                                )
+                            )
+
+                        try:
+                            # check if associated sources support rui_location
+                            url = urljoin(
+                                current_app.config["ENTITY_WEBSERVICE_URL"],
+                                f"ancestors/{ancestor_id}",
+                            )
+                            resp = requests.post(
+                                url,
+                                headers=header,
+                                json={"filter_properties": ["source_type"], "is_include": True},
+                            )
+                            if resp.status_code == 404:
+                                file_is_valid = False
+                                error_msg.append(common_ln_errs(8, rownum))
+                            if resp.status_code > 499:
+                                file_is_valid = False
+                                error_msg.append(common_ln_errs(5, rownum))
+                            if resp.status_code == 401 or resp.status_code == 403:
+                                file_is_valid = False
+                                error_msg.append(common_ln_errs(7, rownum))
+                            if resp.status_code == 400:
+                                file_is_valid = False
+                                error_msg.append(
+                                    ln_err(f"`{ancestor_id}` is not a valid id format", rownum)
+                                )
+                            if resp.status_code < 300:
+                                source_types = Ontology.ops().source_types()
+                                ancestors = resp.json()
+                                if not any(
+                                    a["source_type"]
+                                    in [source_types.HUMAN, source_types.HUMAN_ORGANOID]
+                                    for a in ancestors
+                                    if "source_type" in a
+                                ):
+                                    # sample is not associated with a human or human organoid source
+                                    file_is_valid = False
+                                    error_msg.append(
+                                        ln_err(
+                                            "entity must be associated with a human or human organoid source",
+                                            rownum,
+                                            "rui_location",
+                                        )
+                                    )
+                        except Exception as e:
+                            logger.error(f"Error validating rui_location: {e}")
+                            file_is_valid = False
+                            error_msg.append(common_ln_errs(5, rownum))
+                else:
+                    # rui_location is not support with this sample category
+                    file_is_valid = False
+                    error_msg.append(
+                        ln_err(
+                            f"field is not supported for sample category `{sample_category}`",
+                            rownum,
+                            "rui_location",
                         )
                     )
 
