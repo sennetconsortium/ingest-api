@@ -81,6 +81,9 @@ def convert_records(records: list, entity_type: str, group_uuid: str) -> list:
             if item["organ"] == "":
                 del item["organ"]
             item["group_uuid"] = group_uuid
+            if item["rui_location"] == "":
+                del item["rui_location"]
+
         return records
     else:
         return []
