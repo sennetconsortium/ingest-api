@@ -231,7 +231,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             update_job_progress(75, current_job)
 
         organ_types_dict = Ontology.ops(
-            as_data_dict=True, key="rui_code", val_key="term"
+            as_data_dict=True, key="organ_uberon", val_key="term"
         ).organ_types()
         for dataset in combined_results:
             globus_url = get_globus_url(
@@ -303,8 +303,17 @@ def update_datasets_datastatus(schedule_next_job=True):
                     dataset[field] = ""
 
             if (
+                # Check for Adipose Tissue (UBERON:0001013), Blood (UBERON:0000178), Bone Marrow (UBERON:0002371), Bone (UBERON:0001474), Muscle (UBERON:0005090), and Other (UBERON:0010000)
                 dataset.get("organ")
-                and dataset["organ"].upper() in ["AD", "BD", "BM", "BS", "MU", "OT"]
+                and dataset["organ"].upper()
+                in [
+                    "UBERON:0001013",
+                    "UBERON:0000178",
+                    "UBERON:0002371",
+                    "UBERON:0001474",
+                    "UBERON:0005090",
+                    "UBERON:0010000",
+                ]
             ) or (
                 dataset.get("source_type")
                 and dataset["source_type"].upper() in ["MOUSE", "MOUSE ORGANOID"]
@@ -379,7 +388,7 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
         HEADER_DATASET_TYPE_DESCRIPTION = "dataset_type_description"
         HEADER_DATASET_STATUS = "dataset_status"
         ORGAN_TYPES = Ontology.ops(
-            as_data_dict=True, data_as_val=True, val_key="rui_code"
+            as_data_dict=True, data_as_val=True, val_key="organ_uberon"
         ).organ_types()
         HEADER_DATASET_SOURCE_TYPE = "dataset_source_type"
 
@@ -439,7 +448,7 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
             internal_dict[HEADER_ORGAN_TYPE] = []
             for organ_type in ORGAN_TYPES:
                 for organ in dataset[HEADER_ORGAN_TYPE]:
-                    if ORGAN_TYPES[organ_type]["rui_code"] == organ:
+                    if ORGAN_TYPES[organ_type]["organ_uberon"] == organ:
                         internal_dict[HEADER_ORGAN_TYPE].append(ORGAN_TYPES[organ_type]["term"])
                         break
 
