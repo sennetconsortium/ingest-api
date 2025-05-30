@@ -231,7 +231,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             update_job_progress(75, current_job)
 
         organ_types_dict = Ontology.ops(
-            as_data_dict=True, key="organ_uberon", val_key="term"
+            as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None
         ).organ_types()
         for dataset in combined_results:
             globus_url = get_globus_url(
@@ -388,7 +388,7 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
         HEADER_DATASET_TYPE_DESCRIPTION = "dataset_type_description"
         HEADER_DATASET_STATUS = "dataset_status"
         ORGAN_TYPES = Ontology.ops(
-            as_data_dict=True, data_as_val=True, val_key="organ_uberon"
+            as_data_dict=True, data_as_val=True, val_key="organ_uberon", prop_callback=None
         ).organ_types()
         HEADER_DATASET_SOURCE_TYPE = "dataset_source_type"
 
