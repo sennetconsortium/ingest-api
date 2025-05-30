@@ -13,7 +13,7 @@
       "sample_category": "organ",
       "lab_id": "Bulk register 1",
       "lab_notes": "The ancestor is a Source",
-      "organ_type": "BD",
+      "organ_type": "UBERON:0000178",
       "preparation_protocol": "https://dx.doi.org/10.17504/protocols.io.8nzhvf6"
     },
     {
@@ -114,7 +114,7 @@
       "last_modified_user_displayname": "Test User",
       "last_modified_user_email": "TESTUSER@example.com",
       "last_modified_user_sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
-      "organ": "RK",
+      "organ": "UBERON:0004539",
       "protocol_url": "dx.doi.org/10.17504/protocols.io.3byl4j398lo5/v1",
       "sample_category": "Organ",
       "sennet_id": "SNT439.NHLL.499",
@@ -151,7 +151,7 @@
         "last_modified_user_displayname": "Test User",
         "last_modified_user_email": "TESTUSER@example.com",
         "last_modified_user_sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
-        "organ": "BD",
+        "organ": "UBERON:0000178",
         "sample_category": "Organ",
         "sennet_id": "SNT545.TBQH.598",
         "uuid": "2d1f1ed368b6ac636e2b0abd33f29574"

@@ -62,22 +62,35 @@ class DatasetTypes:
 
 @dataclass
 class OrganTypes:
-    AD: str = "Adipose Tissue"
-    BD: str = "Blood"
-    BR: str = "Brain"
-    BS: str = "Breast"
-    LK: str = "Kidney (Left)"
-    RK: str = "Kidney (Right)"
-    LI: str = "Large Intestine"
-    LV: str = "Liver"
-    LL: str = "Lung (Left)"
-    RL: str = "Lung (Right)"
-    LN: str = "Lymph Node"
-    MU: str = "Muscle"
-    LO: str = "Ovary (Left)"
-    RO: str = "Ovary (Right)"
-    SK: str = "Skin"
-
+    UBERON_0001013: str = "Adipose Tissue"
+    UBERON_0000178: str = "Blood"
+    UBERON_0001474: str = "Bone"
+    UBERON_0002371: str = "Bone Marrow"
+    UBERON_0000955: str = "Brain"
+    UBERON_0000948: str = "Heart"
+    UBERON_0004538: str = "Kidney (Left)"
+    UBERON_0004539: str = "Kidney (Right)"
+    UBERON_0000059: str = "Large Intestine"
+    UBERON_0002107: str = "Liver"
+    UBERON_0002168: str = "Lung (Left)"
+    UBERON_0002167: str = "Lung (Right)"
+    UBERON_0000029: str = "Lymph Node"
+    UBERON_0001911: str = "Mammary Gland"
+    FMA_57991: str = "Mammary Gland (Left)"
+    FMA_57987: str = "Mammary Gland (Right)"
+    UBERON_0005090: str = "Muscle"
+    UBERON_0010000: str = "Other"
+    UBERON_0002119: str = "Ovary (Left)"
+    UBERON_0002118: str = "Ovary (Right)"
+    UBERON_0001264: str = "Pancreas"
+    UBERON_0001987: str = "Placenta"
+    UBERON_0002097: str = "Skin"
+    UBERON_0002240: str = "Spinal Cord"
+    UBERON_0002106: str = "Spleen"
+    UBERON_0002370: str = "Thymus"
+    FMA_54974: str = "Tonsil (Left)"
+    FMA_54973: str = "Tonsil (Right)"
+    UBERON_0003126: str = "Trachea"
 
 class MockOntology(Ontology):
     @staticmethod
@@ -113,7 +126,7 @@ class MockOntology(Ontology):
     @staticmethod
     def organ_types():
         if Ontology.Ops.as_data_dict:
-            return {e.name: e.default for e in fields(OrganTypes)}
+            return {e.name.replace("_", ":"): e.default for e in fields(OrganTypes)}
         return OrganTypes
 
     @staticmethod

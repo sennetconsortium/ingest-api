@@ -1042,7 +1042,14 @@ def publish_datastage(identifier):
             if (
                 current_app.config["CHECK_RUI_ON_PUBLISH"]
                 and source_type in ["Human", "Human Organoid"]
-                and organ not in ["AD", "BD", "BM", "BS", "BX", "MU", "OT"]
+                and organ not in  [
+                    "UBERON:0001013",
+                    "UBERON:0000178",
+                    "UBERON:0002371",
+                    "UBERON:0001474",
+                    "UBERON:0005090",
+                    "UBERON:0010000",
+                ]
                 and rui_exempt is False
                 and has_rui_location is False
             ):

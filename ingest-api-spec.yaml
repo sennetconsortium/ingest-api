@@ -233,26 +233,7 @@ components:
           description: "The category of the sample. Valid values found in: [sample categories](https://ontology.api.hubmapconsortium.org/valueset?parent_sab=SENNET&parent_code=C020076&child_sabs=SENNET)"
         organ:
           type: string
-          enum:
-            - AD
-            - BD
-            - BM
-            - BR
-            - BS
-            - LK
-            - RK
-            - LI
-            - LV
-            - LL
-            - RL
-            - LN
-            - MU
-            - LO
-            - RO
-            - PA
-            - PL
-            - SK
-          description: "Organ code specifier, only set if `sample_category` is organ. Valid values found in: [organ types](https://ontology.api.hubmapconsortium.org/organs?application_context=sennet)"
+          description: "Organ code specifier, only set if `sample_category` is organ. Valid values found in: [organ types](https://ontology.api.hubmapconsortium.org/organs?application_context=sennet) under 'organ_uberon'"
 
     Datasets:
       type: object
