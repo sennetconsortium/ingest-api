@@ -219,7 +219,7 @@ def validate_samples(headers, records, token):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(
-        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term").organ_types().keys()
+        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None).organ_types().keys()
     )
     # Remove 'Other' organ
     organ_types_codes.remove("UBERON:0010000")
