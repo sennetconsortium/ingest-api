@@ -117,3 +117,6 @@ RULE_CHAIN_URI = 'https://raw.githubusercontent.com/sennetconsortium/ingest-api/
 
 # Used for checking schema versions in the IVT
 CEDAR_API_KEY = ''
+
+# Disk names that appear in 'Mounted on' column when 'df' is run in shell
+STATUS_DISKS = {'/': 'host disk space'}
