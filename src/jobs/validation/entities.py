@@ -543,13 +543,15 @@ def validate_entity_constraints(file_is_valid, error_msg, header, entity_constra
 
 
 def validate_ancestor_id(header, ancestor_id, error_msg, rownum, valid_ancestor_ids, file_is_valid):
+    ancestor_dict = {}
+    resp_status_code = False
+    ancestor_saved = False
+
     if len(ancestor_id) < 1:
         file_is_valid = False
         error_msg.append(ln_err("cannot be blank", rownum, "ancestor_id"))
+
     if len(ancestor_id) > 0:
-        ancestor_dict = {}
-        ancestor_saved = False
-        resp_status_code = False
         if len(valid_ancestor_ids) > 0:
             for item in valid_ancestor_ids:
                 if item.get("uuid") or item.get("sennet_id"):
