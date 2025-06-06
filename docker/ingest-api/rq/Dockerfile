@@ -19,7 +19,7 @@ COPY .. .
 RUN apt-get update -y && \
     apt-get dist-upgrade -y && \
     sed -i '/^git+https/d' ./src/requirements.txt && \
-    pip install --upgrade pip setuptools wheel uwsgi && \
+    pip install --upgrade pip setuptools wheel && \
     pip install -r ./src/requirements.txt && \
     pip install -r ./src/submodules/ingest_validation_tools/requirements.txt
 
