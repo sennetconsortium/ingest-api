@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+import psutil
 from flask import Blueprint, current_app, jsonify, request
 from hubmap_commons import net_helper, string_helper
 
@@ -31,8 +32,37 @@ def get_status():
             "build": (Path(__file__).absolute().parent.parent.parent.parent / "BUILD")
             .read_text()
             .strip(),
+            "usage": [],
             "services": [],
         }
+
+        # Usage
+        try:
+            # get memory usage
+            memory_percent = psutil.virtual_memory().percent
+            response_data["usage"].append(
+                {
+                    "type": "memory",
+                    "percent_used": round(memory_percent, 1),
+                    "description": "host memory",
+                }
+            )
+
+            # get disk usage
+            disks = current_app.config.get("STATUS_DISKS", {})
+            for name, description in disks.items():
+                disk_usage = psutil.disk_usage(name)
+                storage_percent = (disk_usage.used / disk_usage.total) * 100
+                response_data["usage"].append(
+                    {
+                        "type": "storage",
+                        "percent_used": round(storage_percent, 1),
+                        "description": description,
+                    }
+                )
+        except Exception as e:
+            response_code = 500
+            logger.error(f"Error getting system usage: {str(e)}")
 
         # check redis connection
         if current_app.config.get("REDIS_MODE"):

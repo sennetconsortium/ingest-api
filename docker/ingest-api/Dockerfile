@@ -43,7 +43,7 @@ COPY ./entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Update and install Python packages
 RUN apt-get install -y git && \
-    pip install --upgrade pip setuptools wheel uwsgi && \
+    pip install --upgrade pip setuptools wheel && \
     pip install -r ./src/requirements.txt && \
     pip install -r ./src/submodules/ingest_validation_tools/requirements.txt && \
     apt-get purge -y git && \
