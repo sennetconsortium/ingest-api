@@ -219,9 +219,10 @@ def validate_samples(headers, records, token):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(
-        Ontology.ops(as_data_dict=True, key="rui_code", val_key="term").organ_types().keys()
+        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None).organ_types().keys()
     )
-    organ_types_codes.remove("OT")
+    # Remove 'Other' organ
+    organ_types_codes.remove("UBERON:0010000")
 
     rownum = 0
     valid_ancestor_ids = []
@@ -327,7 +328,7 @@ def validate_samples(headers, records, token):
                     file_is_valid = False
                     error_msg.append(
                         ln_err(
-                            f"value must be an organ code listed at {get_organ_types_ep()} and not 'OT'",
+                            f"value must be an 'organ_uberon' code listed at {get_organ_types_ep()} and not Other ('UBERON:0010000')",
                             rownum,
                             "organ_type",
                         )
@@ -448,7 +449,14 @@ def validate_samples(headers, records, token):
                             source_types.HUMAN,
                             source_types.HUMAN_ORGANOID,
                         ]
-                        unaccepted_organ = ["AD", "BD", "BM", "BS", "BX", "MU", "OT"]
+                        unaccepted_organ = [
+                            "UBERON:0001013",
+                            "UBERON:0000178",
+                            "UBERON:0002371",
+                            "UBERON:0001474",
+                            "UBERON:0005090",
+                            "UBERON:0010000",
+                        ]
                         for ancestor in ancestors:
                             if (
                                 ancestor["entity_type"] == Entities.SOURCE
