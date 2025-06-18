@@ -63,7 +63,11 @@ def append_constraints_list(
         + ancestor_id
     )
 
-    ancestor_result = requests.get(url, headers=header).json()
+    response = requests.get(url, headers=header)
+    ancestor_result = response.json()
+    if response.ok is False:
+        raise Exception(f"{ancestor_result.get('error', f'{ancestor_result}')}")
+
     sub_type = None
     sub_type_val = None
     if equals(ancestor_entity_type, Entities.DATASET):
