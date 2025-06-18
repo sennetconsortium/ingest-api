@@ -224,7 +224,7 @@ def validate_samples(headers, records, token):
     # Remove 'Other' organ
     organ_types_codes.remove("UBERON:0010000")
 
-    rownum = 0
+    rownum = 1
     valid_ancestor_ids = []
     entity_constraint_list = []
     if file_is_valid is True:
@@ -335,7 +335,7 @@ def validate_samples(headers, records, token):
                     )
 
             # validate ancestor_id
-            ancestor_id = data_row["ancestor_id"]
+            ancestor_id = data_row["ancestor_id"].strip()
             validation_results = validate_ancestor_id(
                 header,
                 ancestor_id,
