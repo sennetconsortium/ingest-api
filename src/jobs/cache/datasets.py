@@ -453,34 +453,25 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
                         internal_dict[HEADER_ORGAN_TYPE].append(ORGAN_TYPES[organ_type]["term"])
                         break
 
-            # If the status is QA or Published then grab the 'modality' from UBKG
-            # Otherwise just return dataset_type
+            # Grab the modality from UBKG
             internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset["dataset_type"]
             internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
-                if dataset["dataset_status"] in ["QA", "Published"] and dataset["dataset_metadata"]:
-                    rules_json = calculate_assay_info(
-                        json.loads(dataset["dataset_metadata"]), is_human, get_data_from_ubkg
-                    )
+                def prop_callback(d):
+                    return d["dataset_type"]["dataset_type"]
 
-                    if "assaytype" in rules_json:
-                        desc = rules_json["description"]
-                        assay_type = rules_json["assaytype"]
+                def val_callback(d):
+                    return d["dataset_type"]["fig2"]["modality"]
 
-                        def prop_callback(d):
-                            return d["assaytype"]
+                assay_classes = Ontology.ops(
+                    prop_callback=prop_callback,
+                    val_callback=val_callback,
+                    as_data_dict=True,
+                ).assay_classes()
 
-                        def val_callback(d):
-                            return d["dataset_type"]["fig2"]["modality"]
-
-                        assay_classes = Ontology.ops(
-                            prop_callback=prop_callback,
-                            val_callback=val_callback,
-                            as_data_dict=True,
-                        ).assay_classes()
-                        if assay_type in assay_classes:
-                            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = assay_classes[assay_type]
-                            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = desc
+                if dataset["dataset_type"] in assay_classes:
+                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = assay_classes[dataset["dataset_type"]]
+                    internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset["dataset_type"]
 
             except Exception as e:
                 logger.error(e)
