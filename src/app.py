@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import logging
 import os
 
@@ -107,6 +108,20 @@ except Exception:
     msg = "Failed to initialize the ubkg module"
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
+
+
+####################################################################################################
+## Dataset Hierarchy initialization
+####################################################################################################
+
+try:
+    with open(app.config["HIERARCHY_JSON_FILE"], "r") as file:
+        app.config["DATASET_TYPE_HIERARCHY"] = json.load(file)
+except FileNotFoundError:
+    print(f"Error: The file dataset_type_hierarchy.json was not found.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+
 
 ####################################################################################################
 ## AuthHelper initialization

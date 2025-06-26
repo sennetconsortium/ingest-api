@@ -1,3 +1,5 @@
+HIERARCHY_JSON_FILE = '/usr/src/app/src/dataset_type_hierarchy.json'
+
 # Neo4j connection (default value used for docker dev environment)
 # Point to remote neo4j for testing and production deployment
 NEO4J_SERVER = 'bolt://sennet-neo4j:7687'
