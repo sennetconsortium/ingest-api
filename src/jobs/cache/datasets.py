@@ -1,5 +1,5 @@
 import collections
-import json
+from flask import current_app
 import logging
 import time
 from datetime import timedelta
@@ -456,20 +456,13 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
             internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset["dataset_type"]
             internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
-                def prop_callback(d):
-                    return d["dataset_type"]["dataset_type"]
-
-                def val_callback(d):
-                    return d["dataset_type"]["fig2"]["modality"]
-
-                assay_classes = Ontology.ops(
-                    prop_callback=prop_callback,
-                    val_callback=val_callback,
-                    as_data_dict=True,
-                ).assay_classes()
-
-                if dataset["dataset_type"] in assay_classes:
-                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = assay_classes[dataset["dataset_type"]]
+                if (
+                    "DATASET_TYPE_HIERARCHY" in current_app.config
+                    and dataset["dataset_type"] in current_app.config["DATASET_TYPE_HIERARCHY"]
+                ):
+                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = current_app.config[
+                        "DATASET_TYPE_HIERARCHY"
+                    ][dataset["dataset_type"]]
                     internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset["dataset_type"]
 
             except Exception as e:
