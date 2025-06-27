@@ -222,10 +222,16 @@ if app.config.get("REDIS_MODE"):
     schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_uploads_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_dataset_sankey_data(
-        job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=False
+        job_queue=job_queue,
+        delta=datetime.timedelta(seconds=30),
+        authorized=False,
+        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
     )
     schedule_update_dataset_sankey_data(
-        job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=True
+        job_queue=job_queue,
+        delta=datetime.timedelta(seconds=30),
+        authorized=True,
+        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
     )
 
 # For local development/testing
