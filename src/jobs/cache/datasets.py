@@ -496,4 +496,8 @@ def update_dataset_sankey_data(
             # Schedule the next cache job
             connection = get_current_connection()
             job_queue = JobQueue(connection)
-            schedule_update_dataset_sankey_data(job_queue=job_queue, authorized=authorized)
+            schedule_update_dataset_sankey_data(
+                job_queue=job_queue,
+                authorized=authorized,
+                dataset_type_hierarchy=dataset_type_hierarchy,
+            )
