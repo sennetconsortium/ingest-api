@@ -1471,6 +1471,49 @@ def submit_upload(upload_uuid):
     return Response(resp.text, resp.status_code)
 
 
+@entity_CRUD_blueprint.route("/uploads/validate", methods=["POST"])
+@require_data_admin()
+@require_json(param="uuids")
+def validate_uploads(uuids: list):
+    # validate that the uuids are a list of str and are unique
+    if not all(isinstance(uuid, str) for uuid in uuids):
+        abort_bad_req("Request body must be a list of upload UUIDs")
+    if len(set(uuids)) != len(uuids):
+        abort_bad_req("Request body must be a list of unique upload UUIDs")
+
+    # get entities from the database
+    try:
+        fields = ["uuid", "entity_type", "status"]
+        db_entities = Neo4jHelper.get_entities_by_uuid(uuids=uuids, fields=fields)
+    except Exception as e:
+        logger.error(f"Error while submitting datasets: {str(e)}")
+        abort_internal_err(str(e))
+
+    # validate that the uuids are in the database
+    bad_uuids = set(uuids) - {entity["uuid"] for entity in db_entities}
+    if bad_uuids:
+        abort_not_found(f"UUID(s) not found in the database: {', '.join(bad_uuids)}")
+
+    # validate that the entities are of type Upload
+    bad_uuids = [entity["uuid"] for entity in db_entities if entity["entity_type"] != "Upload"]
+    if bad_uuids:
+        abort_bad_req(f"UUID(s) are not Uploads: {', '.join(bad_uuids)}")
+
+    # validate that the uploads don't have a Reorganized or Processing status
+    bad_uuids = [
+        entity["uuid"]
+        for entity in db_entities
+        if entity["status"] in ["Reorganized", "Processing"]
+    ]
+    if bad_uuids:
+        abort_bad_req(f"Uploads are in Reorganized or Processing status: {', '.join(bad_uuids)}")
+
+    # TODO: Add request to the TBD AirFlow Endpoint
+
+    # return a 202 reponse with the accepted dataset uuids
+    return jsonify(uuids), 202
+
+
 # method to validate an Upload
 # saves the upload then calls the validate workflow via
 # AirFlow interface
