@@ -1,5 +1,4 @@
 import collections
-from flask import current_app
 import logging
 import time
 from datetime import timedelta
@@ -347,7 +346,10 @@ def update_datasets_datastatus(schedule_next_job=True):
 
 
 def schedule_update_dataset_sankey_data(
-    job_queue: JobQueue, delta: timedelta = timedelta(hours=1), authorized=False
+    job_queue: JobQueue,
+    delta: timedelta = timedelta(hours=1),
+    authorized=False,
+    dataset_type_hierarchy: str = None,
 ):
     job_id = uuid4()
     id_email = DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX
@@ -357,7 +359,7 @@ def schedule_update_dataset_sankey_data(
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_dataset_sankey_data,
-        job_kwargs={"authorized": authorized},
+        job_kwargs={"authorized": authorized, "dataset_type_hierarchy": dataset_type_hierarchy},
         user={"id": id_email, "email": id_email},
         description="Update datasets sankey data",
         metadata={
@@ -376,7 +378,9 @@ def schedule_update_dataset_sankey_data(
         )
 
 
-def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
+def update_dataset_sankey_data(
+    authorized=False, dataset_type_hierarchy=None, schedule_next_job=True
+):
     try:
         logger.info("Starting update datasets sankey data")
         start = time.perf_counter()
@@ -456,13 +460,10 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
             internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset["dataset_type"]
             internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
-                if (
-                    "DATASET_TYPE_HIERARCHY" in current_app.config
-                    and dataset["dataset_type"] in current_app.config["DATASET_TYPE_HIERARCHY"]
-                ):
-                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = current_app.config[
-                        "DATASET_TYPE_HIERARCHY"
-                    ][dataset["dataset_type"]]
+                if dataset_type_hierarchy and dataset["dataset_type"] in dataset_type_hierarchy:
+                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset_type_hierarchy[
+                        dataset["dataset_type"]
+                    ]
                     internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset["dataset_type"]
 
             except Exception as e:
