@@ -33,7 +33,7 @@ from jobs.cache.datasets import (
 )
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
 from jobs.modification.datasets import update_datasets_uploads
-from jobs.submission.datasets import submit_datasets
+from jobs.submission.datasets import submit_datasets_uploads
 from jobs.validation.metadata import validate_tsv
 from lib.commons import get_as_obj
 from lib.datacite_doi_helper import DataCiteDoiHelper
@@ -348,7 +348,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
-        job_func=submit_datasets,
+        job_func=submit_datasets_uploads,
         job_kwargs={
             "job_id": job_id,
             "dataset_uuids": uuids,
@@ -403,7 +403,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
-        job_func=submit_datasets,
+        job_func=submit_datasets_uploads,
         job_kwargs={
             "job_id": job_id,
             "dataset_uuids": uuids,

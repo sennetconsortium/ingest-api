@@ -473,14 +473,14 @@ class DatasetHelper:
                 return False
             return True
 
-    def create_ingest_payload(self, dataset):
-        provider = self.auth_helper_instance.getGroupDisplayName(group_uuid=dataset["group_uuid"])
+    def create_ingest_payload(self, entity):
+        provider = self.auth_helper_instance.getGroupDisplayName(group_uuid=entity["group_uuid"])
         full_path = self.ingest_helper.get_dataset_directory_absolute_path(
-            dataset, dataset["group_uuid"], dataset["uuid"]
+            entity, entity["group_uuid"], entity["uuid"]
         )
         return {
-            "submission_id": f"{dataset['uuid']}",
-            "process": "SCAN.AND.BEGIN.PROCESSING",
+            "submission_id": f"{entity['uuid']}",
+            "process": f"validate.{entity['entity_type'].lower()}",
             "full_path": full_path,
             "provider": provider,
         }
