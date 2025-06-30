@@ -315,17 +315,21 @@ def bulk_update_datasets_uploads(entities: list, token: str, user: User):
     return jsonify(list(uuids)), 202
 
 
+@entity_CRUD_blueprint.route("/datasets/validate", methods=["POST"])
 @entity_CRUD_blueprint.route("/datasets/bulk/submit", methods=["PUT"])
 @require_data_admin(param="token")
 @require_json(param="uuids")
 def submit_datasets_from_bulk(uuids: list, token: str, user: User):
-    if len(uuids) == 0:
-        abort_bad_req("A list of dataset uuids is required")
+    if (
+        len(uuids) == 0
+        or not all(isinstance(uuid, str) for uuid in uuids)
+        or len(set(uuids)) != len(uuids)
+    ):
+        abort_bad_req("A list of unique dataset uuids is required")
 
     dataset_helper = DatasetHelper(current_app.config)
-    uuids = set(uuids)
     try:
-        fields = {"uuid"}
+        fields = {"uuid", "status"}
         datasets = dataset_helper.get_datasets_by_uuid(uuids, fields)
     except Exception as e:
         logger.error(f"Error while submitting datasets: {str(e)}")
@@ -334,9 +338,13 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
     if datasets is None:
         abort_not_found("No datasets found with any of the provided uuids")
 
-    diff = uuids.difference({dataset["uuid"] for dataset in datasets})
+    diff = set(uuids).difference({ds["uuid"] for ds in datasets})
     if len(diff) > 0:
         abort_not_found(f"No datasets found with the following uuids: {', '.join(diff)}")
+
+    bad_uuids = [ds["uuid"] for ds in datasets if ds["status"] in ["Published", "Processing"]]
+    if bad_uuids:
+        abort_bad_req(f"Datasets are in Published or Processing status: {', '.join(bad_uuids)}")
 
     job_queue = JobQueue.instance()
     job_id = uuid4()
@@ -345,7 +353,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
         job_func=submit_datasets,
         job_kwargs={
             "job_id": job_id,
-            "dataset_uuids": list(uuids),
+            "dataset_uuids": uuids,
             "token": token,
         },
         user={"id": user.uuid, "email": user.email},
@@ -1470,47 +1478,6 @@ def submit_upload(upload_uuid):
     #    return Response(resp.text, resp.status_code)
 
     return Response(resp.text, resp.status_code)
-
-
-@entity_CRUD_blueprint.route("/datasets/validate", methods=["POST"])
-@require_data_admin()
-@require_json(param="uuids")
-def validate_datasets(uuids: list):
-    # validate that the uuids are a list of str and are unique
-    if not all(isinstance(uuid, str) for uuid in uuids):
-        abort_bad_req("Request body must be a list of dataset UUIDs")
-    if len(set(uuids)) != len(uuids):
-        abort_bad_req("Request body must be a list of unique dataset UUIDs")
-
-    # get entities from the database
-    try:
-        fields = ["uuid", "entity_type", "status"]
-        db_entities = Neo4jHelper.get_entities_by_uuid(uuids=uuids, fields=fields)
-    except Exception as e:
-        logger.error(f"Error while submitting datasets: {str(e)}")
-        abort_internal_err(str(e))
-
-    # validate that the uuids are in the database
-    bad_uuids = set(uuids) - {entity["uuid"] for entity in db_entities}
-    if bad_uuids:
-        abort_not_found(f"UUID(s) not found in the database: {', '.join(bad_uuids)}")
-
-    # validate that the entities are of type Dataset
-    bad_uuids = [entity["uuid"] for entity in db_entities if entity["entity_type"] != "Dataset"]
-    if bad_uuids:
-        abort_bad_req(f"UUID(s) are not Dataset: {', '.join(bad_uuids)}")
-
-    # validate that the datasets don't have a Published or Processing status
-    bad_uuids = [
-        entity["uuid"] for entity in db_entities if entity["status"] in ["Published", "Processing"]
-    ]
-    if bad_uuids:
-        abort_bad_req(f"Datasets are in Published or Processing status: {', '.join(bad_uuids)}")
-
-    # TODO: Add request to the TBD AirFlow Endpoint
-
-    # return a 202 reponse with the accepted dataset uuids
-    return jsonify(uuids), 202
 
 
 @entity_CRUD_blueprint.route("/uploads/validate", methods=["POST"])
