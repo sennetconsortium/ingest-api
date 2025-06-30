@@ -65,6 +65,10 @@ def submit_datasets_uploads(
         ensureTrailingSlashURL(config["INGEST_PIPELINE_URL"]) + "request_bulk_ingest"
     )
     try:
+        logger.debug(
+            f"Submitting datasets/uploads to ingest-pipeline: {ingest_pipline_url} with "
+            f"request body: {ingest_payload}"
+        )
         ingest_res = requests.post(
             ingest_pipline_url,
             json=ingest_payload,
