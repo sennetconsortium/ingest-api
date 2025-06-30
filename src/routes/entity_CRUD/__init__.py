@@ -1533,62 +1533,6 @@ def submit_upload(upload_uuid):
     return Response(resp.text, resp.status_code)
 
 
-# method to validate an Upload
-# saves the upload then calls the validate workflow via
-# AirFlow interface
-@entity_CRUD_blueprint.route("/uploads/<upload_uuid>/validate", methods=["PUT"])
-def validate_upload(upload_uuid):
-    start_time = time.time()
-    if not request.is_json:
-        return Response("json request required", 400)
-
-    upload_changes = request.json
-
-    # get auth info to use in other calls
-    # add the app specific header info
-    http_headers = {
-        "Authorization": request.headers["AUTHORIZATION"],
-        "Content-Type": "application/json",
-        "X-SenNet-Application": "ingest-api",
-    }
-
-    # update the Upload with any changes from the request
-    # and change the status to "Processing", the validate
-    # pipeline will update the status when finished
-
-    # run the pipeline validation
-    upload_changes["status"] = "Processing"
-    update_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + upload_uuid
-        + "?return_dict=true"
-    )
-    # Disable ssl certificate verification
-    resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
-    if resp.status_code >= 300:
-        return Response(resp.text, resp.status_code)
-    logger.debug("--- %s seconds to update Entity API ---" % (time.time() - start_time))
-
-    # disable validations stuff for now...
-    # call the AirFlow validation workflow
-    validate_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["INGEST_PIPELINE_URL"])
-        + "uploads/"
-        + upload_uuid
-        + "/validate"
-    )
-    # Disable ssl certificate verification
-    resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
-    if resp2.status_code >= 300:
-        return Response(resp2.text, resp2.status_code)
-    logger.debug(
-        "--- %s seconds to send validate request to Airflow ---" % (time.time() - start_time)
-    )
-
-    return Response(resp.text, resp.status_code)
-
-
 # method to reorganize an Upload
 # saves the upload then calls the reorganize workflow via
 # AirFlow interface
