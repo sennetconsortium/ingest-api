@@ -351,8 +351,9 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
         job_func=submit_datasets_uploads,
         job_kwargs={
             "job_id": job_id,
-            "dataset_uuids": uuids,
+            "entity_uuids": uuids,
             "token": token,
+            "entity_type": Ontology.ops().entities().UPLOAD,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
@@ -406,8 +407,9 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
         job_func=submit_datasets_uploads,
         job_kwargs={
             "job_id": job_id,
-            "dataset_uuids": uuids,
+            "entity_uuids": uuids,
             "token": token,
+            "entity_type": Ontology.ops().entities().DATASET,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
