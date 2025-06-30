@@ -1,29 +1,47 @@
 import logging
+from typing import Literal
 
 import requests
+from atlas_consortia_commons.string import equals
 from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
 from jobs import JobResult
 from lib.dataset_helper import DatasetHelper
+from lib.ontology import Ontology
 from lib.services import bulk_update_entities
 
 logger = logging.getLogger(__name__)
 
 
-def submit_datasets_uploads(job_id: str, entity_uuids: list, token: str):
+def submit_datasets_uploads(
+    job_id: str,
+    entity_uuids: list,
+    token: str,
+    entity_type: Literal["Dataset", "Upload"] = "Dataset",
+):
     config = current_app.config
 
     # change the status of the datasets/uploads to Processing using entity-api
-    update_payload = {
-        uuid: {
-            "status": "Processing",
-            "ingest_id": "",
-            "run_id": "",
-            "pipeline_message": "",
+    Ontology.ops().entities().DATASET,
+    if equals(entity_type, Ontology.ops().entities().DATASET):
+        update_payload = {
+            uuid: {
+                "status": "Processing",
+                "ingest_id": "",
+                "run_id": "",
+                "pipeline_message": "",
+            }
+            for uuid in entity_uuids
         }
-        for uuid in entity_uuids
-    }
+    else:
+        update_payload = {
+            uuid: {
+                "status": "Processing",
+                "validation_message": "",
+            }
+            for uuid in entity_uuids
+        }
     update_status_res = bulk_update_entities(update_payload, token)
 
     # get the datasets/uploads that were successfully updated, log the ones that failed
@@ -100,17 +118,23 @@ def submit_datasets_uploads(job_id: str, entity_uuids: list, token: str):
         }
 
         if ingest_res.status_code == 400:
-            entity_map = {entity["uuid"]: entity["entity_type"] for entity in processing_entities}
-            for e in pipeline_result.get("error", []):
-                error_payload = {"status": "Error"}
-
-                uuid = e["submission_id"]
-                if entity_map.get(uuid) == "Dataset":
-                    error_payload["pipeline_message"] = e["message"]
-                else:
-                    error_payload["validation_message"] = e["message"]
-
-                update_payload[uuid] = error_payload
+            if equals(entity_type, Ontology.ops().entities().DATASET):
+                error_payload = {
+                    e["submission_id"]: {
+                        "status": "Error",
+                        "pipeline_message": e["message"],
+                    }
+                    for e in pipeline_result.get("error", [])
+                }
+            else:
+                error_payload = {
+                    e["submission_id"]: {
+                        "status": "Error",
+                        "validation_message": e["message"],
+                    }
+                    for e in pipeline_result.get("error", [])
+                }
+            update_payload.update(error_payload)
 
         update_res = bulk_update_entities(update_payload, token)
 
