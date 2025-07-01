@@ -38,6 +38,8 @@ def submit_datasets_uploads(
         update_payload = {
             uuid: {
                 "status": "Processing",
+                "ingest_id": "",
+                "run_id": "",
                 "validation_message": "",
             }
             for uuid in entity_uuids
