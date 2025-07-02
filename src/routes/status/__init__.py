@@ -39,7 +39,11 @@ def get_status():
         # Usage
         try:
             # get memory usage
-            memory_percent = psutil.virtual_memory().percent
+            memory_percent = (
+                100
+                * (psutil.virtual_memory().total - psutil.virtual_memory().free)
+                / psutil.virtual_memory().total
+            )
             response_data["usage"].append(
                 {
                     "type": "memory",
