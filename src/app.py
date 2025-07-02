@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import logging
 import os
 
@@ -108,6 +109,21 @@ except Exception:
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 
+
+####################################################################################################
+## Dataset Hierarchy initialization
+####################################################################################################
+
+try:
+    with open(app.config["HIERARCHY_JSON_FILE"], "r") as file:
+        app.config["DATASET_TYPE_HIERARCHY"] = json.load(file)
+        logger.info("Initialized DATASET_TYPE_HIERARCHY file successfully :)")
+except FileNotFoundError:
+    print(f"Error: The file dataset_type_hierarchy.json was not found.")
+except Exception as e:
+    print(f"An unexpected error occurred: {e}")
+
+
 ####################################################################################################
 ## AuthHelper initialization
 ####################################################################################################
@@ -206,10 +222,16 @@ if app.config.get("REDIS_MODE"):
     schedule_update_datasets_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_uploads_datastatus(job_queue, delta=datetime.timedelta(seconds=30))
     schedule_update_dataset_sankey_data(
-        job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=False
+        job_queue=job_queue,
+        delta=datetime.timedelta(seconds=30),
+        authorized=False,
+        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
     )
     schedule_update_dataset_sankey_data(
-        job_queue=job_queue, delta=datetime.timedelta(seconds=30), authorized=True
+        job_queue=job_queue,
+        delta=datetime.timedelta(seconds=30),
+        authorized=True,
+        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
     )
 
 # For local development/testing

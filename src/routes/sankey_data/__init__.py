@@ -31,7 +31,11 @@ def get_ds_assaytype():
 
     if current_app.config.get("REDIS_MODE") is False:
         try:
-            results = update_dataset_sankey_data(authorized, schedule_next_job=False)
+            results = update_dataset_sankey_data(
+                authorized,
+                dataset_type_hierarchy=current_app.config["DATASET_TYPE_HIERARCHY"],
+                schedule_next_job=False,
+            )
             return jsonify(results.results)
         except Exception:
             abort_internal_err("Failed to retrieve datasets sankey data.")

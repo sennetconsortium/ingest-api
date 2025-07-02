@@ -1,5 +1,4 @@
 import collections
-import json
 import logging
 import time
 from datetime import timedelta
@@ -347,7 +346,10 @@ def update_datasets_datastatus(schedule_next_job=True):
 
 
 def schedule_update_dataset_sankey_data(
-    job_queue: JobQueue, delta: timedelta = timedelta(hours=1), authorized=False
+    job_queue: JobQueue,
+    delta: timedelta = timedelta(hours=1),
+    authorized=False,
+    dataset_type_hierarchy: str = None,
 ):
     job_id = uuid4()
     id_email = DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX
@@ -357,7 +359,7 @@ def schedule_update_dataset_sankey_data(
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_dataset_sankey_data,
-        job_kwargs={"authorized": authorized},
+        job_kwargs={"authorized": authorized, "dataset_type_hierarchy": dataset_type_hierarchy},
         user={"id": id_email, "email": id_email},
         description="Update datasets sankey data",
         metadata={
@@ -376,7 +378,9 @@ def schedule_update_dataset_sankey_data(
         )
 
 
-def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
+def update_dataset_sankey_data(
+    authorized=False, dataset_type_hierarchy=None, schedule_next_job=True
+):
     try:
         logger.info("Starting update datasets sankey data")
         start = time.perf_counter()
@@ -452,34 +456,15 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
                         internal_dict[HEADER_ORGAN_TYPE].append(ORGAN_TYPES[organ_type]["term"])
                         break
 
-            # If the status is QA or Published then grab the 'modality' from UBKG
-            # Otherwise just return dataset_type
+            # Grab the modality from UBKG
             internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset["dataset_type"]
             internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
-                if dataset["dataset_status"] in ["QA", "Published"] and dataset["dataset_metadata"]:
-                    rules_json = calculate_assay_info(
-                        json.loads(dataset["dataset_metadata"]), is_human, get_data_from_ubkg
-                    )
-
-                    if "assaytype" in rules_json:
-                        desc = rules_json["description"]
-                        assay_type = rules_json["assaytype"]
-
-                        def prop_callback(d):
-                            return d["assaytype"]
-
-                        def val_callback(d):
-                            return d["dataset_type"]["fig2"]["modality"]
-
-                        assay_classes = Ontology.ops(
-                            prop_callback=prop_callback,
-                            val_callback=val_callback,
-                            as_data_dict=True,
-                        ).assay_classes()
-                        if assay_type in assay_classes:
-                            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = assay_classes[assay_type]
-                            internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = desc
+                if dataset_type_hierarchy and dataset["dataset_type"] in dataset_type_hierarchy:
+                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset_type_hierarchy[
+                        dataset["dataset_type"]
+                    ]
+                    internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset["dataset_type"]
 
             except Exception as e:
                 logger.error(e)
@@ -511,4 +496,8 @@ def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
             # Schedule the next cache job
             connection = get_current_connection()
             job_queue = JobQueue(connection)
-            schedule_update_dataset_sankey_data(job_queue=job_queue, authorized=authorized)
+            schedule_update_dataset_sankey_data(
+                job_queue=job_queue,
+                authorized=authorized,
+                dataset_type_hierarchy=dataset_type_hierarchy,
+            )
