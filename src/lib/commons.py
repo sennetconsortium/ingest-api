@@ -37,3 +37,10 @@ def get_as_obj(data_str):
                 )
     # Skip any non-string data types, or a string literal that is not list or dict after evaluation
     return data_str
+
+
+def obj_trim(obj, key):
+    if key in obj:
+        obj[key] = obj[key].strip()
+
+    return obj.get(key)

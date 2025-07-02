@@ -11,6 +11,7 @@ from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.file_helper import ensureTrailingSlashURL
 
 from jobs import JobResult, JobSubject, update_job_progress
+from lib.commons import obj_trim
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.entities import (
     append_constraints_list,
@@ -152,7 +153,7 @@ def validate_sources(headers, records):
                 error_msg.append(ln_err("must have 1 or more characters", rownum, "lab_id"))
 
             # validate selection_protocol
-            protocol = data_row["selection_protocol"]
+            protocol = obj_trim(data_row, "selection_protocol")
             doi_helper = DataCiteDoiHelper()
             if doi_helper.is_invalid_doi(protocol):
                 file_is_valid = False
@@ -165,7 +166,8 @@ def validate_sources(headers, records):
                 )
 
             # validate source_type
-            if data_row["source_type"].lower() not in allowed_source_types:
+            source_type = obj_trim(data_row, "source_type")
+            if source_type.lower() not in allowed_source_types:
                 file_is_valid = False
                 error_msg.append(
                     ln_err(
@@ -256,7 +258,7 @@ def validate_samples(headers, records, token):
                 )
 
             # validate preparation_protocol
-            protocol = data_row["preparation_protocol"]
+            protocol = obj_trim(data_row, "preparation_protocol")
             doi_helper = DataCiteDoiHelper()
             if doi_helper.is_invalid_doi(protocol):
                 file_is_valid = False
@@ -288,7 +290,7 @@ def validate_samples(headers, records, token):
 
             # validate sample_category
             valid_category = True
-            sample_category = data_row["sample_category"]
+            sample_category = obj_trim(data_row, "sample_category")
             if sample_category.lower() not in allowed_categories:
                 file_is_valid = False
                 valid_category = False
@@ -301,7 +303,7 @@ def validate_samples(headers, records, token):
                 )
 
             # validate organ_type
-            data_row["organ_type"] = data_row["organ_type"].upper()
+            data_row["organ_type"] = obj_trim(data_row, "organ_type").upper()
             organ_type = data_row["organ_type"]
             if not equals(sample_category, SpecimenCategories.ORGAN):
                 if len(organ_type) > 0:
@@ -335,7 +337,7 @@ def validate_samples(headers, records, token):
                     )
 
             # validate ancestor_id
-            ancestor_id = data_row["ancestor_id"].strip()
+            ancestor_id = obj_trim(data_row, "ancestor_id")
             validation_results = validate_ancestor_id(
                 header,
                 ancestor_id,
