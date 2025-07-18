@@ -12,8 +12,14 @@ EXPOSE 5000 8080
 
 USER root
 
-# Copy from host to image
-COPY .. .
+RUN mkdir -p src
+
+COPY ../src/api/ src/api/
+COPY ../src/jobs/ src/jobs/
+COPY ../src/lib/ src/lib/
+COPY ../src/submodules/ src/submodules/
+COPY ../src/requirements.txt src/requirements.txt
+COPY ../src/worker.py src/worker.py
 
 # Update outdated packages and install Python packages
 RUN apt-get update -y && \

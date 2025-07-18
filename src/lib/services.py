@@ -14,7 +14,6 @@ from hubmap_sdk.sdk_helper import make_entity
 from requests.adapters import HTTPAdapter, Retry
 
 from lib.entities.source import Source
-from routes.auth import get_auth_header_dict
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +24,10 @@ def get_token() -> Optional[str]:
     if not isinstance(token, str):
         token = None
     return token
+
+
+def get_auth_header_dict(token: str) -> dict:
+    return {"Authorization": "Bearer " + token, "X-SenNet-Application": "ingest-api"}
 
 
 def get_entity_by_id(identifier, token=None):
