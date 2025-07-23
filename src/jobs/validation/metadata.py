@@ -23,7 +23,7 @@ from ingest_validation_tools import validation_utils as iv_utils
 from jobs import JobResult, JobSubject, update_job_progress
 from lib.file import get_csv_records, ln_err, set_file_details
 from lib.ontology import Ontology
-from routes.auth import get_auth_header_dict
+from lib.services import get_auth_header_dict
 
 logger = logging.getLogger(__name__)
 

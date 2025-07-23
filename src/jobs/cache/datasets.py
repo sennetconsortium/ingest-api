@@ -20,7 +20,6 @@ from lib import get_globus_url
 from lib.file import files_exist
 from lib.neo4j_helper import Neo4jHelper
 from lib.ontology import Ontology
-from lib.rule_chain import calculate_assay_info, get_data_from_ubkg
 
 logger = logging.getLogger(__name__)
 

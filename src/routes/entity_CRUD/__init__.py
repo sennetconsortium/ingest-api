@@ -45,10 +45,12 @@ from lib.ingest_file_helper import IngestFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_uuids
-from lib.services import entity_json_dumps, get_entity_by_id, obj_to_dict
-
-# Local modules
-from routes.auth import get_auth_header_dict
+from lib.services import (
+    entity_json_dumps,
+    get_auth_header_dict,
+    get_entity_by_id,
+    obj_to_dict,
+)
 
 entity_CRUD_blueprint = Blueprint("entity_CRUD", __name__)
 logger = logging.getLogger(__name__)

@@ -116,6 +116,10 @@ cd docker
 
 The documentation for the API calls is hosted on SmartAPI.  Modifying the `ingest-api-spec.yaml` file and commititng the changes to github should update the API shown on SmartAPI.  SmartAPI allows users to register API documents.  The documentation is associated with this github account: api-developers@sennetconsortium.org. 
 
+### RQ Workers
+
+Ingest API utilizes [RQ](https://python-rq.org/) for queueing and processing long-running jobs. All jobs should be placed in the `src/jobs` package. Jobs should NOT import code from any packages inside `src/routes`, as `src/routes` is not included in the RQ Worker Docker containers. Functions and other code shared by Ingest API and the RQ Workers should be placed in the `src/lib` package.
+
 ## Formatting
 
 Python code in this repository uses [black](https://black.readthedocs.io/en/stable/) for formatting. This development dependency can be installed using `pip install -r src/requirements.dev.txt`. Black provides integration for various IDEs, such as [PyCharm](https://black.readthedocs.io/en/stable/integrations/editors.html#pycharm-intellij-idea) and [VSCode](https://black.readthedocs.io/en/stable/integrations/editors.html#visual-studio-code). Black can also be used in the terminal using the following commands.

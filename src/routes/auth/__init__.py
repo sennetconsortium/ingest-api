@@ -19,6 +19,8 @@ from globus_sdk import (
 )
 from hubmap_commons.hm_auth import AuthHelper
 
+from lib.services import get_auth_header_dict
+
 auth_blueprint = Blueprint("auth", __name__)
 logger = logging.getLogger(__name__)
 
@@ -62,10 +64,6 @@ def data_ingest_logout():
 def get_user_info(token):
     auth_client = AuthClient(authorizer=AccessTokenAuthorizer(token))
     return auth_client.oauth2_userinfo()
-
-
-def get_auth_header_dict(token) -> dict:
-    return {"Authorization": "Bearer " + token, "X-SenNet-Application": "ingest-api"}
 
 
 def get_auth_header() -> dict:
