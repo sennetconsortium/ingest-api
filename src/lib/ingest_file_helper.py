@@ -111,7 +111,7 @@ class IngestFileHelper:
             endpoint_id = self.appconfig["GLOBUS_PUBLIC_ENDPOINT_UUID"]
             rel_path = str(
                 os.path.join(
-                    "", dataset_uuid
+                    "/", dataset_uuid
                 )
             )
         else:
