@@ -472,7 +472,7 @@
     {
         "type": "match",
         "match": "is_dcwg and is_primary and dataset_type == 'Visium (with probes)'",
-        "value": "{'ubkg_code': 'C200750', 'assaytype': 'visium-with-probes', 'vitessce-hints': [], 'dir-schema': 'visium-with-probes-v3', 'description': 'Visium (with probes)', 'contains-pii': true, 'primary': true, 'dataset-type': 'Visium (with probes)', 'must-contain': ['Histology','RNAseq (with probes)'], 'is-multi-assay': true}",
+        "value": "{'ubkg_code': 'C200750', 'assaytype': 'visium-with-probes', 'vitessce-hints': [], 'dir-schema': 'visium-with-probes-v3', 'description': 'Visium (with probes)', 'contains-pii': false, 'primary': true, 'dataset-type': 'Visium (with probes)', 'must-contain': ['Histology','RNAseq (with probes)'], 'is-multi-assay': true}",
         "rule_description": "DCWG visium-with-probes"
     },
     {
@@ -747,14 +747,14 @@
     },
     {
         "type": "match",
-        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 64 rxns; PN 1000456', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 16 rxns; PN 1000420', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA, Mouse Transcriptome Probe Kit, 64 rxns; PN 1000492'] and assay_input_entity == 'single cell' and barcode_read =~~ 'Read 1' and barcode_size == 16 and barcode_offset == 0 and umi_read =~~ 'Read 1' and umi_size == 12 and umi_offset == 16",
+        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 64 rxns; PN 1000456', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 16 rxns; PN 1000420', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA, Mouse Transcriptome Probe Kit, 64 rxns; PN 1000492', '10x Genomics; Chromium Fixed RNA Kit, Human Transcriptome 4 rxns x 1 BC; PN 1000474'] and assay_input_entity == 'single cell' and barcode_read =~~ 'Read 1' and barcode_size == 16 and barcode_offset == 0 and umi_read =~~ 'Read 1' and umi_size == 12 and umi_offset == 16",
         "value": "{'ubkg_code': 'C202040', 'assaytype': 'scRNAseq-with-probes', 'vitessce-hints': [], 'dir-schema': 'rnaseq-with-probes-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'RNAseq (with probes)', 'description': 'RNAseq (with probes)'}",
         "rule_description": "DCWG scRNAseq-with-probes"
     },
     {
         "type": "match",
         "match": "is_dcwg and is_primary and dataset_type == 'Xenium' and oligo_probe_panel in ['10x Genomics; Xenium Human Multi-Tissue and Cancer Panel v1; PN 1000626', '10x Genomics; Xenium Prime 5K Human Pan Tissue & Pathways Panel; PN 1000724', 'Custom']",
-        "value": "{'ubkg_code': 'C202050', 'assaytype': 'xenium', 'vitessce-hints': [], 'dir-schema': 'xenium-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'Xenium', 'description': 'Xenium'}",
+        "value": "{'ubkg_code': 'C202050', 'assaytype': 'xenium', 'vitessce-hints': [], 'dir-schema': 'xenium-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'Xenium', 'description': 'Xenium'}",
         "rule_description": "DCWG xenium"
     },
     {
@@ -778,7 +778,7 @@
     {
         "type": "match",
         "match": "is_dcwg and is_primary and dataset_type == 'DBiT-seq'",
-        "value": "{'ubkg_code': 'C202090', 'assaytype': 'dbit-seq', 'vitessce-hints': [], 'dir-schema': 'dbit-seq-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'DBiT-seq', 'description': 'DBiT-seq'}",
+        "value": "{'ubkg_code': 'C202090', 'assaytype': 'dbit-seq', 'vitessce-hints': [], 'dir-schema': 'dbit-seq-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'DBiT-seq', 'description': 'DBiT-seq'}",
         "rule_description": "DCWG DBiT-seq"
     },
     {
@@ -795,15 +795,51 @@
     },
     {
         "type": "match",
-        "match": "is_dcwg and is_primary and dataset_type == 'CosMx' and oligo_probe_panel in ['NanoString Technologies; CosMx Human Universal Cell Characterization Panel (RNA, 1000 Plex); PN CMX-H-USCP-1KP-R']",
-        "value": "{'ubkg_code': 'C202120', 'assaytype': 'cosmx', 'vitessce-hints': [], 'dir-schema': 'cosmx-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'CosMx', 'description': 'CosMx'}",
-        "rule_description": "DCWG CosMx"
+        "match": "is_dcwg and is_primary and dataset_type == 'CosMx Transcriptomics' and oligo_probe_panel in ['NanoString Technologies; CosMx Human Universal Cell Characterization Panel (RNA, 1000 Plex); PN CMX-H-USCP-1KP-R']",
+        "value": "{'ubkg_code': 'C202120', 'assaytype': 'cosmx_transcriptomics', 'vitessce-hints': [], 'dir-schema': 'cosmx-transcriptomics-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'CosMx Transcriptomics', 'description': 'CosMx Transcriptomics'}",
+        "rule_description": "DCWG CosMx Transcriptomics"
     },
     {
-      "type": "match",
-      "match": "is_central_processed and data_types[0] in ['visium_with_probes']",
-      "value": "{'ubkg_code': 'C202130', 'assaytype': 'visium-with-probes', 'vitessce-hints': ['rna', 'is_image', 'anndata', 'spatial'], 'description': 'Visium (with probes) [Salmon + Scanpy]', 'contains-pii': false, 'primary': false, 'pipeline-shorthand': 'Salmon + Scanpy'}",
-      "rule_description": "derived visium-with-probes"
+        "type": "match",
+        "match": "is_central_processed and data_types[0] in ['visium_with_probes']",
+        "value": "{'ubkg_code': 'C202130', 'assaytype': 'visium-with-probes', 'vitessce-hints': ['rna', 'is_image', 'anndata', 'spatial'], 'description': 'Visium (with probes) [Salmon + Scanpy]', 'contains-pii': false, 'primary': false, 'pipeline-shorthand': 'Salmon + Scanpy'}",
+        "rule_description": "derived visium-with-probes"
+    },
+    {
+        "type": "match",
+        "match": "is_dcwg and is_primary and dataset_type == 'Stereo-seq'",
+        "value": "{'ubkg_code': 'C202140', 'assaytype': 'stereo-seq', 'vitessce-hints': [], 'dir-schema': 'stereo-seq-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'Stereo-seq', 'description': 'Stereo-seq'}",
+        "rule_description": "DCWG Stereo-seq"
+    },
+    {
+        "type": "match",
+        "match": "is_dcwg and is_primary and dataset_type == 'CosMx Proteomics'",
+        "value": "{'ubkg_code': 'C202150', 'assaytype': 'cosmx_proteomics', 'vitessce-hints': [], 'dir-schema': 'cosmx-proteomics-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'CosMx Proteomics', 'description': 'CosMx Proteomics'}",
+        "rule_description": "DCWG CosMx Proteomics"
+    },
+    {
+        "type": "match",
+        "match": "is_dcwg and is_primary and dataset_type == 'FACS'",
+        "value": "{'ubkg_code': 'C202160', 'assaytype': 'FACS', 'vitessce-hints': [], 'dir-schema': 'facs-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'FACS', 'description': 'FACS'}",
+        "rule_description": "DCWG FACS"
+    },
+     {
+         "type": "match",
+         "match": "is_central_processed and data_types[0] in ['xenium']",
+         "value": "{'ubkg_code': 'C202170', 'assaytype': 'xenium', 'vitessce-hints': ['xenium', 'is_image'], 'description': 'Xenium [SpatialData + Scanpy]', 'contains-pii': false, 'primary': false, 'pipeline-shorthand': 'SpatialData + Scanpy'}",
+         "rule_description": "derived xenium"
+    },
+    {
+        "type": "match",
+        "match": "is_dcwg and is_primary and dataset_type == 'Olink'",
+        "value": "{'ubkg_code': 'C202180', 'assaytype': 'olink', 'vitessce-hints': [], 'dir-schema': 'olink-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'Olink', 'description': 'Olink'}",
+        "rule_description": "DCWG Olink"
+    },
+    {
+        "type": "match",
+        "match": "is_dcwg and is_primary and dataset_type == 'SeqScope'",
+        "value": "{'ubkg_code': 'C202190', 'assaytype': 'seqscope', 'vitessce-hints': [], 'dir-schema': 'seq-scope-v2', 'contains-pii': false, 'primary': true, 'dataset-type': 'SeqScope', 'description': 'SeqScope'}",
+        "rule_description": "DCWG SeqScope"
     }
   ],
 "pre":
