@@ -132,6 +132,30 @@ class UploadFileHelper:
 
         return True
 
+    def __generate_checksums(self, file_path: str) -> tuple[str, str]:
+        """
+        Generate MD5 and SHA256 checksums for a file.
+
+        Parameters:
+        -----------
+        file_path : str
+            The full path to the file.
+
+        Returns:
+        --------
+        tuple[str, str]
+            A tuple containing the MD5 and SHA256 checksums of the file.
+        """
+        md5 = hashlib.md5()
+        sha256 = hashlib.sha256()
+        read_size = 65536
+        with open(file_path, "rb") as f:
+            while chunk := f.read(read_size):
+                md5.update(chunk)
+                sha256.update(chunk)
+
+        return md5.hexdigest(), sha256.hexdigest()
+
     def commit_file(self, temp_file_id, entity_uuid, user_token):
         logger.debug(temp_file_id)
 
@@ -158,7 +182,7 @@ class UploadFileHelper:
         file_to_dir = self.upload_dir + entity_uuid + os.sep
 
         # get a uuid for the file
-        checksum = hashlib.md5(open(file_from_path, "rb").read()).hexdigest()
+        md5_checksum, sha256_checksum = self.__generate_checksums(file_from_path)
         filesize = os.path.getsize(file_from_path)
         headers = {"Authorization": "Bearer " + user_token, "Content-Type": "application/json"}
         data = {}
@@ -166,7 +190,8 @@ class UploadFileHelper:
         data["parent_ids"] = [entity_uuid]
         file_info = {}
         file_info["path"] = file_to_dir + "<uuid>" + os.sep + temp_file_name
-        file_info["checksum"] = checksum
+        file_info["md5_checksum"] = md5_checksum
+        file_info["sha256_checksum"] = sha256_checksum
         file_info["base_dir"] = "INGEST_PORTAL_UPLOAD"
         file_info["size"] = filesize
         data["file_info"] = [file_info]
