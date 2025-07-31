@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   description: |
     A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
-  version: 1.8.3
+  version: 1.8.4
   title: SenNet Ingest API
   contact:
     name: SenNet Help Desk
@@ -13,7 +13,7 @@ info:
 servers:
   - url: 'https://ingest.api.sennetconsortium.org'
 security:
-  - BearerAuth: []
+  - BearerAuth: [ ]
 components:
   securitySchemes:
     BearerAuth:
@@ -377,7 +377,7 @@ paths:
     post:
       tags:
         - files
-      summary: "Upload a file to temporarily stage. On success the file will be staged and a temporary ID will be returned to reference the staged file. The temporary ID can be used in the `/file-commit` endpoint for Sources and Samples to commit the file permanantly and associate it with an Entity." 
+      summary: "Upload a file to temporarily stage. On success the file will be staged and a temporary ID will be returned to reference the staged file. The temporary ID can be used in the `/file-commit` endpoint for Sources and Samples to commit the file permanantly and associate it with an Entity."
       requestBody:
         content:
           multipart/form-data:
@@ -410,7 +410,7 @@ paths:
     post:
       tags:
         - files
-      summary: "File commit triggered by the Entity API trigger method for Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file. This call also creates the symbolic link from the file UUID directory under the uploads assets directory, so the uploaded files can be exposed via Globus's file assets service." 
+      summary: "File commit triggered by the Entity API trigger method for Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file. This call also creates the symbolic link from the file UUID directory under the uploads assets directory, so the uploaded files can be exposed via Globus's file assets service."
       requestBody:
         content:
           application/json:
@@ -446,7 +446,7 @@ paths:
     post:
       tags:
         - files
-      summary: "File removal triggered by Entity API trigger method for Source and Sample during Entity update. Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file." 
+      summary: "File removal triggered by Entity API trigger method for Source and Sample during Entity update. Source/Sample/Dataset. Source: image files. Sample: image files and metadata files. Dataset: only the one thumbnail file."
       requestBody:
         content:
           application/json:
@@ -517,7 +517,7 @@ paths:
           content:
             application/json:
               schema:
-                  $ref: "#/components/schemas/JobCreated"
+                $ref: "#/components/schemas/JobCreated"
         "400":
           description: One or more required fields are missing or invalid.
           content:
@@ -567,7 +567,7 @@ paths:
           content:
             application/json:
               schema:
-                  $ref: "#/components/schemas/JobCreated"
+                $ref: "#/components/schemas/JobCreated"
         "400":
           description: One or more required fields are missing or invalid.
           content:
@@ -611,6 +611,13 @@ paths:
       tags:
         - metadata
       summary: Returns the full provenance metadata for the provided dataset and all of its ancestors.
+      parameters:
+        - name: identifier
+          in: path
+          description: The unique identifier of Dataset. This identifier needs to be a valid SenNet ID.
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           description: The JSON containing full provenance metadata
@@ -797,6 +804,29 @@ paths:
         "500":
           description: An unexpected error occured
 
+  /datasets/validate:
+    post:
+      tags:
+        - uploads
+      summary: Validate upload(s).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/entity_uuid'
+      operationId: validateDataset
+      responses:
+        "200":
+          description: Successful operation
+        "400":
+          description: There was a system error or an error in the data submitted
+        "401":
+          description: User's token is not valid
+        "500":
+          description: An unexpected error occurred
+
   /datasets/sankey_data:
     get:
       tags:
@@ -818,6 +848,8 @@ paths:
                     description: The source type of the source associated with this dataset in the provenance chain
                   organ_type:
                     type: array
+                    items:
+                      type: string
                     description: The organ type of the organ(s) associated with this dataset in the provenance chain
                   dataset_type_hierarchy:
                     type: string
@@ -831,19 +863,19 @@ paths:
         '500':
           description: Internal error
 
-  /uploads/{identifier}/validate:
-    put:
+  /uploads/validate:
+    post:
       tags:
         - uploads
-      summary: Validate an upload.
+      summary: Validate upload(s).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/entity_uuid'
       operationId: validateUpload
-      parameters:
-        - name: identifier
-          in: path
-          description: The unique identifier of Upload. This identifier needs to be a valid SenNet ID.
-          required: true
-          schema:
-            type: string
       responses:
         "200":
           description: Successful operation
@@ -852,7 +884,7 @@ paths:
         "401":
           description: User's token is not valid
         "500":
-          description: An unexpected error occured
+          description: An unexpected error occurred
 
   /uploads/{identifier}/reorganize:
     put:
@@ -912,7 +944,7 @@ paths:
           description: The UUID of a Dataset
           required: true
           schema:
-             type: string
+            type: string
       responses:
         "200":
           description: successful operation
@@ -958,9 +990,9 @@ paths:
       operationId: getAssaytypeFromMetadata
       requestBody:
         content:
-           application/json:
-             schema:
-               $ref: '#/components/schemas/Metadata'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Metadata'
       responses:
         "200":
           description: successful operation
