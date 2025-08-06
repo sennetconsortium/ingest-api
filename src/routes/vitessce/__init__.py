@@ -117,6 +117,30 @@ def get_vitessce_config(ds_uuid: str):
         return Response(f"Unexpected error while retrieving entity {ds_uuid}: " + str(e), 500)
 
 
+@vitessce_blueprint.route("/vitessce/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
+def flush_cache(ds_uuid: str):
+    cache: VitessceConfigCache = current_app.vitessce_cache
+    if cache:
+        auth_helper_instance = AuthHelper.instance()
+        groups_token = auth_helper_instance.getAuthorizationTokens(request.headers)
+        if not isinstance(groups_token, str):
+            return jsonify({"error": "unauthorized"}), 401
+
+        if not cache.get(ds_uuid, groups_token):
+            msg = f"The cached data does not exist for entity {ds_uuid}"
+            return jsonify({"error": msg}), 404
+
+        deleted = cache.delete(ds_uuid)
+        if deleted:
+            msg = f"The cached data was deleted for entity {ds_uuid}"
+        else:
+            msg = f"The cached data was not deleted for entity {ds_uuid}"
+    else:
+        msg = "The cached data was not deleted because caching is not enabled"
+
+    return jsonify({"message": msg}), 200
+
+
 @vitessce_blueprint.route("/has_visualization/<entity_uuid:ds_uuid>", methods=["GET"])
 def get_has_visualization(ds_uuid: str):
     try:
@@ -129,7 +153,9 @@ def get_has_visualization(ds_uuid: str):
                 return jsonify({"error": "unauthorized"}), 401
 
             cache: VitessceConfigCache = current_app.vitessce_cache
-            if cache and (config := cache.get(ds_uuid + "_visualization", groups_token, as_str=True)):
+            if cache and (
+                config := cache.get(ds_uuid + "_visualization", groups_token, as_str=True)
+            ):
                 return Response(config, 200, mimetype="application/json")
 
         entity = get_entity(ds_uuid, groups_token, as_dict=True)
@@ -146,7 +172,10 @@ def get_has_visualization(ds_uuid: str):
         if assaytype != {}:
             entity["soft_assaytype"] = assaytype["assaytype"]
             entity["vitessce-hints"] = assaytype["vitessce-hints"]
-            if "is_support" in assaytype["vitessce-hints"] and "is_image" in assaytype["vitessce-hints"]:
+            if (
+                "is_support" in assaytype["vitessce-hints"]
+                and "is_image" in assaytype["vitessce-hints"]
+            ):
                 parent = entity["direct_ancestors"][0]
             builder = get_view_config_builder(entity, get_assaytype, parent, None)
         has_viz = {"has_visualization": builder != NullViewConfBuilder}
@@ -159,8 +188,9 @@ def get_has_visualization(ds_uuid: str):
         logger.error(e, exc_info=True)
         return jsonify({"has_visualization": False}, 500)
 
-@vitessce_blueprint.route("/vitessce/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
-def flush_cache(ds_uuid: str):
+
+@vitessce_blueprint.route("/has_visualization/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
+def flush_has_visualization_cache(ds_uuid: str):
     cache: VitessceConfigCache = current_app.vitessce_cache
     if cache:
         auth_helper_instance = AuthHelper.instance()
@@ -168,7 +198,7 @@ def flush_cache(ds_uuid: str):
         if not isinstance(groups_token, str):
             return jsonify({"error": "unauthorized"}), 401
 
-        if not cache.get(ds_uuid, groups_token):
+        if not cache.get(ds_uuid + "_visualization", groups_token):
             msg = f"The cached data does not exist for entity {ds_uuid}"
             return jsonify({"error": msg}), 404
 
