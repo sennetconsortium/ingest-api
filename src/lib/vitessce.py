@@ -1,6 +1,11 @@
 import json
 from typing import Union
 
+from portal_visualization.builder_factory import (
+    get_view_config_builder,
+    has_visualization,
+)
+
 from redis.client import Redis
 
 REDIS_TTL = 7200
