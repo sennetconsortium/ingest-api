@@ -56,7 +56,6 @@ def get_vitessce_config(ds_uuid: str):
 
         parent = None
         assaytype = get_assaytype(entity)
-        if assaytype != {}:
         entity["soft_assaytype"] = assaytype["assaytype"]
         entity["vitessce-hints"] = assaytype["vitessce-hints"]
         # TODO: May need to add a check for is_seg_mask in vitessce-hints and may also need to pass epic_uuid to this endpoint
