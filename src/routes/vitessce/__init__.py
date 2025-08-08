@@ -56,6 +56,8 @@ def get_vitessce_config(ds_uuid: str):
 
         parent = None
         assaytype = get_assaytype(entity)
+        if assaytype == {}:
+            return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
         entity["soft_assaytype"] = assaytype["assaytype"]
         entity["vitessce-hints"] = assaytype["vitessce-hints"]
         # TODO: May need to add a check for is_seg_mask in vitessce-hints and may also need to pass epic_uuid to this endpoint
@@ -141,7 +143,7 @@ def flush_cache(ds_uuid: str):
     return jsonify({"message": msg}), 200
 
 
-@vitessce_blueprint.route("/has_visualization/<entity_uuid:ds_uuid>", methods=["GET"])
+@vitessce_blueprint.route("/has-visualization/<entity_uuid:ds_uuid>", methods=["GET"])
 def get_has_visualization(ds_uuid: str):
     try:
         groups_token = None
@@ -186,10 +188,10 @@ def get_has_visualization(ds_uuid: str):
         return jsonify(has_viz), 200
     except Exception as e:
         logger.error(e, exc_info=True)
-        return jsonify({"has_visualization": False}, 500)
+        return jsonify({"has_visualization": False}), 500
 
 
-@vitessce_blueprint.route("/has_visualization/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
+@vitessce_blueprint.route("/has-visualization/<entity_uuid:ds_uuid>/cache", methods=["DELETE"])
 def flush_has_visualization_cache(ds_uuid: str):
     cache: VitessceConfigCache = current_app.vitessce_cache
     if cache:
