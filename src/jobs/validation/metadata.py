@@ -453,7 +453,7 @@ def validate_records_uuids(
         ok = True
         # First get the id column name, in order to get SenNet id in the record
         id_col = get_col_id_name_by_entity_type(entity_type)
-        entity_id = r.get(id_col)
+        entity_id = r.get(id_col).strip()
         entity = fetch_entity(token, entity_id, id_col, idx, errors)
 
         if entity is False:
@@ -464,7 +464,7 @@ def validate_records_uuids(
         # Check that any additional entities mentioned in tsv exists; currently only relevant for Samples
         if get_related_col_id_by_entity_type(entity_type) is not None:
             related_id_col = get_related_col_id_by_entity_type(entity_type)
-            related_entity_id = r.get(related_id_col)
+            related_entity_id = r.get(related_id_col).strip()
             if related_entity_id is not None:
                 related_entity = fetch_entity(token, related_entity_id, related_id_col, idx, errors)
                 if related_entity is False:
@@ -480,7 +480,7 @@ def validate_records_uuids(
 
         if sub_type is not None:
             sub_type_col = get_sub_type_name_by_entity_type(entity_type)
-            _sub_type = entity.get(sub_type_col)
+            _sub_type = entity.get(sub_type_col).strip()
             # Check that the stored entity _sub_type is actually supported for validation
             if _sub_type not in supported_metadata_sub_types(entity_type):
                 ok = False
