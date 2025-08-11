@@ -393,8 +393,6 @@ def fetch_entity(token, entity_id, id_col, idx, errors):
         return False
 
     try:
-        entity_id = entity_id.strip()
-
         url = (
             ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + "entities/"
