@@ -26,13 +26,13 @@ def get_csv_records(path: str, records_as_arr=False, is_ordered=False):
                 for key in row.keys():
                     if first:
                         headers.append(key)
-                    data_row.append(row[key])
+                    data_row.append(row[key].strip())
             else:
                 data_row = OrderedDict() if is_ordered is True else {}
                 for key in row.keys():
                     if first:
                         headers.append(key)
-                    data_row[key] = row[key]
+                    data_row[key] = row[key].strip()
             records.append(data_row)
             if first:
                 first = False
