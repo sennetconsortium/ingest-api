@@ -384,6 +384,7 @@ def supported_metadata_sub_types(entity_type):
 
 
 def fetch_entity(token, entity_id, id_col, idx, errors):
+    logging.info(f"Fetching entity {entity_id} with id {idx}")
     if entity_id is None:
         err = rest_bad_req(
             ln_err(f"Must supply `{id_col}` and valid value", idx, id_col),
@@ -454,6 +455,7 @@ def validate_records_uuids(
         # First get the id column name, in order to get SenNet id in the record
         id_col = get_col_id_name_by_entity_type(entity_type)
         entity_id = r.get(id_col)
+        logger.debug(f"entity_id: {entity_id}")
         entity = fetch_entity(token, entity_id, id_col, idx, errors)
 
         if entity is False:
