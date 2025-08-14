@@ -360,7 +360,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
         metadata={},
-        visibility=JobVisibility.PRIVATE,
+        visibility=JobVisibility.ADMIN,
     )
 
     status = job.get_status()
@@ -416,7 +416,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
         metadata={},
-        visibility=JobVisibility.PRIVATE,
+        visibility=JobVisibility.ADMIN,
     )
 
     status = job.get_status()
