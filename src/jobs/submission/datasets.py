@@ -23,7 +23,6 @@ def submit_datasets_uploads(
     config = current_app.config
 
     # change the status of the datasets/uploads to Processing using entity-api
-    Ontology.ops().entities().DATASET,
     if equals(entity_type, Ontology.ops().entities().DATASET):
         update_payload = {
             uuid: {
@@ -53,6 +52,9 @@ def submit_datasets_uploads(
     for uuid, res in update_status_res.items():
         if not res["success"]:
             logger.error(f"Failed to set dataset/upload status to processing {uuid}: {res['data']}")
+
+    for processing_entity in processing_entities:
+        logger.debug(f"Updated processing entity: {processing_entity}")
 
     # create the ingest_payload list
     dataset_helper = DatasetHelper(config)
