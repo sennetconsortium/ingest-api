@@ -14,16 +14,16 @@ from lib.services import bulk_update_entities
 logger = logging.getLogger(__name__)
 
 
-def submit_datasets_uploads(
+def submit_datasets_uploads_to_pipeline(
     job_id: str,
     entity_uuids: list,
     token: str,
+    process: Literal["submit", "validate"],
     entity_type: Literal["Dataset", "Upload"] = "Dataset",
 ):
     config = current_app.config
 
     # change the status of the datasets/uploads to Processing using entity-api
-    Ontology.ops().entities().DATASET,
     if equals(entity_type, Ontology.ops().entities().DATASET):
         update_payload = {
             uuid: {
@@ -54,10 +54,13 @@ def submit_datasets_uploads(
         if not res["success"]:
             logger.error(f"Failed to set dataset/upload status to processing {uuid}: {res['data']}")
 
+    for processing_entity in processing_entities:
+        logger.debug(f"Updated processing entity: {processing_entity}")
+
     # create the ingest_payload list
     dataset_helper = DatasetHelper(config)
     ingest_payload = [
-        dataset_helper.create_ingest_payload(entity) for entity in processing_entities
+        dataset_helper.create_ingest_payload(entity, process) for entity in processing_entities
     ]
 
     logger.info(f"Sending ingest payload to ingest-pipeline: {ingest_payload}")

@@ -5,9 +5,10 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 from shutil import copy2
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 import requests
+from atlas_consortia_commons.string import equals
 from flask import Response, jsonify
 from hubmap_commons import neo4j_driver
 from hubmap_commons.exceptions import HTTPException
@@ -19,6 +20,7 @@ from hubmap_sdk import EntitySdk
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
+from lib.ontology import Ontology
 from lib.services import get_entity_by_id
 
 
@@ -473,21 +475,28 @@ class DatasetHelper:
                 return False
             return True
 
-    def create_ingest_payload(self, entity):
+    def create_ingest_payload(self, entity: dict, process: Literal["submit", "validate"]):
         provider = self.auth_helper_instance.getGroupDisplayName(group_uuid=entity["group_uuid"])
 
-        if entity["entity_type"] == "Dataset":
+        if equals(entity["entity_type"], Ontology.ops().entities().DATASET):
+            # Dataset
             full_path = self.ingest_helper.get_dataset_directory_absolute_path(
                 entity, entity["group_uuid"], entity["uuid"]
             )
         else:
+            # Upload
             full_path = self.ingest_helper.get_upload_directory_absolute_path(
                 entity["group_uuid"], entity["uuid"]
             )
 
+        if equals(process, "validate"):
+            process = "validate." + entity["entity_type"].lower()
+        else:
+            process = "SCAN.AND.BEGIN.PROCESSING"
+
         return {
             "submission_id": f"{entity['uuid']}",
-            "process": f"validate.{entity['entity_type'].lower()}",
+            "process": process,
             "full_path": full_path,
             "provider": provider,
         }
