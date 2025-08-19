@@ -33,7 +33,7 @@ from jobs.cache.datasets import (
 )
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
 from jobs.modification.datasets import update_datasets_uploads
-from jobs.submission.datasets import submit_datasets_uploads
+from jobs.submission.datasets import submit_datasets_uploads_to_pipeline
 from jobs.validation.metadata import validate_tsv
 from lib.commons import get_as_obj
 from lib.datacite_doi_helper import DataCiteDoiHelper
@@ -350,17 +350,18 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
-        job_func=submit_datasets_uploads,
+        job_func=submit_datasets_uploads_to_pipeline,
         job_kwargs={
             "job_id": job_id,
             "entity_uuids": uuids,
             "token": token,
+            "process": "validate",
             "entity_type": Ontology.ops().entities().UPLOAD,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
         metadata={},
-        visibility=JobVisibility.PRIVATE,
+        visibility=JobVisibility.ADMIN,
     )
 
     status = job.get_status()
@@ -376,6 +377,13 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
 @require_data_admin(param="token")
 @require_json(param="uuids")
 def submit_datasets_from_bulk(uuids: list, token: str, user: User):
+    if request.path.lower() == "/datasets/validate":
+        process = "validate"
+    elif request.path.lower() == "/datasets/bulk/submit":
+        process = "submit"
+    else:
+        abort_bad_req("Invalid process for dataset submission")
+
     if (
         len(uuids) == 0
         or not all(isinstance(uuid, str) for uuid in uuids)
@@ -406,17 +414,18 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
     job_id = uuid4()
     job = job_queue.enqueue_job(
         job_id=job_id,
-        job_func=submit_datasets_uploads,
+        job_func=submit_datasets_uploads_to_pipeline,
         job_kwargs={
             "job_id": job_id,
             "entity_uuids": uuids,
             "token": token,
+            "process": process,
             "entity_type": Ontology.ops().entities().DATASET,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
         metadata={},
-        visibility=JobVisibility.PRIVATE,
+        visibility=JobVisibility.ADMIN,
     )
 
     status = job.get_status()
