@@ -60,7 +60,7 @@ def update_uploads_datastatus(schedule_next_job=True):
             "up.intended_source_type AS intended_source_type, "
             "up.intended_organ AS intended_organ, up.intended_dataset_type AS intended_dataset_type, "
             "up.anticipated_complete_upload_month AS anticipated_complete_upload_month, up.anticipated_dataset_count AS anticipated_dataset_count, "
-            "up.ingest_task AS ingest_task, COLLECT(DISTINCT ds.uuid) AS datasets"
+            "up.ingest_task AS ingest_task, up.error_message AS error_message, COLLECT(DISTINCT ds.uuid) AS datasets"
         )
 
         displayed_fields = [
@@ -77,6 +77,7 @@ def update_uploads_datastatus(schedule_next_job=True):
             "anticipated_complete_upload_month",
             "anticipated_dataset_count",
             "ingest_task",
+            "error_message"
         ]
 
         current_job = get_current_job()
