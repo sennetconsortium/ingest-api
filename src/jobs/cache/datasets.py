@@ -73,7 +73,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
             "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, "
-            "ds.data_access_level AS data_access_level, ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, "
+            "ds.data_access_level AS data_access_level, ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, ds.error_message AS error_message, "
             "COLLECT(DISTINCT ds.uuid) AS datasets, COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, "
             "COALESCE(ds.contacts IS NOT NULL AND ds.contacts <> '[]') AS has_contacts, ancestor.entity_type AS ancestor_entity_type, "
             "a.creation_action AS activity_creation_action"
@@ -128,6 +128,16 @@ def update_datasets_datastatus(schedule_next_job=True):
             "END) AS has_source_sample_metadata"
         )
 
+        blocks_ancestors_query = (
+            "MATCH (ds:Dataset)-[:USED|WAS_GENERATED_BY*]->(s:Sample) "
+            "WHERE s.sample_category = 'Block' RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id}) as block_ancestors  "
+        )
+
+        direct_ancestors_query = (
+            "MATCH (ancestor:Entity)<-[:USED]-(:Activity)<-[:WAS_GENERATED_BY]-(ds:Dataset) "
+            "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: ancestor.uuid, sennet_id: ancestor.sennet_id}) as direct_ancestors  "
+        )
+
         displayed_fields = [
             "sennet_id",
             "group_name",
@@ -149,6 +159,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "organ_sennet_id",
             "assigned_to_group_name",
             "ingest_task",
+            "error_message"
         ]
 
         queries = [
@@ -159,6 +170,8 @@ def update_datasets_datastatus(schedule_next_job=True):
             upload_query,
             has_rui_query,
             has_source_sample_metadata_query,
+            blocks_ancestors_query,
+            direct_ancestors_query
         ]
         results = [None] * len(queries)
         threads = []
@@ -184,6 +197,8 @@ def update_datasets_datastatus(schedule_next_job=True):
         upload_result = results[4]
         has_rui_result = results[5]
         has_source_sample_metadata_result = results[6]
+        blocks_ancestors_result = results[7]
+        direct_ancestors_result = results[8]
 
         for dataset in all_datasets_result:
             output_dict[dataset["uuid"]] = dataset
@@ -224,6 +239,14 @@ def update_datasets_datastatus(schedule_next_job=True):
                     "True" in dataset["has_source_sample_metadata"]
                 )
 
+        for dataset in blocks_ancestors_result:
+            if output_dict.get(dataset["uuid"]):
+                output_dict[dataset["uuid"]]["blocks"] = dataset["block_ancestors"]
+
+        for dataset in direct_ancestors_result:
+            if output_dict.get(dataset["uuid"]):
+                output_dict[dataset["uuid"]]["parent_ancestors"] = dataset["direct_ancestors"]
+
         combined_results = list(output_dict.values())
         if current_job is not None:
             update_job_progress(75, current_job)
@@ -261,7 +284,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             dataset["has_dataset_metadata"] = has_dataset_metadata
 
             for prop in dataset:
-                if isinstance(dataset[prop], list) and prop != "processed_datasets":
+                if isinstance(dataset[prop], list) and prop not in ["processed_datasets", "blocks", "parent_ancestors"]:
                     dataset[prop] = ", ".join(dataset[prop])
 
                 if isinstance(dataset[prop], (bool)):
