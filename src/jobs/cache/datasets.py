@@ -72,6 +72,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "WHERE NOT (ds)<-[:REVISION_OF]-() "
             "RETURN ds.uuid AS uuid, ds.group_name AS group_name, ds.dataset_type AS dataset_type, "
             "ds.sennet_id AS sennet_id, ds.lab_dataset_id AS provider_experiment_id, ds.status AS status, "
+            "ds.status_history AS status_history, "
             "ds.last_modified_timestamp AS last_touch, ds.published_timestamp AS published_timestamp, ds.created_timestamp AS created_timestamp, "
             "ds.data_access_level AS data_access_level, ds.assigned_to_group_name AS assigned_to_group_name, ds.ingest_task AS ingest_task, ds.error_message AS error_message, "
             "COLLECT(DISTINCT ds.uuid) AS datasets, COALESCE(ds.contributors IS NOT NULL AND ds.contributors <> '[]') AS has_contributors, "
