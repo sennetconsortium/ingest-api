@@ -17,7 +17,8 @@ from atlas_consortia_commons.rest import (
 from atlas_consortia_commons.string import equals
 from flask import current_app
 from hubmap_commons.file_helper import ensureTrailingSlashURL
-from ingest_validation_tools import schema_loader, table_validator
+from ingest_validation_tools import schema_loader
+from ingest_validation_tools.local_validation import table_validator
 from ingest_validation_tools import validation_utils as iv_utils
 
 from jobs import JobResult, JobSubject, update_job_progress
