@@ -20,6 +20,7 @@ def submit_datasets_uploads_to_pipeline(
     token: str,
     process: Literal["submit", "validate"],
     entity_type: Literal["Dataset", "Upload"] = "Dataset",
+    suppress_reindex: bool = False,
 ):
     config = current_app.config
 
@@ -141,7 +142,7 @@ def submit_datasets_uploads_to_pipeline(
                 }
             update_payload.update(error_payload)
 
-        update_res = bulk_update_entities(update_payload, token)
+        update_res = bulk_update_entities(update_payload, token, suppress_reindex=suppress_reindex)
 
         # log the datasets/uploads that failed to update
         for uuid, res in update_res.items():
