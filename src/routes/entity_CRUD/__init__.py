@@ -7,7 +7,7 @@ from threading import Thread
 from uuid import uuid4
 
 import requests
-from atlas_consortia_commons.decorator import User, require_data_admin, require_json
+from atlas_consortia_commons.decorator import User, require_data_admin, require_json, suppress_reindex
 from atlas_consortia_commons.rest import (
     StatusCodes,
     abort_bad_req,
@@ -58,7 +58,8 @@ logger = logging.getLogger(__name__)
 
 @entity_CRUD_blueprint.route("/datasets", methods=["POST"])
 @entity_CRUD_blueprint.route("/publications", methods=["POST"])
-def create_dataset():
+@suppress_reindex(param="reindex")
+def create_dataset(suppress_reindex: bool):
     if not request.is_json:
         return Response("json request required", 400)
 
@@ -90,6 +91,7 @@ def create_dataset():
         post_url = (
             commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + f"entities/{entity_type}"
+            + f"{'?reindex=False' if suppress_reindex else ''}"
         )
         response = requests.post(
             post_url,
@@ -152,7 +154,8 @@ def normalize_globus_path(path: str) -> str:
 
 
 @entity_CRUD_blueprint.route("/datasets/components", methods=["POST"])
-def multiple_components():
+@suppress_reindex(param="reindex")
+def multiple_components(suppress_reindex: bool):
     if not request.is_json:
         return Response("json request required", 400)
 
@@ -205,6 +208,7 @@ def multiple_components():
         post_url = (
             commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + "datasets/components"
+            + f"{'?reindex=False' if suppress_reindex else ''}"
         )
         response = requests.post(
             post_url,
@@ -356,7 +360,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
             "entity_uuids": uuids,
             "token": token,
             "process": "validate",
-            "entity_type": Ontology.ops().entities().UPLOAD,
+            "entity_type": Ontology.ops().entities().UPLOAD
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
@@ -376,7 +380,8 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
 @entity_CRUD_blueprint.route("/datasets/bulk/submit", methods=["PUT"])
 @require_data_admin(param="token")
 @require_json(param="uuids")
-def submit_datasets_from_bulk(uuids: list, token: str, user: User):
+@suppress_reindex(param="reindex")
+def submit_datasets_from_bulk(uuids: list, token: str, user: User, suppress_reindex: bool):
     if request.path.lower() == "/datasets/validate":
         process = "validate"
     elif request.path.lower() == "/datasets/bulk/submit":
@@ -421,6 +426,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User):
             "token": token,
             "process": process,
             "entity_type": Ontology.ops().entities().DATASET,
+            "suppress_reindex": suppress_reindex
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
