@@ -1004,6 +1004,7 @@ def publish_datastage(identifier):
 
         if "hmgroupids" not in user_info:
             abort_forbidden("User has no valid group information to authorize publication.")
+        user_info.pop("data_access_level", None)  # remove any data_access_level if present
         if not auth_helper.has_data_admin_privs(
             auth_helper.getUserTokenFromRequest(request, getGroups=True)
         ):

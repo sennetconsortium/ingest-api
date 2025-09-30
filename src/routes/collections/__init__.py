@@ -36,6 +36,7 @@ def register_collections_doi(collection_id):
             return user_info
         if "hmgroupids" not in user_info:
             abort_forbidden("User has no valid group information to authorize publication.")
+        user_info.pop("data_access_level", None)  # remove any data_access_level if present
         if not auth_helper.has_data_admin_privs(
             auth_helper.getUserTokenFromRequest(request, getGroups=True)
         ):
