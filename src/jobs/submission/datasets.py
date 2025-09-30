@@ -55,7 +55,7 @@ def submit_datasets_uploads_to_pipeline(
             logger.error(f"Failed to set dataset/upload status to processing {uuid}: {res['data']}")
 
     for processing_entity in processing_entities:
-        logger.debug(f"Updated processing entity: {processing_entity}")
+        logger.info(f"Updated processing entity: {processing_entity}")
 
     # create the ingest_payload list
     dataset_helper = DatasetHelper(config)
