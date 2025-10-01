@@ -248,6 +248,7 @@ def bulk_update_entities(
     throttle: float = 5,
     entity_api_url: Optional[str] = None,
     after_each_callback: Optional[Callable[[int], None]] = None,
+    suppress_reindex: bool = False,
 ) -> dict:
     """Bulk update the entities in the entity-api.
 
@@ -271,6 +272,8 @@ def bulk_update_entities(
     after_each_callback : Callable[[int], None], optional
         A callback function to be called after each update, by default None. The index
         of the update is passed as a parameter to the callback.
+    suppress_reindex : bool, optional
+        If True, suppress reindexing of the entities in the entity-api.
 
     Returns
     -------
@@ -303,7 +306,8 @@ def bulk_update_entities(
         for idx, (uuid, payload) in enumerate(entity_updates.items()):
             try:
                 res = s.put(
-                    f"{entity_api_url}/entities/{uuid}?return_dict=true",
+                    f"{entity_api_url}/entities/{uuid}?return_dict=true" +
+                    f"{'?reindex=False' if suppress_reindex else ''}",
                     json=payload,
                     timeout=15,
                 )
