@@ -487,7 +487,7 @@ def get_file_system_absolute_path(uuid: str):
     try:
         if not get_entity_type_instanceof(entity_type, "Dataset", auth_header=auth_header):
             return abort_bad_req(
-                f"Entity with uuid: {uuid} is not a Dataset, Publication or upload"
+                f"Entity with uuid: {uuid} is not a Dataset, Publication or Upload"
             )
     except HTTPException as hte:
         return Response(
@@ -559,7 +559,7 @@ def get_multiple_file_system_absolute_paths(uuids: list):
         try:
             if not get_entity_type_instanceof(entity_type, "Dataset", auth_header=auth_header):
                 return abort_bad_req(
-                    f"Entity with uuid: {uuid} is not a Dataset, Publication or upload"
+                    f"Entity with uuid: {uuid} is not a Dataset, Publication or Upload"
                 )
         except HTTPException as hte:
             return Response(
@@ -751,6 +751,7 @@ def submit_dataset(uuid):
             commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + "entities/"
             + uuid
+            + "?return_dict=true"
         )
 
         if isinstance(auth_tokens, Response):
@@ -780,10 +781,10 @@ def submit_dataset(uuid):
                 "user not authorized to submit data, must be a member of the SenNet-Data-Admin group",
                 403,
             )
-    
+
         response = requests.get(
             entity_api_url, headers=get_auth_header_dict(token))
-        
+
         entity_api_url = entity_api_url + "?return_dict=true"
 
         entity_dict = response.json()
