@@ -732,6 +732,7 @@ def __get_dict_prop(dic, prop_name):
 
 
 @entity_CRUD_blueprint.route("/datasets/<uuid>/submit", methods=["PUT"])
+@entity_CRUD_blueprint.route("/publications/<uuid>/submit", methods=["PUT"])
 def submit_dataset(uuid):
     start = time.time()
 
@@ -750,7 +751,6 @@ def submit_dataset(uuid):
             commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + "entities/"
             + uuid
-            + "?return_dict=true"
         )
 
         if isinstance(auth_tokens, Response):
@@ -780,6 +780,15 @@ def submit_dataset(uuid):
                 "user not authorized to submit data, must be a member of the SenNet-Data-Admin group",
                 403,
             )
+    
+        response = requests.get(
+            entity_api_url, headers=get_auth_header_dict(token))
+        
+        entity_api_url = entity_api_url + "?return_dict=true"
+
+        entity_dict = response.json()
+        if response.status_code != 200:
+            return Response(f"Error requesting {uuid}", response.status_code)
 
         # TODO: Temp fix till we can get this in the "Validation Pipeline"... add the validation code here... If it returns any errors fail out of this. Return 412 Precondition Failed with the errors in the description.
         pipeline_url = (
@@ -886,7 +895,7 @@ def submit_dataset(uuid):
     logger.info("Time to call call_airflow: " + str(end - start))
     thread = Thread(target=call_airflow)
     thread.start()
-    return Response("Request of Dataset Submission Accepted", 202)
+    return Response(f"Request of {entity_dict.get('entity_type', 'Dataset')} Submission Accepted", 202)
 
 
 @entity_CRUD_blueprint.route("/datasets/status", methods=["PUT"])
