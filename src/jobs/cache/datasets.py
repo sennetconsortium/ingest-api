@@ -139,6 +139,12 @@ def update_datasets_datastatus(schedule_next_job=True):
             "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: ancestor.uuid, sennet_id: ancestor.sennet_id}) as direct_ancestors  "
         )
 
+        descendant_published_qa_query = (
+            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Entity) "
+            "WHERE e.status IN ['QA', 'Published'] "
+            "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: e.uuid, sennet_id: e.sennet_id}) AS descendant_published_qa"
+        )
+
         displayed_fields = [
             "sennet_id",
             "group_name",
@@ -172,7 +178,8 @@ def update_datasets_datastatus(schedule_next_job=True):
             has_rui_query,
             has_source_sample_metadata_query,
             blocks_ancestors_query,
-            direct_ancestors_query
+            direct_ancestors_query,
+            descendant_published_qa_query,
         ]
         results = [None] * len(queries)
         threads = []
@@ -200,9 +207,11 @@ def update_datasets_datastatus(schedule_next_job=True):
         has_source_sample_metadata_result = results[6]
         blocks_ancestors_result = results[7]
         direct_ancestors_result = results[8]
+        descendant_published_result = results[9]
 
         for dataset in all_datasets_result:
             output_dict[dataset["uuid"]] = dataset
+            output_dict[dataset["uuid"]]["has_qa_published_derived_dataset"] = False
 
         for dataset in organ_result:
             if output_dict.get(dataset["uuid"]):
@@ -247,6 +256,11 @@ def update_datasets_datastatus(schedule_next_job=True):
         for dataset in direct_ancestors_result:
             if output_dict.get(dataset["uuid"]):
                 output_dict[dataset["uuid"]]["parent_ancestors"] = dataset["direct_ancestors"]
+
+        for dataset in descendant_published_result:
+            if output_dict.get(dataset["uuid"]):
+                output_dict[dataset["uuid"]]["has_qa_published_derived_dataset"] = True
+
 
         combined_results = list(output_dict.values())
         if current_job is not None:

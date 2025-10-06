@@ -60,7 +60,7 @@ def update_uploads_datastatus(schedule_next_job=True):
             "up.intended_source_type AS intended_source_type, "
             "up.intended_organ AS intended_organ, up.intended_dataset_type AS intended_dataset_type, "
             "up.anticipated_complete_upload_month AS anticipated_complete_upload_month, up.anticipated_dataset_count AS anticipated_dataset_count, "
-            "up.ingest_task AS ingest_task, up.error_message AS error_message, COLLECT(DISTINCT ds.uuid) AS datasets"
+            "up.ingest_task AS ingest_task, up.error_message AS error_message, COLLECT(DISTINCT {uuid: ds.uuid, status: ds.status}) AS datasets"
         )
 
         displayed_fields = [
@@ -85,12 +85,16 @@ def update_uploads_datastatus(schedule_next_job=True):
             results = session.run(all_uploads_query).data()
             percent_delta = 100 / len(results) if results else 100
             for idx, upload in enumerate(results):
+
+                has_all_published_datasets = all(dataset.get("status") == "Published" for dataset in upload["datasets"])
+                upload["has_all_published_datasets"] = has_all_published_datasets
+
                 globus_url = get_globus_url(
                     "protected", upload.get("group_name"), upload.get("uuid")
                 )
                 upload["globus_url"] = globus_url
                 for prop in upload:
-                    if isinstance(upload[prop], list):
+                    if isinstance(upload[prop], list)  and prop not in ["datasets"]:
                         upload[prop] = ", ".join(upload[prop])
 
                     if isinstance(upload[prop], (bool, int)):
@@ -116,6 +120,9 @@ def update_uploads_datastatus(schedule_next_job=True):
 
                     if upload[prop] is None:
                         upload[prop] = ""
+
+                    if prop == "datasets":
+                       upload["datasets"] = [dataset["uuid"] for dataset in upload["datasets"]]
 
                 for field in displayed_fields:
                     if upload.get(field) is None:
