@@ -7,7 +7,12 @@ from threading import Thread
 from uuid import uuid4
 
 import requests
-from atlas_consortia_commons.decorator import User, require_data_admin, require_json, suppress_reindex
+from atlas_consortia_commons.decorator import (
+    User,
+    require_data_admin,
+    require_json,
+    suppress_reindex,
+)
 from atlas_consortia_commons.rest import (
     StatusCodes,
     abort_bad_req,
@@ -360,7 +365,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
             "entity_uuids": uuids,
             "token": token,
             "process": "validate",
-            "entity_type": Ontology.ops().entities().UPLOAD
+            "entity_type": Ontology.ops().entities().UPLOAD,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
@@ -426,7 +431,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User, suppress_rein
             "token": token,
             "process": process,
             "entity_type": Ontology.ops().entities().DATASET,
-            "suppress_reindex": suppress_reindex
+            "suppress_reindex": suppress_reindex,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
