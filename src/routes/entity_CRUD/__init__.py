@@ -1406,7 +1406,7 @@ def publish_datastage(identifier: str, user: User):
             job_func=copy_protect_files_to_public,
             job_kwargs={
                 "job_id": job_id,
-                "entity": entity_dict,
+                "dataset": entity_dict,
             },
             user={"id": user.uuid, "email": user.email},
             description="Copy protected dataset files to public location for published dataset.",
