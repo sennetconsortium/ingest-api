@@ -307,7 +307,7 @@ class IngestFileHelper:
         os.chmod(readme_path, 0o444)  # r--r--r--
 
         # Set directory permissions. we need to do this after copy to avoid permission issues.
-        for root, _, files in os.walk(src_dir):
+        for root, _, files in os.walk(dst_dir):
             os.chmod(root, 0o555)  # r-xr-xr-x
 
         return src_dir, dst_dir
