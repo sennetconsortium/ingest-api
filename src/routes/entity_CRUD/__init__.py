@@ -7,7 +7,12 @@ from threading import Thread
 from uuid import uuid4
 
 import requests
-from atlas_consortia_commons.decorator import User, require_data_admin, require_json, suppress_reindex
+from atlas_consortia_commons.decorator import (
+    User,
+    require_data_admin,
+    require_json,
+    suppress_reindex,
+)
 from atlas_consortia_commons.rest import (
     StatusCodes,
     abort_bad_req,
@@ -33,6 +38,7 @@ from jobs.cache.datasets import (
 )
 from jobs.cache.uploads import UPLOADS_DATASTATUS_JOB_PREFIX, update_uploads_datastatus
 from jobs.modification.datasets import update_datasets_uploads
+from jobs.publication.dataset import copy_protect_files_to_public
 from jobs.submission.datasets import submit_datasets_uploads_to_pipeline
 from jobs.validation.metadata import validate_tsv
 from lib.commons import get_as_obj
@@ -51,6 +57,7 @@ from lib.services import (
     get_entity_by_id,
     obj_to_dict,
 )
+from lib.slack import send_slack_notification
 
 entity_CRUD_blueprint = Blueprint("entity_CRUD", __name__)
 logger = logging.getLogger(__name__)
@@ -360,7 +367,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
             "entity_uuids": uuids,
             "token": token,
             "process": "validate",
-            "entity_type": Ontology.ops().entities().UPLOAD
+            "entity_type": Ontology.ops().entities().UPLOAD,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
@@ -426,7 +433,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User, suppress_rein
             "token": token,
             "process": process,
             "entity_type": Ontology.ops().entities().DATASET,
-            "suppress_reindex": suppress_reindex
+            "suppress_reindex": suppress_reindex,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
@@ -1007,7 +1014,8 @@ def upload_data_status():
 
 
 @entity_CRUD_blueprint.route("/datasets/<identifier>/publish", methods=["PUT"])
-def publish_datastage(identifier):
+@require_data_admin(user_param="user")
+def publish_datastage(identifier: str, user: User):
     try:
         auth_helper = AuthHelper.instance()
         dataset_helper = DatasetHelper(current_app.config)
@@ -1401,7 +1409,31 @@ def publish_datastage(identifier):
                         f"While publishing {identifier} Error happened when calling reindex web service for source {source_uuid}"
                     )
 
-        return Response(json.dumps(r_val), 200, mimetype="application/json")
+        job_queue = JobQueue.instance()
+        job_id = uuid4()
+        job = job_queue.enqueue_job(
+            job_id=job_id,
+            job_func=copy_protect_files_to_public,
+            job_kwargs={
+                "job_id": job_id,
+                "dataset": entity_dict,
+            },
+            user={"id": user.uuid, "email": user.email},
+            description="Copy protected dataset files to public location for published dataset.",
+            metadata={},
+            visibility=JobVisibility.ADMIN,
+        )
+
+        status = job.get_status()
+        if status == JobStatus.FAILED:
+            logger.error(f"Upload submission job {job.id} failed to start")
+            send_slack_notification(
+                f"Copy protected dataset files to public location for published dataset job "
+                f"failed to start. Job id: {job.id}"
+            )
+
+        # return a 200 reponse with the accepted dataset uuids
+        return jsonify(r_val), 200
 
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())

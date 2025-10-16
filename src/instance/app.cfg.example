@@ -122,3 +122,6 @@ CEDAR_API_KEY = ''
 
 # Disk names that appear in 'Mounted on' column when 'df' is run in shell
 STATUS_DISKS = {'/': 'host disk space'}
+
+# Slack notifications
+SLACK_WEBHOOK_URL = https://hooks.slack.com/slack_webhook_identifier
