@@ -1366,14 +1366,20 @@ def publish_datastage(identifier: str, user: User):
                 }
                 res = create_entity("Collection", collection, auth_tokens)
                 if not res["success"]:
+                    logger.error(f"create_entity Collection response: {res.get('data')}")
                     abort_internal_err(
-                        f"Failed to create Collection entity for Publication {dataset_uuid}."
+                        f"Failed to create Collection for Publication {dataset_uuid}."
                     )
 
                 # register DOI for the Collection
                 collection_uuid = res.get("data", {}).get("uuid")
+                if collection_uuid is None:
+                    abort_internal_err(
+                        f"Failed to get Collection UUID for Publication {dataset_uuid}."
+                    )
                 res = register_collection_doi(collection_uuid, auth_tokens)
                 if not res["success"]:
+                    logger.error(f"register_collection_doi response: {res.get('data')}")
                     abort_internal_err(
                         f"Failed to register DOI for Collection {collection_uuid} "
                         f"associated with Publication {dataset_uuid}."
@@ -1386,6 +1392,7 @@ def publish_datastage(identifier: str, user: User):
                     auth_tokens,
                 )
                 if not res["success"]:
+                    logger.error(f"update_entity Collection response: {res.get('data')}")
                     abort_internal_err(
                         f"Failed to update Publication {dataset_uuid} with associated "
                         f"Collection {collection_uuid}."
