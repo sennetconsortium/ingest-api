@@ -1360,7 +1360,6 @@ def publish_datastage(identifier: str, user: User):
                     "contributors": entity_dict["contributors"],
                     "contacts": entity_dict["contacts"],
                     "description": entity_dict["description"],
-                    "group_name": entity_dict["group_name"],
                     "group_uuid": entity_dict["group_uuid"],
                     "entity_uuids": dataset_uuids,
                 }
