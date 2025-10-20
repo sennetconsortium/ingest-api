@@ -1369,6 +1369,10 @@ def publish_datastage(identifier):
 
                 # register DOI for the Collection
                 collection_uuid = res.get("data", {}).get("uuid")
+                if collection_uuid is None:
+                    abort_internal_err(
+                        f"Failed to obtain Collection UUID for Publication {dataset_uuid}."
+                    )
                 res = register_collection_doi(collection_uuid, auth_tokens)
                 if not res["success"]:
                     abort_internal_err(
