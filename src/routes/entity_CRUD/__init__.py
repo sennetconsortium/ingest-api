@@ -7,7 +7,12 @@ from threading import Thread
 from uuid import uuid4
 
 import requests
-from atlas_consortia_commons.decorator import User, require_data_admin, require_json, suppress_reindex
+from atlas_consortia_commons.decorator import (
+    User,
+    require_data_admin,
+    require_json,
+    suppress_reindex,
+)
 from atlas_consortia_commons.rest import (
     StatusCodes,
     abort_bad_req,
@@ -46,10 +51,13 @@ from lib.neo4j_helper import Neo4jHelper
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_uuids
 from lib.services import (
+    create_entity,
     entity_json_dumps,
     get_auth_header_dict,
     get_entity_by_id,
     obj_to_dict,
+    register_collection_doi,
+    update_entity,
 )
 
 entity_CRUD_blueprint = Blueprint("entity_CRUD", __name__)
@@ -360,7 +368,7 @@ def submit_uploads_from_bulk(uuids: list, token: str, user: User):
             "entity_uuids": uuids,
             "token": token,
             "process": "validate",
-            "entity_type": Ontology.ops().entities().UPLOAD
+            "entity_type": Ontology.ops().entities().UPLOAD,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk upload submission",
@@ -426,7 +434,7 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User, suppress_rein
             "token": token,
             "process": process,
             "entity_type": Ontology.ops().entities().DATASET,
-            "suppress_reindex": suppress_reindex
+            "suppress_reindex": suppress_reindex,
         },
         user={"id": user.uuid, "email": user.email},
         description="Bulk dataset submission",
@@ -782,8 +790,7 @@ def submit_dataset(uuid):
                 403,
             )
 
-        response = requests.get(
-            entity_api_url, headers=get_auth_header_dict(token))
+        response = requests.get(entity_api_url, headers=get_auth_header_dict(token))
 
         entity_api_url = entity_api_url + "?return_dict=true"
 
@@ -896,7 +903,9 @@ def submit_dataset(uuid):
     logger.info("Time to call call_airflow: " + str(end - start))
     thread = Thread(target=call_airflow)
     thread.start()
-    return Response(f"Request of {entity_dict.get('entity_type', 'Dataset')} Submission Accepted", 202)
+    return Response(
+        f"Request of {entity_dict.get('entity_type', 'Dataset')} Submission Accepted", 202
+    )
 
 
 @entity_CRUD_blueprint.route("/datasets/status", methods=["PUT"])
@@ -1335,6 +1344,49 @@ def publish_datastage(identifier):
                 registered_doi=doi_info.get("registered_doi") if doi_info is not None else None,
                 doi_url=doi_info.get("doi_url") if doi_info is not None else None,
             )
+
+            if entity_dict["entity_type"] == "Publication":
+                # create a Collection associated with the Publication
+                dataset_uuids = [
+                    a["uuid"]
+                    for a in entity_dict.get("direct_ancestors", [])
+                    if a["entity_type"] == "Dataset"
+                ]
+                collection = {
+                    "title": entity_dict["title"],
+                    "contributors": entity_dict["contributors"],
+                    "contacts": entity_dict["contacts"],
+                    "description": entity_dict["description"],
+                    "group_name": entity_dict["group_name"],
+                    "group_uuid": entity_dict["group_uuid"],
+                    "entity_uuids": dataset_uuids,
+                }
+                res = create_entity("Collection", collection, auth_tokens)
+                if not res.ok:
+                    abort_internal_err(
+                        f"Failed to create Collection entity for Publication {dataset_uuid}."
+                    )
+
+                # register DOI for the Collection
+                collection_uuid = res.json().get("data", {}).get("uuid")
+                res = register_collection_doi(collection_uuid, auth_tokens)
+                if not res.ok:
+                    abort_internal_err(
+                        f"Failed to register DOI for Collection {collection_uuid} "
+                        f"associated with Publication {dataset_uuid}."
+                    )
+
+                # update Publication with associated Collection
+                res = update_entity(
+                    entity_dict["uuid"],
+                    {"associated_collection_uuid": collection_uuid},
+                    auth_tokens,
+                )
+                if not res.ok:
+                    abort_internal_err(
+                        f"Failed to update Publication {dataset_uuid} with associated "
+                        f"Collection {collection_uuid}."
+                    )
 
             # triggers a call to entity-api/flush-cache
             entity_instance.clear_cache(dataset_uuid)
