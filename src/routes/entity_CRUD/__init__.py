@@ -1371,7 +1371,7 @@ def publish_datastage(identifier):
                 collection_uuid = collection["uuid"]
                 datacite_doi_helper = DataCiteDoiHelper()
                 try:
-                    datacite_doi_helper.create_collection_draft_doi(entity_dict)
+                    datacite_doi_helper.create_collection_draft_doi(collection)
                 except Exception as e:
                     logger.exception(
                         f"Exception while creating a draft doi for {collection_uuid}: {e}"
@@ -1385,7 +1385,8 @@ def publish_datastage(identifier):
                 doi_info = None
                 try:
                     doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(
-                        entity_dict, auth_tokens
+                        collection,
+                        auth_tokens,
                     )
                 except Exception as e:
                     logger.exception(
