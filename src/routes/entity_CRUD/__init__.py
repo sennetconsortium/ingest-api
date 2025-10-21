@@ -56,7 +56,6 @@ from lib.services import (
     get_auth_header_dict,
     get_entity_by_id,
     obj_to_dict,
-    register_collection_doi,
     update_entity,
 )
 
