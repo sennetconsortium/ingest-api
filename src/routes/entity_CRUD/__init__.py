@@ -1368,17 +1368,49 @@ def publish_datastage(identifier):
                     )
 
                 # register DOI for the Collection
-                collection_uuid = res.get("data", {}).get("uuid")
-                if collection_uuid is None:
-                    abort_internal_err(
-                        f"Failed to get Collection UUID for Publication {dataset_uuid}."
+                collection = res["data"]
+                collection_uuid = collection["uuid"]
+                datacite_doi_helper = DataCiteDoiHelper()
+                try:
+                    datacite_doi_helper.create_collection_draft_doi(entity_dict)
+                except Exception as e:
+                    logger.exception(
+                        f"Exception while creating a draft doi for {collection_uuid}: {e}"
                     )
-                res = register_collection_doi(collection_uuid, auth_tokens)
-                if not res["success"]:
-                    logger.error(f"register_collection_doi response: {res.get('data')}")
                     abort_internal_err(
-                        f"Failed to register DOI for Collection {collection_uuid} "
-                        f"associated with Publication {dataset_uuid}."
+                        f"Error occurred while creating a draft doi for {collection_uuid}. "
+                        f"Check logs."
+                    )
+
+                # make the Collection DOI findable
+                doi_info = None
+                try:
+                    doi_info = datacite_doi_helper.move_doi_state_from_draft_to_findable(
+                        entity_dict, auth_tokens
+                    )
+                except Exception as e:
+                    logger.exception(
+                        f"Exception while making doi findable for {collection_uuid}: {e}"
+                    )
+                    abort_internal_err(
+                        f"Error occurred while making doi findable for {collection_uuid}. "
+                        f"Check logs."
+                    )
+
+                if doi_info is None:
+                    logger.exception("No doi_info returned when making doi findable.")
+                    abort_internal_err(f"Failed to make doi findable for {collection_uuid}.")
+
+                # update Collection with DOI info
+                doi_update_data = {
+                    "registered_doi": doi_info["registered_doi"],
+                    "doi_url": doi_info["doi_url"],
+                }
+                res = update_entity(collection_uuid, doi_update_data, auth_tokens)
+                if not res["success"]:
+                    logger.error(f"update_entity Collection DOI response: {res.get('data')}")
+                    abort_internal_err(
+                        f"Failed to update Collection {collection_uuid} with DOI info."
                     )
 
                 # update Publication with associated Collection
