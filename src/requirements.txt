@@ -1,4 +1,4 @@
-Flask==3.1.1
+Flask==3.1.2
 globus_sdk==2.0.1
 hubmap-sdk==1.0.10
 
@@ -10,7 +10,7 @@ selenium==3.141.0
 PyYAML==6.0.2
 
 # The commons package requires requests>=2.22.0
-requests==2.32.3
+requests==2.32.5
 
 # Use the published package from PyPI as default
 # Use the branch name of commons from github for testing new changes made in commons from different branch
@@ -29,4 +29,4 @@ rq==1.16.2
 psutil>=7.0.0,<7.1
 
 # For vitessce config generation
-git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.15#egg=portal-visualization
+git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.18#egg=portal-visualization
