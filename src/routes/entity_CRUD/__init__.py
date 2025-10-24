@@ -760,7 +760,6 @@ def submit_dataset(uuid):
             commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
             + "entities/"
             + uuid
-            + "?return_dict=true"
         )
 
         if isinstance(auth_tokens, Response):
