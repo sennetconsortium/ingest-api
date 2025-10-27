@@ -295,7 +295,7 @@ class IngestFileHelper:
         readme_path = os.path.join(dst_dir, "sequence-data-removed-README.txt")
         with open(readme_path, "w") as f:
             portal_url = file_helper.ensureTrailingSlashURL(self.appconfig["PORTAL_URL"])
-            dataset_url = f"{portal_url}dataset?uuid={dataset['uuid']}"
+            dataset_url = f"{portal_url}dataset?uuid={dataset['uuid']}#bulk-data-transfer"
             readme_txt = (
                 f"The data in this directory is incomplete because the full sequence data has been "
                 f"removed.\r\n\r\n"
