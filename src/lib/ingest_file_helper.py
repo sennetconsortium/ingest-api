@@ -295,13 +295,13 @@ class IngestFileHelper:
         readme_path = os.path.join(dst_dir, "sequence-data-removed-README.txt")
         with open(readme_path, "w") as f:
             portal_url = file_helper.ensureTrailingSlashURL(self.appconfig["PORTAL_URL"])
-            dataset_url = f"{portal_url}dataset?uuid={dataset['uuid']}"
+            dataset_url = f"{portal_url}dataset?uuid={dataset['uuid']}#bulk-data-transfer"
             readme_txt = (
-                f"The data contained in this directory is a copy of the published data with any "
-                f"full sequence data removed. To obtain the full sequence data publicly from dbGap "
-                f"once available (dbGap availability may be delayed by xxx months after "
-                f"publication in SenNet), or via direct SenNet download for SenNet Consortium "
-                f"members, visit the data information page at {dataset_url}."
+                f"This directory includes all published data for this dataset, except "
+                f"person-specific human genomic sequences. SenNet Consortium members can request "
+                f"protected access to the sequence data, and it will be available to the public "
+                f"through dbGaP once released. For more details, visit the dataset's information "
+                f"page at {dataset_url}."
             )
             f.write(readme_txt)
         os.chmod(readme_path, 0o444)  # r--r--r--
