@@ -297,14 +297,11 @@ class IngestFileHelper:
             portal_url = file_helper.ensureTrailingSlashURL(self.appconfig["PORTAL_URL"])
             dataset_url = f"{portal_url}dataset?uuid={dataset['uuid']}#bulk-data-transfer"
             readme_txt = (
-                f"The data in this directory is incomplete because the full sequence data has been "
-                f"removed.\r\n\r\n"
-                f"To get the complete data visit: {dataset_url}\r\n"
-                f" - Consortium members with access: Use the Globus link on that page.\r\n"
-                f" - Public users and Consortium members without access: Follow the instructions "
-                f"on that page to get the data from dbGap.\r\n\r\n"
-                f"Please note: The data will only be available on dbGap an unknown time after "
-                f"Consortium publication.\r\n"
+                f"This directory includes all published data for this dataset, except "
+                f"person-specific human genomic sequences. SenNet Consortium members can request "
+                f"protected access to the sequence data, and it will be available to the public "
+                f"through dbGaP once released. For more details, visit the dataset's information "
+                f"page at {dataset_url}."
             )
             f.write(readme_txt)
         os.chmod(readme_path, 0o444)  # r--r--r--
