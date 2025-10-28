@@ -1235,13 +1235,11 @@ def publish_datastage(identifier: str, user: User):
 
             data_access_level = dataset_data_access_level
             # if consortium access level convert to public dataset, if protected access leave it protected
-            if dataset_data_access_level == "consortium":
+            if dataset_data_access_level == "consortium" and not is_component:
                 # before moving check to see if there is currently a link for the dataset in the assets directory
                 asset_dir = ingest_helper.dataset_asset_directory_absolute_path(dataset_uuid)
                 asset_dir_exists = os.path.exists(asset_dir)
                 to_symlink_path = None
-                if is_component:
-                    to_symlink_path = get_primary_ancestor_globus_path(entity_dict)
 
                 ingest_helper.move_dataset_files_for_publishing(
                     dataset_uuid, dataset_group_uuid, "consortium", to_symlink_path=to_symlink_path
