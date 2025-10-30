@@ -10,9 +10,14 @@ from lib.slack import send_slack_notification
 logger = logging.getLogger(__name__)
 
 
-def copy_protect_files_to_public(job_id: str, dataset: dict) -> JobResult:
-    if dataset.get("data_access_level") != "protected":
-        return JobResult(success=True, results="Dataset is not protected, no files to copy")
+def copy_protect_files_to_public(job_id: str, dataset: dict, ancestor_path: str) -> JobResult:
+    # If the dataset being published is a component with a public primary dataset
+    if dataset.get("creation_action") == "Multi-Assay Split" and "protected" not in ancestor_path:
+        return JobResult(success=True, results="Dataset is a component dataset with a public primary dataset, a symlink was created instead")
+
+    # If the dataset is not a component and is not protected
+    if dataset.get("creation_action") != "Multi-Assay Split" and dataset.get("data_access_level") != "protected":
+        return JobResult(success=True, results="Dataset is not a component dataset or protected, no files to copy")
 
     try:
         ingest_helper = IngestFileHelper(current_app.config)
