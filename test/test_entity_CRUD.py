@@ -1,47 +1,18 @@
 import json
 import os
-import test.utils as test_utils
+from test.helpers import GROUP_ID
+from test.helpers.auth import AUTH_TOKEN
+from test.helpers.response import mock_response
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-import app as app_module
 from jobs.validation.entities import validate_ancestor_id, validate_entity_constraints
 
 test_data_dir = os.path.join(os.path.dirname(__file__), "data")
 
 
-@pytest.fixture()
-def app():
-    a = app_module.app
-    a.config.update(
-        {
-            "TESTING": True,
-            "UUID_WEBSERVICE_URL": "http://uuid-api:7000/",
-            "ENTITY_WEBSERVICE_URL": "http://entity-api:7000/",
-        }
-    )
-    # other setup
-    yield a
-    # clean up
-
-
-@pytest.fixture(scope="session", autouse=True)
-def auth_helper_mock():
-    auth_mock = MagicMock()
-    auth_mock.getUserTokenFromRequest.return_value = "test_token"
-    auth_mock.getUserInfo.return_value = {
-        "sub": "8cb9cda5-1930-493a-8cb9-df6742e0fb42",
-        "email": "TESTUSER@example.com",
-        "hmgroupids": ["60b692ac-8f6d-485f-b965-36886ecc5a26"],
-    }
-    auth_mock.has_data_admin_privs.return_value = False
-
-    with patch("hubmap_commons.hm_auth.AuthHelper.configured_instance", return_value=auth_mock):
-        yield
-
-
-@pytest.fixture(scope="session", autouse=False)
+@pytest.fixture(scope="function", autouse=True)
 def job_queue_mock():
     job_mock = MagicMock()
     job_mock.get_status.return_value = "queued"
@@ -67,11 +38,8 @@ def job_queue_mock():
         ("dataset", 202),
     ],
 )
-def test_validate_sources(app, job_queue_mock, entity_type, status_code):
+def test_validate_sources(app, entity_type, status_code):
     """Test validate sources correctly validates sources only"""
-
-    with open(os.path.join(test_data_dir, f"{entity_type}.json"), "r") as f:
-        test_data = json.load(f)
 
     tsv_filename = os.path.join(test_data_dir, f"test_{entity_type}.tsv")
 
@@ -79,7 +47,7 @@ def test_validate_sources(app, job_queue_mock, entity_type, status_code):
         test_file = {
             "file": tsv_file,
             "referrer": '{"type": "validate", "path": "edit/bulk/source"}',
-            "group_uuid": "60b692ac-8f6d-485f-b965-36886ecc5a26",
+            "group_uuid": GROUP_ID,
         }
 
         res = client.post(
@@ -87,7 +55,7 @@ def test_validate_sources(app, job_queue_mock, entity_type, status_code):
             data=test_file,
             content_type="multipart/form-data",
             buffered=True,
-            headers=test_data["header"],
+            headers={"Authorization": f"Bearer {AUTH_TOKEN}"},
         )
 
         assert res.status_code == status_code
@@ -104,29 +72,15 @@ def test_validate_sources(app, job_queue_mock, entity_type, status_code):
         ("dataset", 202),
     ],
 )
-def test_validate_samples(app, job_queue_mock, entity_type, status_code):
+def test_validate_samples(app, entity_type, status_code):
     """Test validate samples correctly validates samples only"""
-
-    with open(os.path.join(test_data_dir, f"{entity_type}.json"), "r") as f:
-        test_data = json.load(f)
-
     tsv_filename = os.path.join(test_data_dir, f"test_{entity_type}.tsv")
 
-    def get_responses():
-        if not test_data.get("ancestor_response"):
-            return None
-        return [test_utils.create_response(200, i) for i in test_data["ancestor_response"]]
-
-    with (
-        open(tsv_filename, "rb") as tsv_file,
-        app.test_client() as client,
-        patch("requests.get", side_effect=get_responses()),
-        patch("requests.post", return_value=test_utils.create_response(200)),
-    ):
+    with open(tsv_filename, "rb") as tsv_file, app.test_client() as client:
         test_file = {
             "file": tsv_file,
             "referrer": '{"type": "validate", "path": "edit/bulk/sample"}',
-            "group_uuid": "60b692ac-8f6d-485f-b965-36886ecc5a26",
+            "group_uuid": GROUP_ID,
         }
 
         res = client.post(
@@ -134,7 +88,7 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
             data=test_file,
             content_type="multipart/form-data",
             buffered=True,
-            headers=test_data["header"],
+            headers={"Authorization": f"Bearer {AUTH_TOKEN}"},
         )
 
         assert res.status_code == status_code
@@ -152,7 +106,7 @@ def test_validate_samples(app, job_queue_mock, entity_type, status_code):
         "file_invalid_entity_returns_400",
     ],
 )
-def test_validate_entity_constraints(app, name):
+def test_validate_entity_constraints(app, requests, name):
     """Test validate entity constraints returns the correct response"""
 
     with open(os.path.join(test_data_dir, "validate_entity_constraints.json"), "r") as f:
@@ -161,9 +115,17 @@ def test_validate_entity_constraints(app, name):
     file_is_valid, error_msg, post_response, expected_result = test_data.values()
 
     # post_response is structured as (status_code, json_data)
+    entity_api_url = app.config["ENTITY_WEBSERVICE_URL"]
+    requests.add_response(
+        f"{entity_api_url}/constraints?match=true&report_type=ln_err",
+        "post",
+        mock_response(*post_response),
+    )
+
+    # post_response is structured as (status_code, json_data)
     with (
         app.app_context(),
-        patch("requests.post", return_value=test_utils.create_response(*post_response)),
+        # patch("requests.post", return_value=test_utils.create_response(*post_response)),
     ):
 
         result = validate_entity_constraints(file_is_valid, error_msg, {}, [])
@@ -175,7 +137,7 @@ def test_validate_entity_constraints(app, name):
 
 
 @pytest.mark.parametrize("name", ["valid_ancestor_id", "failing_uuid_response", "ancestor_saved"])
-def test_validate_ancestor_id(app, name):
+def test_validate_ancestor_id(app, requests, name):
     """Test validate ancestor id returns the correct response"""
 
     with open(os.path.join(test_data_dir, "validate_ancestor_id.json"), "r") as f:
@@ -190,13 +152,21 @@ def test_validate_ancestor_id(app, name):
         expected_result,
     ) = test_data.values()
 
-    with (
-        app.app_context(),
-        patch("requests.get", return_value=test_utils.create_response(*get_response)),
-    ):
+    uuid_api_url = app.config["UUID_WEBSERVICE_URL"]
+    requests.add_response(
+        f"{uuid_api_url}/uuid/{ancestor_id}",
+        "get",
+        mock_response(*get_response),
+    )
 
+    with app.app_context():
         result = validate_ancestor_id(
-            {}, ancestor_id, error_msg, 1, valid_ancestor_ids, file_is_valid
+            {},
+            ancestor_id,
+            error_msg,
+            1,
+            valid_ancestor_ids,
+            file_is_valid,
         )
 
         assert result == expected_result
