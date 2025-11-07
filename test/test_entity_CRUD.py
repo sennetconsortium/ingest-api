@@ -27,13 +27,6 @@ def app():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def ontology_mock():
-    """Automatically add ontology mock functions to all tests"""
-    with patch("atlas_consortia_commons.ubkg.ubkg_sdk.UbkgSDK", new=test_utils.MockOntology):
-        yield
-
-
-@pytest.fixture(scope="session", autouse=True)
 def auth_helper_mock():
     auth_mock = MagicMock()
     auth_mock.getUserTokenFromRequest.return_value = "test_token"
