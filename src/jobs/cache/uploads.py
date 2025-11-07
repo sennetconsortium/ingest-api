@@ -126,7 +126,9 @@ def update_uploads_datastatus(schedule_next_job=True):
                         upload[prop] = ""
 
                     if prop == "datasets":
-                       upload["datasets"] = ", ".join([dataset["uuid"] for dataset in upload["datasets"]])
+                        upload["datasets"] = ", ".join(
+                            [dataset["uuid"] for dataset in upload["datasets"]]
+                        )
 
                 for field in displayed_fields:
                     if upload.get(field) is None:
