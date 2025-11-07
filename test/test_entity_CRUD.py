@@ -3,28 +3,12 @@ import os
 from test.helpers import GROUP_ID
 from test.helpers.auth import AUTH_TOKEN
 from test.helpers.response import mock_response
-from unittest.mock import MagicMock, patch
 
 import pytest
 
 from jobs.validation.entities import validate_ancestor_id, validate_entity_constraints
 
 test_data_dir = os.path.join(os.path.dirname(__file__), "data")
-
-
-@pytest.fixture(scope="function", autouse=True)
-def job_queue_mock():
-    job_mock = MagicMock()
-    job_mock.get_status.return_value = "queued"
-
-    job_queue_mock = MagicMock()
-    job_queue_mock.enqueue_job.return_value = job_mock
-
-    with (
-        patch("jobs.JobQueue.instance", return_value=job_queue_mock),
-        patch("jobs.JobQueue.is_initialized", return_value=True),
-    ):
-        yield
 
 
 # Validate Sources
@@ -38,6 +22,7 @@ def job_queue_mock():
         ("dataset", 202),
     ],
 )
+@pytest.mark.usefixtures("job_queue")
 def test_validate_sources(app, entity_type, status_code):
     """Test validate sources correctly validates sources only"""
 
@@ -72,6 +57,7 @@ def test_validate_sources(app, entity_type, status_code):
         ("dataset", 202),
     ],
 )
+@pytest.mark.usefixtures("job_queue")
 def test_validate_samples(app, entity_type, status_code):
     """Test validate samples correctly validates samples only"""
     tsv_filename = os.path.join(test_data_dir, f"test_{entity_type}.tsv")
@@ -106,6 +92,7 @@ def test_validate_samples(app, entity_type, status_code):
         "file_invalid_entity_returns_400",
     ],
 )
+@pytest.mark.usefixtures("job_queue")
 def test_validate_entity_constraints(app, requests, name):
     """Test validate entity constraints returns the correct response"""
 
@@ -137,6 +124,7 @@ def test_validate_entity_constraints(app, requests, name):
 
 
 @pytest.mark.parametrize("name", ["valid_ancestor_id", "failing_uuid_response", "ancestor_saved"])
+@pytest.mark.usefixtures("job_queue")
 def test_validate_ancestor_id(app, requests, name):
     """Test validate ancestor id returns the correct response"""
 
