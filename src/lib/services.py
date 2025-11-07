@@ -290,7 +290,7 @@ def update_entity(
     with session as s:
         try:
             res = s.put(
-                f"{entity_api_url}/entities/{uuid}",
+                f"{entity_api_url}/entities/{uuid}?return_dict=true",
                 json=entity_update,
                 timeout=15,
             )
