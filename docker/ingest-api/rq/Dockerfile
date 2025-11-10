@@ -1,4 +1,4 @@
-FROM sennet/api-base-image:1.3.4
+FROM sennet/api-base-image:1.4.0
 
 LABEL description="SenNet Ingest API RQ Service"
 
@@ -21,13 +21,18 @@ COPY ../src/submodules/ src/submodules/
 COPY ../src/requirements.txt src/requirements.txt
 COPY ../src/worker.py src/worker.py
 
-# Update outdated packages and install Python packages
+# Update outdated packages
 RUN apt-get update -y && \
-    apt-get dist-upgrade -y && \
+    apt-get dist-upgrade -y
+
+# Update outdated packages and install Python packages
+RUN apt-get install -y build-essential && \
     sed -i '/^git+https/d' ./src/requirements.txt && \
     pip install --upgrade pip setuptools wheel && \
+    pip install -r ./src/submodules/ingest_validation_tools/requirements.txt && \
     pip install -r ./src/requirements.txt && \
-    pip install -r ./src/submodules/ingest_validation_tools/requirements.txt
+    apt-get purge -y build-essential && \
+    apt-get auto-remove -y
 
 # Modify the UID and GID of codcc to match the host
 RUN groupmod --gid $HOST_GID codcc && \
