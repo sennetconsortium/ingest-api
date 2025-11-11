@@ -28,15 +28,18 @@
   "file_valid_entity_returns_400": {
     "file_is_valid": true,
     "error_msg": [],
-    "entity_post_response": [400, {
-      "description": [
-        {
-          "column": null,
-          "error": "An error occurred while calling entity api",
-          "row": null
-        }        
-      ]
-    }],
+    "entity_post_response": [
+      400,
+      {
+        "description": [
+          {
+            "column": null,
+            "error": "An error occurred while calling entity api",
+            "row": null
+          }
+        ]
+      }
+    ],
     "expected_result": [
       {
         "column": null,
@@ -55,15 +58,18 @@
         "row": 1
       }
     ],
-    "entity_post_response": [400, {
-      "description": [
-        {
-          "column": null,
-          "error": "An error occurred while calling entity api",
-          "row": null
-        }        
-      ]
-    }],
+    "entity_post_response": [
+      400,
+      {
+        "description": [
+          {
+            "column": null,
+            "error": "An error occurred while calling entity api",
+            "row": null
+          }
+        ]
+      }
+    ],
     "expected_result": [
       {
         "column": null,
@@ -74,7 +80,7 @@
         "column": null,
         "error": "An error occurred while calling entity api",
         "row": null
-      }     
-    ] 
+      }
+    ]
   }
 }

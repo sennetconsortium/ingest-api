@@ -166,7 +166,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "organ_sennet_id",
             "assigned_to_group_name",
             "ingest_task",
-            "error_message"
+            "error_message",
         ]
 
         queries = [
@@ -261,7 +261,6 @@ def update_datasets_datastatus(schedule_next_job=True):
             if output_dict.get(dataset["uuid"]):
                 output_dict[dataset["uuid"]]["has_qa_published_derived_dataset"] = True
 
-
         combined_results = list(output_dict.values())
         if current_job is not None:
             update_job_progress(75, current_job)
@@ -299,7 +298,11 @@ def update_datasets_datastatus(schedule_next_job=True):
             dataset["has_dataset_metadata"] = has_dataset_metadata
 
             for prop in dataset:
-                if isinstance(dataset[prop], list) and prop not in ["processed_datasets", "blocks", "parent_ancestors"]:
+                if isinstance(dataset[prop], list) and prop not in [
+                    "processed_datasets",
+                    "blocks",
+                    "parent_ancestors",
+                ]:
                     dataset[prop] = ", ".join(dataset[prop])
 
                 if isinstance(dataset[prop], (bool)):

@@ -50,7 +50,7 @@
     }
   },
 
-  "ancestor_saved":{
+  "ancestor_saved": {
     "ancestor_id": "SNT439.NHLL.499",
     "error_msg": [],
     "valid_ancestor_ids": [
@@ -72,11 +72,10 @@
         "ancestor_ids": ["0a5ff4a9c6c1d23932f2f1fbfef8355c"],
         "type": "SOURCE",
         "uuid": "eca617d83938e2549e4fc35ec665bcbd",
-        "sennet_id": "SNT439.NHLL.499"     
+        "sennet_id": "SNT439.NHLL.499"
       },
       "resp_status_code": false,
       "ancestor_saved": true
     }
   }
-
 }

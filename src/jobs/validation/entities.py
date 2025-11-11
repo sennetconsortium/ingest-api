@@ -66,7 +66,10 @@ def validate_uploaded_entities(
             return JobResult(success=False, results=valid_file)
         else:
             update_job_progress(100)
-            message = f"Unexpected error occurred while validating tsv file. Expecting valid_file to be of type List or Boolean but got type {type(valid_file)}"
+            message = (
+                f"Unexpected error occurred while validating tsv file. Expecting valid_file to be "
+                f"of type List or Boolean but got type {type(valid_file)}"
+            )
             return JobResult(success=False, results={"message": message})
 
     except Exception as e:
@@ -125,8 +128,9 @@ def validate_sources(headers, records):
     rownum = 0
     if file_is_valid is True:
         for data_row in records:
-            # validate that no fields in data_row are none. If they are none, then we cannot verify even if the entry we
-            # are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
+            # validate that no fields in data_row are none. If they are none, then we cannot verify
+            # even if the entry we # are validating is what it is supposed to be. Mark the entire
+            # row as bad if a none field exists.
             rownum = rownum + 1
             none_present = False
             for each in data_row.keys():
@@ -221,7 +225,9 @@ def validate_samples(headers, records, token):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(
-        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None).organ_types().keys()
+        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None)
+        .organ_types()
+        .keys()
     )
     # Remove 'Other' organ
     organ_types_codes.remove("UBERON:0010000")
@@ -231,8 +237,9 @@ def validate_samples(headers, records, token):
     entity_constraint_list = []
     if file_is_valid is True:
         for data_row in records:
-            # validate that no fields in data_row are none. If they are none, then we cannot verify even if the entry we
-            # are validating is what it is supposed to be. Mark the entire row as bad if a none field exists.
+            # validate that no fields in data_row are none. If they are none, then we cannot verify
+            # even if the entry we # are validating is what it is supposed to be. Mark the entire
+            # row as bad if a none field exists.
             rownum = rownum + 1
             none_present = False
             for each in data_row.keys():
