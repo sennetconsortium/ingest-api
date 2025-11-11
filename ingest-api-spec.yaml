@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   description: |
     A RESTful web service exposing calls needed for the SenNet Data Sharing Portal.
-  version: 1.8.12
+  version: 1.8.13
   title: SenNet Ingest API
   contact:
     name: SenNet Help Desk
