@@ -588,7 +588,18 @@ def get_file_system_relative_path():
     ds_uuid_list = request.json
     out_list = []
     error_id_list = []
+    hmgroupids = []
+    user_info = None
     auth_helper_instance = AuthHelper.instance()
+
+    # Check to see if a user is passing a token. If so then grab the groups that they have access to.
+    if 'Mauthorization' in request.headers or 'Authorization' in request.headers:
+        user_info = auth_helper_instance.getUserInfoUsingRequest(request, getGroups=True)
+        if user_info is not None:
+            if "hmgroupids" not in user_info:
+                abort_forbidden("User has no valid group information to get path information.")
+            hmgroupids = user_info["hmgroupids"]
+
     for ds_uuid in ds_uuid_list:
         try:
             ent_recd = {}
@@ -631,7 +642,7 @@ def get_file_system_relative_path():
                     }
                     error_id_list.append(error_id)
                 path = ingest_helper.get_dataset_directory_relative_path(
-                    dset, group_uuid, dset["uuid"]
+                    dset, group_uuid, dset["uuid"], user_info, hmgroupids
                 )
             else:
                 error_id = {
