@@ -140,13 +140,13 @@ def update_datasets_datastatus(schedule_next_job=True):
         )
 
         descendant_qa_query = (
-            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Entity) "
+            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Dataset) "
             "WHERE e.status IN ['QA'] AND TOLOWER(a.creation_action) = 'central process' "
             "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: e.uuid, sennet_id: e.sennet_id}) AS descendant_qa"
         )
 
         descendant_published_query = (
-            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Entity) "
+            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Dataset) "
             "WHERE e.status IN ['Published'] AND TOLOWER(a.creation_action) = 'central process' "
             "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: e.uuid, sennet_id: e.sennet_id}) AS descendant_published"
         )
