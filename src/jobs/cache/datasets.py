@@ -99,7 +99,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "MATCH (s:Entity)-[:WAS_GENERATED_BY]->(a:Activity)-[:USED]->(ds:Dataset) WHERE "
             "a.creation_action in ['Central Process', 'Lab Process'] "
             "RETURN DISTINCT ds.uuid AS uuid, COLLECT(DISTINCT {uuid: s.uuid, sennet_id: s.sennet_id, status: s.status, created_timestamp: s.created_timestamp, "
-            "data_access_level: s.data_access_level, group_name: s.group_name}) AS processed_datasets"
+            "data_access_level: s.data_access_level, group_name: s.group_name, creation_action: a.creation_action}) AS processed_datasets"
         )
 
         upload_query = (
@@ -139,12 +139,6 @@ def update_datasets_datastatus(schedule_next_job=True):
             "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: ancestor.uuid, sennet_id: ancestor.sennet_id}) as direct_ancestors  "
         )
 
-        descendant_published_qa_query = (
-            "MATCH (ds:Dataset)<-[:USED]-(a:Activity)<-[:WAS_GENERATED_BY]-(e:Entity) "
-            "WHERE e.status IN ['QA', 'Published'] "
-            "RETURN ds.uuid as uuid, COLLECT(DISTINCT {uuid: e.uuid, sennet_id: e.sennet_id}) AS descendant_published_qa"
-        )
-
         displayed_fields = [
             "sennet_id",
             "group_name",
@@ -179,7 +173,6 @@ def update_datasets_datastatus(schedule_next_job=True):
             has_source_sample_metadata_query,
             blocks_ancestors_query,
             direct_ancestors_query,
-            descendant_published_qa_query,
         ]
         results = [None] * len(queries)
         threads = []
@@ -207,11 +200,9 @@ def update_datasets_datastatus(schedule_next_job=True):
         has_source_sample_metadata_result = results[6]
         blocks_ancestors_result = results[7]
         direct_ancestors_result = results[8]
-        descendant_published_result = results[9]
 
         for dataset in all_datasets_result:
             output_dict[dataset["uuid"]] = dataset
-            output_dict[dataset["uuid"]]["has_qa_published_derived_dataset"] = False
 
         for dataset in organ_result:
             if output_dict.get(dataset["uuid"]):
@@ -257,10 +248,6 @@ def update_datasets_datastatus(schedule_next_job=True):
             if output_dict.get(dataset["uuid"]):
                 output_dict[dataset["uuid"]]["parent_ancestors"] = dataset["direct_ancestors"]
 
-        for dataset in descendant_published_result:
-            if output_dict.get(dataset["uuid"]):
-                output_dict[dataset["uuid"]]["has_qa_published_derived_dataset"] = True
-
 
         combined_results = list(output_dict.values())
         if current_job is not None:
@@ -280,6 +267,19 @@ def update_datasets_datastatus(schedule_next_job=True):
                 if dataset["published_timestamp"] is None
                 else dataset["published_timestamp"]
             )
+
+            has_processed_published_datasets = False
+            has_processed_qa_datasets = False
+            if dataset.get('processed_datasets'):
+                for processed_ds in dataset['processed_datasets']:
+                    if processed_ds['creation_action'].lower() == 'central process':
+                        if processed_ds['status'].lower() == 'published':
+                            has_processed_published_datasets = True
+                        if processed_ds['status'].lower() == 'qa':
+                            has_processed_qa_datasets = True
+            dataset['has_published_processed'] = has_processed_published_datasets
+            dataset['has_qa_processed'] = has_processed_qa_datasets
+
             dataset["is_primary"] = (
                 "True"
                 if dataset.pop("activity_creation_action").lower() == "create dataset activity"
