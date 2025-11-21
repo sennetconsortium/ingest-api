@@ -299,7 +299,11 @@ def update_datasets_datastatus(schedule_next_job=True):
             dataset["has_dataset_metadata"] = has_dataset_metadata
 
             for prop in dataset:
-                if isinstance(dataset[prop], list) and prop not in ["processed_datasets", "blocks", "parent_ancestors"]:
+                if isinstance(dataset[prop], list) and prop not in [
+                    "processed_datasets",
+                    "blocks",
+                    "parent_ancestors",
+                ]:
                     dataset[prop] = ", ".join(dataset[prop])
 
                 if isinstance(dataset[prop], (bool)):

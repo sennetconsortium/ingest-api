@@ -1,4 +1,4 @@
-FROM sennet/api-base-image:1.3.5
+FROM sennet/api-base-image:1.4.0
 
 LABEL description="SenNet Ingest API Service"
 
@@ -42,11 +42,11 @@ COPY . .
 COPY ./entrypoint.sh /usr/local/bin/entrypoint.sh
 
 # Update and install Python packages
-RUN apt-get install -y git && \
+RUN apt-get install -y git build-essential && \
     pip install --upgrade pip setuptools wheel && \
-    pip install -r ./src/requirements.txt && \
     pip install -r ./src/submodules/ingest_validation_tools/requirements.txt && \
-    apt-get purge -y git && \
+    pip install -r ./src/requirements.txt && \
+    apt-get purge -y git build-essential && \
     apt-get auto-remove -y
 
 # Modify the UID and GID of codcc to match the host
