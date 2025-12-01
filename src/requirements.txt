@@ -29,4 +29,4 @@ rq==1.16.2
 psutil>=7.0.0,<7.1
 
 # For vitessce config generation
-git+https://github.com/hubmapconsortium/portal-visualization.git@0.4.18#egg=portal-visualization
+portal-visualization[full]==0.4.20
