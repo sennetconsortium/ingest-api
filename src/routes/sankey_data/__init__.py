@@ -13,6 +13,7 @@ from jobs.cache.datasets import (
     update_dataset_sankey_data,
 )
 from lib.services import get_token
+from lib.ontology import Ontology
 
 sankey_data_blueprint = Blueprint("sankey_data", __name__)
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def get_ds_assaytype():
         try:
             results = update_dataset_sankey_data(
                 authorized,
-                dataset_type_hierarchy=current_app.config["DATASET_TYPE_HIERARCHY"],
+                dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
                 schedule_next_job=False,
             )
             return jsonify(results.results)

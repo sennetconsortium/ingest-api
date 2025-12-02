@@ -19,6 +19,7 @@ from redis import from_url
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
+from lib.ontology import Ontology
 import submodules
 from jobs import JobQueue
 from jobs.cache.datasets import (
@@ -109,19 +110,6 @@ except Exception:
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
 
-
-####################################################################################################
-## Dataset Hierarchy initialization
-####################################################################################################
-
-try:
-    with open(app.config["HIERARCHY_JSON_FILE"], "r") as file:
-        app.config["DATASET_TYPE_HIERARCHY"] = json.load(file)
-        logger.info("Initialized DATASET_TYPE_HIERARCHY file successfully :)")
-except FileNotFoundError:
-    print(f"Error: The file dataset_type_hierarchy.json was not found.")
-except Exception as e:
-    print(f"An unexpected error occurred: {e}")
 
 
 ####################################################################################################
@@ -225,13 +213,13 @@ if app.config.get("REDIS_MODE"):
         job_queue=job_queue,
         delta=datetime.timedelta(seconds=30),
         authorized=False,
-        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
+        dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
     )
     schedule_update_dataset_sankey_data(
         job_queue=job_queue,
         delta=datetime.timedelta(seconds=30),
         authorized=True,
-        dataset_type_hierarchy=app.config["DATASET_TYPE_HIERARCHY"],
+        dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
     )
 
 # For local development/testing
