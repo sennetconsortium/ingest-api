@@ -160,7 +160,10 @@ def get_has_visualization(ds_uuid: str):
             ):
                 return Response(config, 200, mimetype="application/json")
 
-        entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        try:
+            entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        except HTTPException as hte:
+            return jsonify({"error": str(hte)}), hte.status_code
         parent = None
 
         def get_assaytype(entity: dict) -> dict:
