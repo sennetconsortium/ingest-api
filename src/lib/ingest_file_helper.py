@@ -70,7 +70,7 @@ class IngestFileHelper:
 
         return abs_path
 
-    def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid, user_info, hmgroupids):
+    def get_dataset_directory_relative_path(self, dataset_record, group_uuid, dataset_uuid, return_protected=False):
         if "contains_human_genetic_sequences" not in dataset_record:
             self.logger.info(
                 f"get_dataset_directory_relative_path: contains_human_genetic_sequences is None {dataset_uuid}"
@@ -90,11 +90,10 @@ class IngestFileHelper:
         if "status" in dataset_record and dataset_record["status"] == "Published":
             published = True
 
-        # An additional check for when a user passes a token. If the dataset is published but the user does
-        # not have access to that group then return the path of the non-PHI public directory.
-        if published and access_level == "protected" and user_info:
-            if group_uuid not in hmgroupids:
-                access_level = self.appconfig["ACCESS_LEVEL_CONSORTIUM"]
+        # If return_protected is True then we want to return the file path to the protected directory
+        # By default we will return the public directory of published protected datasets
+        if published and access_level == "protected" and not return_protected:
+            access_level = self.appconfig["ACCESS_LEVEL_CONSORTIUM"]
 
         return self.__dataset_directory_relative_path(
             access_level, group_uuid, dataset_uuid, published
