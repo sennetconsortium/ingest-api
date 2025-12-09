@@ -589,6 +589,11 @@ def get_file_system_relative_path():
     out_list = []
     error_id_list = []
     auth_helper_instance = AuthHelper.instance()
+
+    # If ?from-protected-space=true is present in the url request params
+    # set a flag to return the protected filepath of published protected datasets (use public dir otherwise)
+    from_protected_space = string_helper.isYes(request.args.get("from-protected-space"))
+
     for ds_uuid in ds_uuid_list:
         try:
             ent_recd = {}
@@ -631,7 +636,7 @@ def get_file_system_relative_path():
                     }
                     error_id_list.append(error_id)
                 path = ingest_helper.get_dataset_directory_relative_path(
-                    dset, group_uuid, dset["uuid"]
+                    dset, group_uuid, dset["uuid"], from_protected_space
                 )
             else:
                 error_id = {
