@@ -160,7 +160,11 @@ def get_has_visualization(ds_uuid: str):
             ):
                 return Response(config, 200, mimetype="application/json")
 
-        entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        try:
+            entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        except HTTPException as hte:
+            logger.error(hte, exc_info=True)
+            return jsonify({"error": "A valid token is required to access entity with ID " + ds_uuid}), hte.status_code
         parent = None
 
         def get_assaytype(entity: dict) -> dict:
