@@ -88,6 +88,15 @@ class DataCiteDoiHelper:
                     "schemeUri": "https://orcid.org/",
                 }
             ]
+        if "orcid" in dataset_contributor:
+            # See: https://support.datacite.org/docs/schema-optional-properties-v43#74-nameidentifier
+            contributor["nameIdentifiers"] = [
+                {
+                    "nameIdentifierScheme": "ORCID",
+                    "nameIdentifier": dataset_contributor["orcid"],
+                    "schemeUri": "https://orcid.org/",
+                }
+            ]
 
         return contributor
 
