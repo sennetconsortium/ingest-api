@@ -1,6 +1,5 @@
 import argparse
 import datetime
-import json
 import logging
 import os
 
@@ -45,6 +44,7 @@ from routes.samples import samples_blueprint
 from routes.sankey_data import sankey_data_blueprint
 from routes.sources import sources_blueprint
 from routes.status import status_blueprint
+from routes.transfers import transfers_blueprint
 from routes.vitessce import vitessce_blueprint
 
 # Set logging format and level (default is warning)
@@ -87,6 +87,7 @@ app.register_blueprint(sources_blueprint)
 app.register_blueprint(samples_blueprint)
 app.register_blueprint(collections_blueprint)
 app.register_blueprint(sankey_data_blueprint)
+app.register_blueprint(transfers_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
@@ -109,7 +110,6 @@ except Exception:
     msg = "Failed to initialize the ubkg module"
     # Log the full stack trace, prepend a line with our message
     logger.exception(msg)
-
 
 
 ####################################################################################################
