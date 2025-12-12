@@ -43,7 +43,7 @@ def get_user_transfer_endpoints():
         abort_unauthorized("User must present a valid Globus Transfer token")
 
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
+    tc = TransferClient(authorizer=authorizer)
     try:
         search_result = tc.endpoint_search(filter_scope="my-endpoints")
     except Exception as e:
@@ -101,7 +101,7 @@ def initiate_transfer():
 
     # Check user has access to destination endpoint
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
+    tc = TransferClient(authorizer=authorizer)
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
