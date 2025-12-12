@@ -83,20 +83,21 @@ def initiate_transfer():
     if not data:
         abort_unauthorized("Invalid request payload")
 
-    dest_ep_id = data.get("destination_endpoint_id")
-    base_dest_path = data.get("destination_path", "/sennet-data")
-    manifest = data.get("manifest")
+    dest_ep_id = data.get("destination_collection_id")
+    base_dest_path = data.get("destination_file_path", "/sennet-data")
     from_protected_space = data.get("from_protected_space", False)
-    # label = data.get("label", "ingest-api transfer")
+    manifest = data.get("manifest")
 
+    # Basic validation of required fields
     if not dest_ep_id:
-        abort_unauthorized("Destination endpoint ID is required")
+        abort_bad_req("Destination collection ID is required")
     try:
         UUID(dest_ep_id)
     except (ValueError, TypeError):
-        abort_unauthorized("Destination endpoint ID must be a valid UUID")
+        abort_bad_req("Destination collection ID must be a valid UUID")
+
     if not manifest:
-        abort_unauthorized("Transfer manifest is required")
+        abort_bad_req("Manifest is required")
 
     # Check user has access to destination endpoint
     authorizer = AccessTokenAuthorizer(token)
