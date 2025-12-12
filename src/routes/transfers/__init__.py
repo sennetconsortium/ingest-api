@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from uuid import UUID
 
 from atlas_consortia_commons.rest import (
@@ -42,7 +43,7 @@ def get_user_transfer_endpoints():
         abort_unauthorized("User must present a valid Globus Transfer token")
 
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer)
+    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
     try:
         search_result = tc.endpoint_search(filter_scope="my-endpoints")
     except Exception as e:
@@ -99,7 +100,7 @@ def initiate_transfer():
 
     # Check user has access to destination endpoint
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer)
+    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
@@ -207,6 +208,13 @@ def is_active_transfer_token(token: str) -> bool:
     )
     try:
         info = ac.oauth2_token_introspect(token)
+        issued = info.get("iat", 0)
+        # get utc time difference btween now and issued time in minutes
+        now = int(time.time())
+        diff_minutes = (now - issued) / 60
+        logger.info(
+            f"token info - Active: {info.get('active')}, Issued: {issued}, Age (minutes): {diff_minutes}"
+        )
     except Exception as e:
         logger.debug("token introspect failed: %s", e)
         return False
