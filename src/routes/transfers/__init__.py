@@ -81,7 +81,7 @@ def initiate_transfer():
     # Validate request payload
     data = request.get_json()
     if not data:
-        abort_unauthorized("Invalid request payload")
+        abort_bad_req("Invalid request payload")
 
     dest_ep_id = data.get("destination_collection_id")
     base_dest_path = data.get("destination_file_path", "/sennet-data")
@@ -214,12 +214,13 @@ def is_active_transfer_token(token: str) -> bool:
         now = int(time.time())
         diff_minutes = (now - issued) / 60
         logger.info(
-            f"token info - Active: {info.get('active')}, Issued: {issued}, Age (minutes): {diff_minutes}"
+            f"token info - Active: {info.get('active')}, Issued: {issued}, "
+            f"Age (minutes): {diff_minutes}"
         )
     except Exception as e:
         logger.debug("token introspect failed: %s", e)
         return False
     if not info.get("active"):
         return False
-    scopes = info.get("scope", "") or ""
-    return "transfer.api.globus.org" in scopes
+    aud = info.get("aud", [])
+    return "transfer.api.globus.org" in aud
