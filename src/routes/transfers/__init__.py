@@ -105,30 +105,26 @@ def initiate_transfer():
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
-    datasets = dict()
     for item in manifest:
         ent_uuid = item.get("dataset")
         if not ent_uuid:
             abort_bad_req("Each manifest item must include a dataset UUID")
 
-        if ent_uuid not in datasets:
-            try:
-                ent = get_entity(
-                    entity_id=ent_uuid,
-                    token=auth_helper.getProcessSecret(),
-                    as_dict=True,
-                )
-                if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
-                    abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
+        try:
+            ent = get_entity(
+                entity_id=ent_uuid,
+                token=auth_helper.getProcessSecret(),
+                as_dict=True,
+            )
+            if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
+                abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
+        except Exception as e:
+            print("Error retrieving entity:", e)
+            abort_not_found(f"Failed to find entity: {ent_uuid}")
 
-                datasets[ent["uuid"]] = ent
-            except Exception as e:
-                print("Error retrieving entity:", e)
-                abort_not_found(f"Failed to find entity: {ent_uuid}")
+        dataset = ent
 
-        dataset = datasets[ent_uuid]
-
-        # return {"rel_path": rel_path, "globus_endpoint_uuid": endpoint_id}
+        # returns {"rel_path": rel_path, "globus_endpoint_uuid": endpoint_id}
         path = ingest_helper.get_dataset_directory_relative_path(
             dataset_record=dataset,
             group_uuid=dataset["group_uuid"],
