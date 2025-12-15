@@ -43,7 +43,7 @@ def get_user_transfer_endpoints():
         abort_unauthorized("User must present a valid Globus Transfer token")
 
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
+    tc = TransferClient(authorizer=authorizer)
     try:
         search_result = tc.endpoint_search(filter_scope="my-endpoints")
     except Exception as e:
@@ -81,26 +81,27 @@ def initiate_transfer():
     # Validate request payload
     data = request.get_json()
     if not data:
-        abort_unauthorized("Invalid request payload")
+        abort_bad_req("Invalid request payload")
 
-    dest_ep_id = data.get("destination_endpoint_id")
-    base_dest_path = data.get("destination_path", "/sennet-data")
-    manifest = data.get("manifest")
+    dest_ep_id = data.get("destination_collection_id")
+    base_dest_path = data.get("destination_file_path", "/sennet-data")
     from_protected_space = data.get("from_protected_space", False)
-    # label = data.get("label", "ingest-api transfer")
+    manifest = data.get("manifest")
 
+    # Basic validation of required fields
     if not dest_ep_id:
-        abort_unauthorized("Destination endpoint ID is required")
+        abort_bad_req("Destination collection ID is required")
     try:
         UUID(dest_ep_id)
     except (ValueError, TypeError):
-        abort_unauthorized("Destination endpoint ID must be a valid UUID")
+        abort_bad_req("Destination collection ID must be a valid UUID")
+
     if not manifest:
-        abort_unauthorized("Transfer manifest is required")
+        abort_bad_req("Manifest is required")
 
     # Check user has access to destination endpoint
     authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer, base_url="https://transfer.api.globusonline.org")
+    tc = TransferClient(authorizer=authorizer)
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
@@ -213,12 +214,13 @@ def is_active_transfer_token(token: str) -> bool:
         now = int(time.time())
         diff_minutes = (now - issued) / 60
         logger.info(
-            f"token info - Active: {info.get('active')}, Issued: {issued}, Age (minutes): {diff_minutes}"
+            f"token info - Active: {info.get('active')}, Issued: {issued}, "
+            f"Age (minutes): {diff_minutes}"
         )
     except Exception as e:
         logger.debug("token introspect failed: %s", e)
         return False
     if not info.get("active"):
         return False
-    scopes = info.get("scope", "") or ""
-    return "transfer.api.globus.org" in scopes
+    aud = info.get("aud", [])
+    return "transfer.api.globus.org" in aud
