@@ -74,6 +74,9 @@ class DataCiteDoiHelper:
             # See: https://support.datacite.org/docs/schema-optional-properties-v43#73-familyname
             contributor["familyName"] = dataset_contributor["last_name"]
 
+        if  all(key in dataset_contributor for key in ["first_name", "last_name"]):
+            contributor['name'] = f"{dataset_contributor['last_name']}, {dataset_contributor['first_name']}"
+
         if "affiliation" in dataset_contributor:
             # See: https://support.datacite.org/docs/schema-optional-properties-v43#75-affiliation
             contributor["affiliation"] = [{"name": dataset_contributor["affiliation"]}]
