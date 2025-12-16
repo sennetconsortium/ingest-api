@@ -212,7 +212,4 @@ def is_active_transfer_token(token: str) -> bool:
         return False
 
     aud = info.get("aud", [])
-    if not isinstance(aud, list) or not all(isinstance(a, str) for a in aud):
-        return False
-
-    return "transfer.api.globus.org" in aud
+    return any(a == "transfer.api.globus.org" for a in aud)
