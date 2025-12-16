@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from uuid import UUID
 
 from atlas_consortia_commons.rest import (
