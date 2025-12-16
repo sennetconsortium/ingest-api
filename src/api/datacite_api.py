@@ -84,6 +84,17 @@ class DataCiteApi:
                     "types": {"resourceTypeGeneral": entity_type},
                     # The location of the landing page with more information about the resource
                     "url": f"{self.redirect_prefix}/{uuid}",
+
+                    # Add licensing information
+                    "rightsList": [
+                        {
+                            "rights": "Creative Commons Attribution 4.0 International",
+                            "rightsUri": "https://creativecommons.org/licenses/by/4.0/legalcode",
+                            "schemeUri": "https://spdx.org/licenses/",
+                            "rightsIdentifier": "cc-by-4.0",
+                            "rightsIdentifierScheme": "SPDX"
+                        }
+                    ],
                 },
             }
         }
