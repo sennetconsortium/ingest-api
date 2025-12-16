@@ -153,7 +153,7 @@ def initiate_transfer():
             recursive = True
 
         src_path = os.path.join(path["rel_path"], file_path)
-        dst_path = os.path.join(base_dest_path, f"{ent["sennet_id"]}-{ent_uuid}", file_path)
+        dst_path = os.path.join(base_dest_path, f"{ent['sennet_id']}-{ent_uuid}", file_path)
 
         transfer_data_map[src_ep_ip].add_item(src_path, dst_path, recursive=recursive)
 
