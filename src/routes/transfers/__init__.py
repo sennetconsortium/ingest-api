@@ -153,7 +153,7 @@ def initiate_transfer():
             recursive = True
 
         src_path = os.path.join(path["rel_path"], file_path)
-        dst_path = os.path.join(base_dest_path, f"{ent["sennet_id"]}-{ent_uuid}", file_path)
+        dst_path = os.path.join(base_dest_path, f"{ent['sennet_id']}-{ent_uuid}", file_path)
 
         transfer_data_map[src_ep_ip].add_item(src_path, dst_path, recursive=recursive)
 
@@ -219,4 +219,4 @@ def is_active_transfer_token(token: str) -> bool:
     if not info.get("active"):
         return False
     aud = info.get("aud", [])
-    return "transfer.api.globus.org" in aud
+    return any(a == "transfer.api.globus.org" in a for a in aud)
