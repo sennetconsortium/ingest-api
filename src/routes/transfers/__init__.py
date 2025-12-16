@@ -1,6 +1,5 @@
 import logging
 import os
-import time
 from uuid import UUID
 
 from atlas_consortia_commons.rest import (
@@ -205,18 +204,12 @@ def is_active_transfer_token(token: str) -> bool:
     )
     try:
         info = ac.oauth2_token_introspect(token)
-        issued = info.get("iat", 0)
-        # get utc time difference btween now and issued time in minutes
-        now = int(time.time())
-        diff_minutes = (now - issued) / 60
-        logger.info(
-            f"token info - Active: {info.get('active')}, Issued: {issued}, "
-            f"Age (minutes): {diff_minutes}"
-        )
     except Exception as e:
         logger.debug("token introspect failed: %s", e)
         return False
+
     if not info.get("active"):
         return False
+
     aud = info.get("aud", [])
-    return any(a == "transfer.api.globus.org" in a for a in aud)
+    return any(a == "transfer.api.globus.org" for a in aud)
