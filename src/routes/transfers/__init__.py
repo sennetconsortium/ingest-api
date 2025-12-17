@@ -44,7 +44,7 @@ def get_user_transfer_endpoints():
     authorizer = AccessTokenAuthorizer(token)
     tc = TransferClient(authorizer=authorizer)
     try:
-        search_result = tc.endpoint_search(filter_scope="my-endpoints")
+        search_result = tc.endpoint_search(filter_scope="administered-by-me")
     except Exception as e:
         logger.error(f"Error retrieving transfer endpoints: {e}")
         abort_unauthorized("User must present a valid Globus Transfer token")
@@ -53,6 +53,8 @@ def get_user_transfer_endpoints():
         {
             "id": ep["id"],
             "display_name": ep["display_name"],
+            "entity_type": ep["entity_type"],
+            "description": ep["description"]
         }
         for ep in search_result
     ]
