@@ -127,7 +127,7 @@ def create_dataset(suppress_reindex: bool):
 
 
 def normalize_globus_path(path: str) -> str:
-    """Normalizes the given path using os.path.normpath and checks if it starts with
+    """Normalizes the given path using os.path.realpath and checks if it starts with
        any of the allowed Globus prefixes defined in the configuration.
 
     Parameters
@@ -145,12 +145,18 @@ def normalize_globus_path(path: str) -> str:
     ValueError
         If the path does not start with any of the allowed Globus prefixes.
     """
+    if not isinstance(path, str) or path.strip() == "":
+        raise ValueError("Invalid path")
+
     prefixes = [
         os.path.realpath(current_app.config["GLOBUS_PUBLIC_ENDPOINT_FILEPATH"]),
         os.path.realpath(current_app.config["GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH"]),
         os.path.realpath(current_app.config["GLOBUS_PROTECTED_ENDPOINT_FILEPATH"]),
     ]
+
     normalized_path = os.path.realpath(path)
+    if not os.path.isabs(normalized_path):
+        raise ValueError(f"Path must be absolute: {path}")
 
     if not any(os.path.commonpath([normalized_path, prefix]) == prefix for prefix in prefixes):
         raise ValueError(f"The path '{normalized_path}' is not within an allowed Globus directory.")
