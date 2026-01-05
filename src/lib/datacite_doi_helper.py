@@ -74,6 +74,13 @@ class DataCiteDoiHelper:
             # See: https://support.datacite.org/docs/schema-optional-properties-v43#73-familyname
             contributor["familyName"] = dataset_contributor["last_name"]
 
+        if "display_name" in dataset_contributor:
+            contributor["name"] = dataset_contributor["display_name"]
+        elif "name" in dataset_contributor:
+            contributor["name"] = dataset_contributor["name"]
+        elif all(key in dataset_contributor for key in ["first_name", "last_name"]):
+            contributor['name'] = f"{dataset_contributor['first_name']} {dataset_contributor['last_name']} "
+
         if "affiliation" in dataset_contributor:
             # See: https://support.datacite.org/docs/schema-optional-properties-v43#75-affiliation
             contributor["affiliation"] = [{"name": dataset_contributor["affiliation"]}]
@@ -84,7 +91,16 @@ class DataCiteDoiHelper:
             contributor["nameIdentifiers"] = [
                 {
                     "nameIdentifierScheme": "ORCID",
-                    "nameIdentifier": dataset_contributor["orcid_id"],
+                    "nameIdentifier": "https://orcid.org/" + dataset_contributor["orcid_id"],
+                    "schemeUri": "https://orcid.org/",
+                }
+            ]
+        if "orcid" in dataset_contributor:
+            # See: https://support.datacite.org/docs/schema-optional-properties-v43#74-nameidentifier
+            contributor["nameIdentifiers"] = [
+                {
+                    "nameIdentifierScheme": "ORCID",
+                    "nameIdentifier":  "https://orcid.org/" +dataset_contributor["orcid"],
                     "schemeUri": "https://orcid.org/",
                 }
             ]
