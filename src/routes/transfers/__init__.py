@@ -4,6 +4,8 @@ from uuid import UUID
 
 from atlas_consortia_commons.rest import (
     abort_bad_req,
+    abort_forbidden,
+    abort_internal_err,
     abort_not_found,
     abort_unauthorized,
 )
@@ -12,10 +14,12 @@ from flask import Blueprint, current_app, jsonify, request
 from globus_sdk import (
     AccessTokenAuthorizer,
     ConfidentialAppAuthClient,
+    GlobusAPIError,
     TransferClient,
     TransferData,
 )
 from hubmap_commons.hm_auth import AuthHelper
+from werkzeug.exceptions import Forbidden
 
 from lib.ingest_file_helper import IngestFileHelper
 from lib.ontology import Ontology
@@ -54,7 +58,7 @@ def get_user_transfer_endpoints():
             "id": ep["id"],
             "display_name": ep["display_name"],
             "entity_type": ep["entity_type"],
-            "description": ep["description"]
+            "description": ep["description"],
         }
         for ep in search_result
     ]
@@ -182,9 +186,16 @@ def initiate_transfer():
 
         return jsonify({"task_ids": task_ids}), 202
 
+    except GlobusAPIError as e:
+        logger.error("Transfer submission failed: %s", e)
+        if e.http_status == Forbidden.code:
+            abort_forbidden("User is not authorized to perform one or more transfers")
+
+        return jsonify(error=f"{e.http_status} {e.code}: {e.message}"), e.http_status
+
     except Exception as e:
         logger.error("Transfer submission failed: %s", e)
-        abort_unauthorized("Transfer submission failed")
+        abort_internal_err("Transfer submission failed for an unknown reason")
 
 
 def is_active_transfer_token(token: str) -> bool:
