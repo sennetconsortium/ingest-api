@@ -1,6 +1,5 @@
 import logging
 import os
-from uuid import UUID
 
 from atlas_consortia_commons.rest import (
     abort_bad_req,
@@ -38,11 +37,9 @@ def get_user_transfer_endpoints():
 
     token = auth_helper.getUserTokenFromRequest(request, getGroups=True)
     if not isinstance(token, str):
-        print("Token is not a string")
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        print("Token is not a transfer token")
         abort_unauthorized("User must present a valid Globus Transfer token")
 
     authorizer = AccessTokenAuthorizer(token)
@@ -76,11 +73,9 @@ def initiate_transfer():
     # Validate user transfer token
     token = auth_helper.getUserTokenFromRequest(request, getGroups=True)
     if not isinstance(token, str):
-        print("Token is not a string")
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        print("Token is not a transfer token")
         abort_unauthorized("User must present a valid Globus Transfer token")
 
     # Validate request payload
@@ -89,24 +84,28 @@ def initiate_transfer():
         abort_bad_req("Invalid request payload")
 
     dest_ep_id = data.get("destination_collection_id")
-    base_dest_path = data.get("destination_file_path", "/sennet-data")
+    base_dest_path = data.get("destination_file_path", "sennet-data")
     from_protected_space = data.get("from_protected_space", False)
     manifest = data.get("manifest")
 
     # Basic validation of required fields
     if not dest_ep_id:
         abort_bad_req("Destination collection ID is required")
+
+    authorizer = AccessTokenAuthorizer(token)
+    tc = TransferClient(authorizer=authorizer)
     try:
-        UUID(dest_ep_id)
-    except (ValueError, TypeError):
-        abort_bad_req("Destination collection ID must be a valid UUID")
+        tc.get_endpoint(dest_ep_id)
+    except GlobusAPIError:
+        abort_bad_req("Destination collection ID must be a valid Globus endpoint")
+    except Exception as e:
+        logger.error("Get endpoint failed: %s", e)
+        abort_internal_err("Failed to retrieve endpoint details")
 
     if not manifest:
         abort_bad_req("Manifest is required")
 
     # Check user has access to destination endpoint
-    authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer)
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
@@ -124,7 +123,6 @@ def initiate_transfer():
             if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
                 abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
         except Exception as e:
-            print("Error retrieving entity:", e)
             abort_not_found(f"Failed to find entity: {ent_uuid}")
 
         dataset = ent
