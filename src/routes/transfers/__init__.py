@@ -1,9 +1,11 @@
 import logging
 import os
-from uuid import UUID
+from datetime import datetime, timedelta, timezone
 
 from atlas_consortia_commons.rest import (
     abort_bad_req,
+    abort_forbidden,
+    abort_internal_err,
     abort_not_found,
     abort_unauthorized,
 )
@@ -12,10 +14,12 @@ from flask import Blueprint, current_app, jsonify, request
 from globus_sdk import (
     AccessTokenAuthorizer,
     ConfidentialAppAuthClient,
+    GlobusAPIError,
     TransferClient,
     TransferData,
 )
 from hubmap_commons.hm_auth import AuthHelper
+from werkzeug.exceptions import Forbidden
 
 from lib.ingest_file_helper import IngestFileHelper
 from lib.ontology import Ontology
@@ -34,12 +38,15 @@ def get_user_transfer_endpoints():
 
     token = auth_helper.getUserTokenFromRequest(request, getGroups=True)
     if not isinstance(token, str):
-        print("Token is not a string")
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        print("Token is not a transfer token")
-        abort_unauthorized("User must present a valid Globus Transfer token")
+        e = {
+            "status": 498,
+            "code": "InvalidToken",
+            "message": "User must present a valid Globus Transfer token less than 1 hour old",
+        }
+        return jsonify(error=f"{e['status']} {e['code']}: {e['message']}"), e["status"]
 
     authorizer = AccessTokenAuthorizer(token)
     tc = TransferClient(authorizer=authorizer)
@@ -54,7 +61,7 @@ def get_user_transfer_endpoints():
             "id": ep["id"],
             "display_name": ep["display_name"],
             "entity_type": ep["entity_type"],
-            "description": ep["description"]
+            "description": ep["description"],
         }
         for ep in search_result
     ]
@@ -72,12 +79,15 @@ def initiate_transfer():
     # Validate user transfer token
     token = auth_helper.getUserTokenFromRequest(request, getGroups=True)
     if not isinstance(token, str):
-        print("Token is not a string")
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        print("Token is not a transfer token")
-        abort_unauthorized("User must present a valid Globus Transfer token")
+        e = {
+            "status": 498,
+            "code": "InvalidToken",
+            "message": "User must present a valid Globus Transfer token less than 1 hour old",
+        }
+        return jsonify(error=f"{e['status']} {e['code']}: {e['message']}"), e["status"]
 
     # Validate request payload
     data = request.get_json()
@@ -85,24 +95,28 @@ def initiate_transfer():
         abort_bad_req("Invalid request payload")
 
     dest_ep_id = data.get("destination_collection_id")
-    base_dest_path = data.get("destination_file_path", "/sennet-data")
+    base_dest_path = data.get("destination_file_path", "sennet-data")
     from_protected_space = data.get("from_protected_space", False)
     manifest = data.get("manifest")
 
     # Basic validation of required fields
     if not dest_ep_id:
         abort_bad_req("Destination collection ID is required")
+
+    authorizer = AccessTokenAuthorizer(token)
+    tc = TransferClient(authorizer=authorizer)
     try:
-        UUID(dest_ep_id)
-    except (ValueError, TypeError):
-        abort_bad_req("Destination collection ID must be a valid UUID")
+        tc.get_endpoint(dest_ep_id)
+    except GlobusAPIError:
+        abort_bad_req("Destination collection ID must be a valid Globus endpoint")
+    except Exception as e:
+        logger.error("Get endpoint failed: %s", e)
+        abort_internal_err("Failed to retrieve endpoint details")
 
     if not manifest:
         abort_bad_req("Manifest is required")
 
     # Check user has access to destination endpoint
-    authorizer = AccessTokenAuthorizer(token)
-    tc = TransferClient(authorizer=authorizer)
     ingest_helper = IngestFileHelper(current_app.config)
 
     transfer_data_map = dict[str, TransferData]()  # globus_endpoint_uuid -> TransferData
@@ -119,8 +133,7 @@ def initiate_transfer():
             )
             if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
                 abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
-        except Exception as e:
-            print("Error retrieving entity:", e)
+        except Exception:
             abort_not_found(f"Failed to find entity: {ent_uuid}")
 
         dataset = ent
@@ -182,9 +195,16 @@ def initiate_transfer():
 
         return jsonify({"task_ids": task_ids}), 202
 
+    except GlobusAPIError as e:
+        logger.error("Transfer submission failed: %s", e)
+        if e.http_status == Forbidden.code:
+            abort_forbidden("User is not authorized to perform one or more transfers")
+
+        return jsonify(error=f"{e.http_status} {e.code}: {e.message}"), e.http_status
+
     except Exception as e:
         logger.error("Transfer submission failed: %s", e)
-        abort_unauthorized("Transfer submission failed")
+        abort_internal_err("Transfer submission failed for an unknown reason")
 
 
 def is_active_transfer_token(token: str) -> bool:
@@ -198,7 +218,7 @@ def is_active_transfer_token(token: str) -> bool:
     Returns
     -------
     bool
-        True if the token is an active transfer token, False otherwise.
+        True if the token is an active transfer token and less than 1 hour old, False otherwise.
     """
     ac = ConfidentialAppAuthClient(
         current_app.config["APP_CLIENT_ID"],
@@ -214,4 +234,12 @@ def is_active_transfer_token(token: str) -> bool:
         return False
 
     aud = info.get("aud", [])
-    return any(a == "transfer.api.globus.org" for a in aud)
+    if not any(a == "transfer.api.globus.org" for a in aud):
+        return False
+
+    # Check token age (must be less than 1 hour old)
+    issued_at = datetime.fromtimestamp(info.get("iat", 0), tz=timezone.utc)
+    if datetime.now(tz=timezone.utc) - issued_at > timedelta(hours=1):
+        return False
+
+    return True
