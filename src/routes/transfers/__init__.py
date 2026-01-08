@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 
 from atlas_consortia_commons.rest import (
     abort_bad_req,
@@ -40,7 +41,12 @@ def get_user_transfer_endpoints():
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        abort_unauthorized("User must present a valid Globus Transfer token")
+        e = {
+            "status": 498,
+            "code": "InvalidToken",
+            "message": "User must present a valid Globus Transfer token less than 1 hour old",
+        }
+        return jsonify(error=f"{e['status']} {e['code']}: {e['message']}"), e["status"]
 
     authorizer = AccessTokenAuthorizer(token)
     tc = TransferClient(authorizer=authorizer)
@@ -76,7 +82,12 @@ def initiate_transfer():
         abort_unauthorized("User must be a member of the SenNet Consortium")
 
     if not is_active_transfer_token(token):
-        abort_unauthorized("User must present a valid Globus Transfer token")
+        e = {
+            "status": 498,
+            "code": "InvalidToken",
+            "message": "User must present a valid Globus Transfer token less than 1 hour old",
+        }
+        return jsonify(error=f"{e['status']} {e['code']}: {e['message']}"), e["status"]
 
     # Validate request payload
     data = request.get_json()
@@ -122,7 +133,7 @@ def initiate_transfer():
             )
             if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
                 abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
-        except Exception as e:
+        except Exception:
             abort_not_found(f"Failed to find entity: {ent_uuid}")
 
         dataset = ent
@@ -207,7 +218,7 @@ def is_active_transfer_token(token: str) -> bool:
     Returns
     -------
     bool
-        True if the token is an active transfer token, False otherwise.
+        True if the token is an active transfer token and less than 1 hour old, False otherwise.
     """
     ac = ConfidentialAppAuthClient(
         current_app.config["APP_CLIENT_ID"],
@@ -223,4 +234,12 @@ def is_active_transfer_token(token: str) -> bool:
         return False
 
     aud = info.get("aud", [])
-    return any(a == "transfer.api.globus.org" for a in aud)
+    if not any(a == "transfer.api.globus.org" for a in aud):
+        return False
+
+    # Check token age (must be less than 1 hour old)
+    issued_at = datetime.fromtimestamp(info.get("iat", 0), tz=timezone.utc)
+    if datetime.now(tz=timezone.utc) - issued_at > timedelta(hours=1):
+        return False
+
+    return True
