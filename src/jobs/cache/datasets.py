@@ -191,15 +191,15 @@ def update_datasets_datastatus(schedule_next_job=True):
 
         output_dict = {}
         # Here we specifically indexed the values in 'results' in case certain threads completed out of order
-        all_datasets_result = results[0]
-        organ_result = results[1]
-        source_result = results[2]
-        processed_datasets_result = results[3]
-        upload_result = results[4]
-        has_rui_result = results[5]
-        has_source_sample_metadata_result = results[6]
-        blocks_ancestors_result = results[7]
-        direct_ancestors_result = results[8]
+        all_datasets_result = results[0] or []
+        organ_result = results[1] or []
+        source_result = results[2] or []
+        processed_datasets_result = results[3] or []
+        upload_result = results[4] or []
+        has_rui_result = results[5] or []
+        has_source_sample_metadata_result = results[6] or []
+        blocks_ancestors_result = results[7] or []
+        direct_ancestors_result = results[8] or []
 
         for dataset in all_datasets_result:
             output_dict[dataset["uuid"]] = dataset
@@ -247,7 +247,6 @@ def update_datasets_datastatus(schedule_next_job=True):
         for dataset in direct_ancestors_result:
             if output_dict.get(dataset["uuid"]):
                 output_dict[dataset["uuid"]]["parent_ancestors"] = dataset["direct_ancestors"]
-
 
         combined_results = list(output_dict.values())
         if current_job is not None:
