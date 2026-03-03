@@ -69,12 +69,12 @@ def get_vitessce_config(ds_uuid: str):
             parent = entity["direct_ancestors"][0]
 
         if not has_visualization(
-            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
+            entity=entity, get_entity=get_assaytype, parent=parent,
         ):
             return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
 
         Builder = get_view_config_builder(
-            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
+            entity=entity, get_entity=get_assaytype, parent=parent
         )
         builder = Builder(entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"])
         with suppress_print():
