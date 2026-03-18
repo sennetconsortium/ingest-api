@@ -69,12 +69,12 @@ def get_vitessce_config(ds_uuid: str):
             parent = entity["direct_ancestors"][0]
 
         if not has_visualization(
-            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
+            entity=entity, get_entity=get_assaytype, parent=parent,
         ):
             return jsonify({"error": f"Entity with UUID {ds_uuid} has no visualization."}), 400
 
         Builder = get_view_config_builder(
-            entity=entity, get_entity=get_assaytype, parent=parent, epic_uuid=None
+            entity=entity, get_entity=get_assaytype, parent=parent
         )
         builder = Builder(entity, groups_token, current_app.config["ASSETS_WEBSERVICE_URL"])
         with suppress_print():
@@ -174,7 +174,6 @@ def get_has_visualization(ds_uuid: str):
             return calculate_assay_info(metadata, is_human, get_data_from_ubkg)
 
         assaytype = get_assaytype(entity)
-        builder = NullViewConfBuilder
         if assaytype != {}:
             entity["soft_assaytype"] = assaytype["assaytype"]
             entity["vitessce-hints"] = assaytype["vitessce-hints"]
@@ -183,8 +182,9 @@ def get_has_visualization(ds_uuid: str):
                 and "is_image" in assaytype["vitessce-hints"]
             ):
                 parent = entity["direct_ancestors"][0]
-            builder = get_view_config_builder(entity, get_assaytype, parent, None)
-        has_viz = {"has_visualization": builder != NullViewConfBuilder}
+        has_viz = {"has_visualization": has_visualization(
+            entity=entity, get_entity=get_assaytype, parent=parent,
+        )}
 
         if cache:
             cache.set(entity["uuid"] + "_visualization", has_viz, groups_token)
