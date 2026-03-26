@@ -44,7 +44,7 @@ def validate_uploaded_metadata(job_id: str, upload: dict, data: dict, token: str
                 results={
                     "message": (
                         f'Unsupported uploaded TSV spec for "{entity_type} {sub_type}". CEDAR formatting is required for `{entity_type}`. '
-                        "For more details, check out the docs: https://docs.sennetconsortium.org/libraries/ingest-validation-tools/schemas"
+                        "For more details, check out the docs: https://docs.sennetconsortium.org/registration/schemas/"
                     )
                 },
             )
