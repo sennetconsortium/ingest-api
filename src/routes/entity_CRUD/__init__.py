@@ -602,8 +602,8 @@ def get_file_system_relative_path():
         try:
             ent_recd = {}
             ent_recd["id"] = ds_uuid
-            dset = __get_entity(
-                ds_uuid, auth_header="Bearer " + auth_helper_instance.getProcessSecret()
+            dset = get_entity(
+                ds_uuid, auth_helper_instance.getProcessSecret()
             )
             ent_type_m = __get_dict_prop(dset, "entity_type")
             ent_recd["entity_type"] = ent_type_m
@@ -678,9 +678,10 @@ def get_file_system_relative_path():
 
 
 @entity_CRUD_blueprint.route("/entities/<entity_uuid>", methods=["GET"])
-def get_entity(entity_uuid):
+def fetch_entity(entity_uuid):
     try:
-        entity = __get_entity(entity_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+        auth_helper_instance = AuthHelper.instance()
+        entity = get_entity(entity_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
         return jsonify(entity), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
@@ -691,7 +692,8 @@ def get_entity(entity_uuid):
 
 def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
     """Get the path to the dataset files"""
-    dset = __get_entity(ds_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+    auth_helper_instance = AuthHelper.instance()
+    dset = get_entity(ds_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
     ent_type = __get_dict_prop(dset, "entity_type")
     group_uuid = __get_dict_prop(dset, "group_uuid")
     if ent_type is None or ent_type.strip() == "":
@@ -714,31 +716,6 @@ def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
             f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}", 400
         )
     return ingest_helper.get_dataset_directory_absolute_path(dset, group_uuid, ds_uuid)
-
-
-def __get_entity(entity_uuid, auth_header=None):
-    if auth_header is None:
-        headers = None
-    else:
-        headers = {
-            "Authorization": auth_header,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-    get_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + entity_uuid
-    )
-
-    response = requests.get(get_url, headers=headers, verify=False)
-    if response.status_code != 200:
-        err_msg = f"Error while calling {get_url} status code:{response.status_code}  message:{response.text}"
-        logger.error(err_msg)
-        raise HTTPException(err_msg, response.status_code)
-
-    return response.json()
-
 
 def __get_dict_prop(dic, prop_name):
     if prop_name not in dic:
