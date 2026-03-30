@@ -27,7 +27,6 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 from rq.exceptions import NoSuchJobError
 from rq.job import JobStatus
 
@@ -55,9 +54,8 @@ from lib.services import (
     create_entity,
     entity_json_dumps,
     get_auth_header_dict,
-    get_entity_by_id,
-    obj_to_dict,
-    update_entity,
+    get_entity,
+    update_entity, clear_entity_api_cache,
 )
 from lib.slack import send_slack_notification
 
@@ -927,20 +925,13 @@ def update_ingest_status():
 
     try:
         auth_helper_instance = AuthHelper.instance()
+        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
         file_upload_helper_instance = UploadFileHelper.instance()
-        entity_api = EntitySdk(
-            token=auth_helper_instance.getAuthorizationTokens(request.headers),
-            service_url=commons_file_helper.removeTrailingSlashURL(
-                current_app.config["ENTITY_WEBSERVICE_URL"]
-            ),
-        )
         dataset_helper = DatasetHelper(current_app.config)
 
         return dataset_helper.update_ingest_status_title_thumbnail(
-            current_app.config,
             request.json,
-            request.headers,
-            entity_api,
+            auth_token,
             file_upload_helper_instance,
         )
     except HTTPException as hte:
@@ -1210,15 +1201,7 @@ def publish_datastage(identifier: str, user: User):
                 )
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_instance = EntitySdk(
-                token=auth_tokens, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
-            )
-            entity = get_entity_by_id(dataset_uuid, token=auth_tokens)
-
-            if entity == {}:
-                abort_not_found(f"Entity with uuid {dataset_uuid} not found")
-
-            entity_dict = obj_to_dict(entity)
+            entity_dict = get_entity(dataset_uuid, token=auth_tokens)
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(
                 dataset_uuid
@@ -1444,7 +1427,7 @@ def publish_datastage(identifier: str, user: User):
                     )
 
             # triggers a call to entity-api/flush-cache
-            entity_instance.clear_cache(dataset_uuid)
+            clear_entity_api_cache(dataset_uuid, auth_tokens)
 
             # if all else worked set the list of ids to public that need to be public
             if len(uuids_for_public) > 0:
@@ -1456,7 +1439,7 @@ def publish_datastage(identifier: str, user: User):
                 )
                 neo_session.run(update_q, uuids=uuids_for_public)
                 for e_id in uuids_for_public:
-                    entity_instance.clear_cache(e_id)
+                    clear_entity_api_cache(e_id, auth_tokens)
 
         # Write metadata.json into directory
         ds_path = ingest_helper.dataset_directory_absolute_path(
@@ -1465,9 +1448,8 @@ def publish_datastage(identifier: str, user: User):
         if is_primary or is_component is False:
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(
-                entity,
+                entity_dict,
                 auth_tokens,
-                EntitySdk(service_url=current_app.config["ENTITY_WEBSERVICE_URL"]),
                 True,
             )
             logger.info(

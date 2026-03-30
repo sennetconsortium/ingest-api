@@ -9,12 +9,11 @@ from datetime import datetime
 import requests
 from flask import Flask
 from hubmap_commons.exceptions import HTTPException
-from hubmap_sdk import Entity, EntitySdk
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 from api.datacite_api import DataCiteApi
 from lib.datacite_api import DataciteApiException
-from lib.services import get_entity_by_id
+from lib.services import get_entity
 
 requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
 
@@ -368,52 +367,6 @@ class DataCiteDoiHelper:
         doi_name = datacite_api.build_doi_name(entity["sennet_id"])
         return doi_name
 
-    """
-    Update the dataset's properties in Entity-API after DOI is published (Draft -> Findable)
-
-    Parameters
-    ----------
-    dataset_uuid: str
-        The dataset uuid
-    doi_name: str
-        The registered doi: prefix/suffix
-    entity_api
-        The EntitySdk object instance
-
-    Returns
-    -------
-    hubmap_sdk.Entity
-        The updated dataset entity
-
-    Raises
-    ------
-    requests.exceptions.RequestException
-        If the request to entity-api fails
-    """
-
-    def update_dataset_after_doi_published(
-        self, dataset_uuid: dict, doi_info: str, entity_api: EntitySdk
-    ) -> Entity:
-        # Update the registered_doi, and doi_url properties after DOI made findable
-        # Changing Dataset.status to "Published" and setting the published_* properties
-        # are handled by another script
-        # See https://github.com/hubmapconsortium/ingest-ui/issues/354
-        try:
-            # Entity update via PUT call only returns a json message, no entity details
-            result = entity_api.update_entity(dataset_uuid, doi_info)
-            logger.info("======The dataset {dataset['uuid']}  has been updated with DOI info======")
-            logger.info(doi_info)
-            return result
-        except HTTPException as e:
-            # Log the full stack trace, prepend a line with our message
-            logger.exception(f"Unable to update the DOI properties of dataset {dataset_uuid}")
-            logger.debug(f"======Status code from DataCite {e.status_code}======")
-            logger.debug("======response text from entity-api======")
-            logger.debug(e.description)
-
-            # Also bubble up the error message from entity-api
-            raise requests.exceptions.RequestException(e.description)
-
     def is_invalid_doi(self, protocol):
         selection_protocol_pattern1 = re.match(
             "^https://dx\.doi\.org/[\d]+\.[\d]+/protocols\.io\..*$", protocol
@@ -440,7 +393,6 @@ if __name__ == "__main__":
 
     # Make sure that 'app.cfg' is pointed to DEV everything!!!
     config = load_flask_instance_config()
-    entity_api = EntitySdk(user_token, config["ENTITY_WEBSERVICE_URL"])
 
     count = 1
     for dataset_uuid in datasets:
@@ -448,7 +400,7 @@ if __name__ == "__main__":
             f"Begin {count}: ========================={dataset_uuid}========================="
         )
         try:
-            entity = get_entity_by_id(dataset_uuid)
+            entity = get_entity(dataset_uuid)
             dataset = vars(entity)
 
             data_cite_doi_helper = DataCiteDoiHelper()

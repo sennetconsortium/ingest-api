@@ -16,12 +16,11 @@ from hubmap_commons.hm_auth import AuthHelper
 
 # Local modules
 from hubmap_commons.hubmap_const import HubmapConst
-from hubmap_sdk import EntitySdk
 
 from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.ontology import Ontology
-from lib.services import get_entity_by_id
+from lib.services import get_entity, update_entity
 
 
 class DatasetHelper:
@@ -156,16 +155,11 @@ class DatasetHelper:
 
     def update_ingest_status_title_thumbnail(
         self,
-        app_config: object,
         request_json: object,
-        request_headers: object,
-        entity_api: EntitySdk,
+        auth_token: str,
         file_upload_helper_instance: UploadFileHelper,
     ) -> object:
         dataset_uuid = request_json["dataset_id"].strip()
-
-        # Headers for calling entity-api via PUT to update Dataset.status
-        extra_headers = {"Content-Type": "application/json", "X-SenNet-Application": "ingest-api"}
 
         # updated_ds is the dict returned by ingest-pipeline, not the complete entity information
         # Note: 'dataset_id' is in request_json but not in the resulting updated_ds
@@ -189,9 +183,8 @@ class DatasetHelper:
             try:
                 self.handle_thumbnail_file(
                     thumbnail_file_abs_path,
-                    entity_api,
                     dataset_uuid,
-                    extra_headers,
+                    auth_token,
                     temp_file_id,
                     file_upload_temp_dir,
                 )
@@ -217,12 +210,10 @@ class DatasetHelper:
             )
             pass
 
-        # Applying extra headers once more in case an exception occurs in handle_thumbnail_file and its is not changed
-        entity_api.header.update(extra_headers)
         try:
-            entity = entity_api.update_entity(dataset_uuid, updated_ds)
+            entity = update_entity(dataset_uuid, updated_ds, auth_token)
         except HTTPException as e:
-            err_msg = f"Error while updating the dataset status using EntitySdk.update_entity() status code: {e.status_code} message: {e.description}"
+            err_msg = f"Error while updating the dataset status using update_entity status code: {e.status_code} message: {e.description}"
             self.logger.error(err_msg)
             self.logger.error("Sent: " + json.dumps(updated_ds))
             return Response(e.description, e.status_code)
@@ -239,26 +230,22 @@ class DatasetHelper:
     def handle_thumbnail_file(
         self,
         thumbnail_file_abs_path: str,
-        entity_api: EntitySdk,
         dataset_uuid: str,
-        extra_headers: dict,
+        auth_token: str,
         temp_file_id: str,
         file_upload_temp_dir: str,
     ):
         # Delete the old thumbnail file from Neo4j before updating with new one
         # First retrieve the exisiting thumbnail file uuid
         try:
-            entity = get_entity_by_id(dataset_uuid)
-        # All exceptions that occur in EntitySdk are HTTPExceptions
+            entity_dict = get_entity(dataset_uuid, auth_token)
         except HTTPException as e:
-            err_msg = f"Failed to query the dataset of uuid {dataset_uuid} while calling EntitySdk.get_entities() status code:{e.status_code}  message:{e.description}"
+            err_msg = f"Failed to query the dataset of uuid {dataset_uuid} while calling get_entity status code:{e.status_code}  message:{e.description}"
             self.logger.error(err_msg)
             # Bubble up the error message
             raise requests.exceptions.RequestException(err_msg)
 
-        entity_dict = vars(entity)
-
-        self.logger.debug("=======EntitySdk.get_entity_by_id() resulting entity_dict=======")
+        self.logger.debug("=======get_entity() resulting entity_dict=======")
         self.logger.debug(entity_dict)
 
         # Easier to ask for forgiveness than permission (EAFP)
@@ -268,12 +255,10 @@ class DatasetHelper:
 
             # To remove the existing thumbnail file, just pass the file uuid as a string
             put_data = {"thumbnail_file_to_remove": thumbnail_file_uuid}
-            entity_api.header.update(extra_headers)
             try:
-                entity = entity_api.update_entity(dataset_uuid, put_data)
-            # All exceptions that occur in EntitySdk are HTTPExceptions
+                entity = update_entity(dataset_uuid, put_data, auth_token)
             except HTTPException as e:
-                err_msg = f"Failed to remove the existing thumbnail file for dataset of uuid {dataset_uuid} while calling EntitySdk.put_entities() status code:{e.status_code}  message:{e.description}"
+                err_msg = f"Failed to remove the existing thumbnail file for dataset of uuid {dataset_uuid} while calling update_entity() status code:{e.status_code}  message:{e.description}"
                 self.logger.error(err_msg)
                 # Bubble up the error message
                 raise requests.exceptions.RequestException(err_msg)
@@ -289,7 +274,7 @@ class DatasetHelper:
 
         entity_dict = vars(entity)
 
-        self.logger.debug("=======EntitySdk.update_entity() resulting entity_dict=======")
+        self.logger.debug("=======update_entity() resulting entity_dict=======")
         self.logger.debug(entity_dict)
 
         # Create the temp file dir under the temp uploads for the thumbnail

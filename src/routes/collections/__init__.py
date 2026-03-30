@@ -7,12 +7,11 @@ from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 
 from lib.datacite_api import DataciteApiException
 from lib.datacite_doi_helper import DataCiteDoiHelper
 from lib.neo4j_helper import Neo4jHelper
-from lib.services import get_entity_by_id
+from lib.services import get_entity, clear_entity_api_cache, update_entity
 
 collections_blueprint = Blueprint("collections", __name__)
 logger = logging.getLogger(__name__)
@@ -111,17 +110,11 @@ def register_collections_doi(collection_id):
                 )
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_instance = EntitySdk(
-                token=auth_tokens, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
-            )
 
             doi_info = None
 
-            entity = get_entity_by_id(collection_uuid, token=auth_tokens)
-            if entity == {}:
-                abort_not_found(f"Entity with uuid {collection_uuid} not found")
+            entity_dict = get_entity(collection_uuid, token=auth_tokens)
 
-            entity_dict = vars(entity)
             datacite_doi_helper = DataCiteDoiHelper()
             # Checks both whether a doi already exists, as well as if it is already findable. If True, DOI exists and is findable
             # If false, DOI exists but is not yet in findable. If None, doi does not yet exist.
@@ -205,8 +198,8 @@ def register_collections_doi(collection_id):
                     "doi_url": doi_info["doi_url"],
                 }
 
-            entity_instance.clear_cache(collection_uuid)
-            entity_instance.update_entity(collection_uuid, doi_update_data)
+            clear_entity_api_cache(collection_uuid, auth_tokens)
+            update_entity(collection_uuid, doi_update_data, auth_tokens)
 
         return jsonify({"registered_doi": f"{doi_info['registered_doi']}"})
 

@@ -9,11 +9,7 @@ from flask import current_app, request
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.file_helper import ensureTrailingSlashURL, removeTrailingSlashURL
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import Entity, EntitySdk, SearchSdk
-from hubmap_sdk.sdk_helper import make_entity
 from requests.adapters import HTTPAdapter, Retry
-
-from lib.entities.source import Source
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +26,28 @@ def get_auth_header_dict(token: str) -> dict:
     return {"Authorization": "Bearer " + token, "X-SenNet-Application": "ingest-api"}
 
 
-def get_entity_by_id(identifier, token=None):
+def get_entity(entity_id: str, token: Optional[str]) -> dict:
+    """Get the entity from entity-api for the given uuid.
+
+    Parameters
+    ----------
+    entity_id : str
+        The uuid of the entity.
+    token : Optional[str]
+        The groups token for the request if available
+
+    Returns
+    -------
+   dict
+        The entity from entity-api for the given uuid.
+
+    Raises
+    ------
+    hubmap_commons.exceptions.HTTPException
+        If the entity-api request fails.
+    """
     service_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
-    url = f"{service_url}entities/{identifier}"
+    url = f"{service_url}entities/{entity_id}"
     if token is None:
         response = requests.get(url)
     else:
@@ -45,36 +60,7 @@ def get_entity_by_id(identifier, token=None):
     output = response.json()
     entity = {}
     if output is not None and "entity_type" in output:
-        if output["entity_type"].lower() == "source":
-            entity = Source(output)
-        else:
-            entity = make_entity(output)
-    return entity
-
-
-def get_entity(entity_id: str, token: Optional[str], as_dict: bool = False) -> Union[Entity, dict]:
-    """Get the entity from entity-api for the given uuid.
-
-    Parameters
-    ----------
-    entity_id : str
-        The uuid of the entity.
-    token : Optional[str]
-        The groups token for the request if available
-
-    Returns
-    -------
-    Union[hubmap_sdk.Entity, dict]
-        The entity from entity-api for the given uuid.
-
-    Raises
-    ------
-    hubmap_commons.exceptions.HTTPException
-        If the entity-api request fails.
-    """
-    entity = get_entity_by_id(entity_id, token)
-    if as_dict:
-        return vars(entity)
+        entity = output
     return entity
 
 
@@ -122,8 +108,8 @@ def get_ancestors_for_entity(
 
 
 def get_entity_from_search_api(
-    entity_id: str, token: Optional[str], as_dict: bool = False
-) -> Union[Entity, dict]:
+    entity_id: str, token: Optional[str]
+) -> dict:
     """Get the entity from search-api for the given uuid.
 
     Parameters
@@ -132,12 +118,10 @@ def get_entity_from_search_api(
         The uuid of the entity.
     token : Optional[str]
         The groups token for the request if available.
-    as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False.
 
     Returns
     -------
-    Union[hubmap_sdk.Entity, dict]
+    dict
         The entity from search-api for the given uuid.
 
     Raises
@@ -146,7 +130,8 @@ def get_entity_from_search_api(
         If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
-    search_api = SearchSdk(token=token, service_url=search_api_url)
+    url = f"{search_api_url}/entities/search"
+    headers = get_auth_header_dict(token) if token is not None else None
     query = {
         "size": 1,
         "query": {
@@ -158,20 +143,17 @@ def get_entity_from_search_api(
             }
         },
     }
-    res = search_api.search_by_index(query, "entities")
+    res = requests.post(url, json=query, headers=headers)
     hits = res.get("hits", {}).get("hits", [])
     if len(hits) == 0 or not hits[0]["_source"]:
         raise HTTPException("No entity found", 404)
 
-    entity = hits[0]["_source"]
-    if as_dict:
-        return entity
-    return Entity(entity)
+    return hits[0]["_source"]
 
 
 def get_associated_sources_from_dataset(
-    dataset_id: str, token: str = None, as_dict: bool = False
-) -> Union[List[Entity], dict]:
+    dataset_id: str, token: str = None
+) -> list[dict]:
     """Get the associated sources for the given dataset.
 
     Parameters
@@ -180,12 +162,9 @@ def get_associated_sources_from_dataset(
         The uuid of the dataset.
     token : str
         The groups token for the request.
-    as_dict : bool, optional
-        Should entity be returned as a dictionary, by default False.
-
     Returns
     -------
-    Union[List[Entity], dict]
+    list[dict]
         The associated sources for the given dataset.
 
     Raises
@@ -201,16 +180,92 @@ def get_associated_sources_from_dataset(
     res = requests.get(url, headers=headers)
     if not res.ok:
         raise HTTPException(f"Failed to get associated source for dataset {dataset_id}")
-    body = res.json()
+    return res.json()
 
-    if as_dict:
-        return body
+def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
+    """Get the associated organs from entity-api for the given dataset uuid.
 
-    if isinstance(body, list):
-        return [Entity(entity) for entity in res.json()]
+    Parameters
+    ----------
+    dataset_id : str
+        The uuid of the dataset.
 
-    return [Entity(body)]
+    Returns
+    -------
+    list[dict]
+        List of associated organs.
 
+    Raises
+    ------
+    hubmap_commons.exceptions.HTTPException
+        If the entity-api request fails.
+    """
+
+    entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
+    url = f"{entity_api_url}datasets/{dataset_id}/organs"
+    res = requests.get(url)
+
+    if not res.ok:
+        raise HTTPException(f"Failed to get associated organs for dataset {dataset_id}")
+
+    return res.json()
+
+
+
+def get_associated_samples_from_dataset(dataset_id) -> list[dict]:
+    """Get the associated samples from entity-api for the given dataset uuid.
+
+    Parameters
+    ----------
+    dataset_id : str
+        The uuid of the dataset.
+
+    Returns
+    -------
+    list[dict]
+        List of associated samples.
+
+    Raises
+    ------
+    hubmap_commons.exceptions.HTTPException
+        If the entity-api request fails.
+    """
+    entities = []
+
+    entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
+    url = f"{entity_api_url}datasets/{dataset_id}/samples"
+    res = requests.get(url)
+
+    if not res.ok:
+        raise HTTPException(f"Failed to get associated samples for dataset {dataset_id}")
+
+    return res.json()
+
+
+def clear_entity_api_cache(entity_id: str, token: str) -> None:
+    """Clear the Entity API cache for a given entity.
+
+    Parameters
+    ----------
+    entity_id : str
+        The id of the entity to be have it's cache cleared.
+    token : str
+        The groups token for the request.
+
+    Raises
+    ------
+    hubmap_commons.exceptions.HTTPException
+        If the search-api request fails or entity not found.
+    """
+    entity_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
+    url = f"{entity_api_url}flush-cache/{entity_id}"
+    headers = get_auth_header_dict(token) if token is not None else None
+    res = requests.delete(url, headers=headers)
+
+    if not res.ok:
+        raise HTTPException(f"Failed to clear the cache for the given entity {entity_id}")
+
+    return res.json()
 
 def reindex_entities(entity_ids: list, token: str) -> None:
     """Reindex the entities in the search-api.
@@ -228,13 +283,13 @@ def reindex_entities(entity_ids: list, token: str) -> None:
         If the search-api request fails or entity not found.
     """
     search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
-    search_api = SearchSdk(token=token, service_url=search_api_url)
+    headers = get_auth_header_dict(token) if token is not None else None
     errors = {}
     for entity_id in entity_ids:
-        try:
-            search_api.reindex(entity_id)
-        except HTTPException as e:
-            errors[entity_id] = str(e)
+        url = f"{search_api_url}/reindex/{entity_id}"
+        res = requests.put(url, headers=headers)
+        if not res.ok:
+            errors[entity_id] = str(res.json())
 
     if len(errors) > 0:
         msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
@@ -570,18 +625,18 @@ def obj_to_dict(obj) -> dict:
     return json.loads(json.dumps(obj, default=lambda o: getattr(o, "__dict__", str(o))))
 
 
-def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file: False):
+def entity_json_dumps(entity: dict, token: str, to_file: False):
     """
     Because entity and the content of the arrays returned from entity_instance.get_associated_*
     contain user defined objects we need to turn them into simple python objects (e.g., dicts, lists, str)
     before we can convert them wth json.dumps.
     Here we create an expanded version of the entity associated with the dataset_uuid and return it as a json string.
     """
-    dataset_uuid = entity.get_uuid()
+    dataset_uuid = entity["uuid"]
     entity = obj_to_dict(entity)
-    entity["organs"] = obj_to_dict(entity_sdk.get_associated_organs_from_dataset(dataset_uuid))
-    entity["samples"] = obj_to_dict(entity_sdk.get_associated_samples_from_dataset(dataset_uuid))
-    entity["sources"] = get_associated_sources_from_dataset(dataset_uuid, token=token, as_dict=True)
+    entity["organs"] = obj_to_dict(get_associated_organs_from_dataset(dataset_uuid))
+    entity["samples"] = obj_to_dict(get_associated_samples_from_dataset(dataset_uuid))
+    entity["sources"] = get_associated_sources_from_dataset(dataset_uuid, token=token)
 
     # Return as a string to be fed into a file
     if to_file:
@@ -591,3 +646,4 @@ def entity_json_dumps(entity: Entity, token: str, entity_sdk: EntitySdk, to_file
     # Return as a dict for JSON response
     else:
         return entity
+
