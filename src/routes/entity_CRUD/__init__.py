@@ -22,7 +22,7 @@ from atlas_consortia_commons.rest import (
     rest_server_err,
 )
 from atlas_consortia_commons.string import equals
-from flask import Blueprint, Response, current_app, jsonify, request, escape
+from flask import Blueprint, Response, current_app, jsonify, request
 from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from hubmap_commons.exceptions import HTTPException
@@ -687,7 +687,7 @@ def fetch_entity(entity_uuid):
         return Response(hte.get_description(), hte.get_status_code())
     except Exception as e:
         logger.error(e, exc_info=True)
-        return Response(f"Unexpected error while retrieving entity {escape(entity_uuid)}: " + str(e), 500)
+        return Response(f"Unexpected error while retrieving entity {entity_uuid}: " + str(e), 500)
 
 
 def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
