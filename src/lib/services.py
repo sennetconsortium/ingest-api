@@ -129,8 +129,8 @@ def get_entity_from_search_api(
     hubmap_commons.exceptions.HTTPException
         If the search-api request fails or entity not found.
     """
-    search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
-    url = f"{search_api_url}/entities/search"
+    search_api_url = ensure_trailing_slash_url(current_app.config["SEARCH_WEBSERVICE_URL"])
+    url = f"{search_api_url}entities/search"
     headers = get_auth_header_dict(token) if token is not None else None
     query = {
         "size": 1,
@@ -255,7 +255,7 @@ def clear_entity_api_cache(entity_id: str, token: str) -> None:
     hubmap_commons.exceptions.HTTPException
         If the search-api request fails or entity not found.
     """
-    entity_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
+    entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{entity_api_url}flush-cache/{entity_id}"
     headers = get_auth_header_dict(token) if token is not None else None
     res = requests.delete(url, headers=headers)
@@ -280,11 +280,11 @@ def reindex_entities(entity_ids: list, token: str) -> None:
     hubmap_commons.exceptions.HTTPException
         If the search-api request fails or entity not found.
     """
-    search_api_url = current_app.config["SEARCH_WEBSERVICE_URL"]
+    search_api_url = ensure_trailing_slash_url(current_app.config["SEARCH_WEBSERVICE_URL"])
     headers = get_auth_header_dict(token) if token is not None else None
     errors = {}
     for entity_id in entity_ids:
-        url = f"{search_api_url}/reindex/{entity_id}"
+        url = f"{search_api_url}reindex/{entity_id}"
         res = requests.put(url, headers=headers)
         if not res.ok:
             errors[entity_id] = str(res.json())
