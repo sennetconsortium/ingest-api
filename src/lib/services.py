@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from typing import Callable, List, Optional, Union
+from typing import Callable, Optional
 
 import requests
 from atlas_consortia_commons.file import ensure_trailing_slash_url
@@ -230,8 +230,6 @@ def get_associated_samples_from_dataset(dataset_id) -> list[dict]:
     hubmap_commons.exceptions.HTTPException
         If the entity-api request fails.
     """
-    entities = []
-
     entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{entity_api_url}datasets/{dataset_id}/samples"
     res = requests.get(url)
@@ -625,7 +623,7 @@ def obj_to_dict(obj) -> dict:
     return json.loads(json.dumps(obj, default=lambda o: getattr(o, "__dict__", str(o))))
 
 
-def entity_json_dumps(entity: dict, token: str, to_file: False):
+def entity_json_dumps(entity: dict, token: str, to_file: Optional[False]):
     """
     Because entity and the content of the arrays returned from entity_instance.get_associated_*
     contain user defined objects we need to turn them into simple python objects (e.g., dicts, lists, str)

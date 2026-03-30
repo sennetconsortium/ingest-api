@@ -128,8 +128,7 @@ def initiate_transfer():
         try:
             ent = get_entity(
                 entity_id=ent_uuid,
-                token=auth_helper.getProcessSecret(),
-                as_dict=True,
+                token=auth_helper.getProcessSecret()
             )
             if not equals(ent["entity_type"], Ontology.ops().entities().DATASET):
                 abort_bad_req(f"Entity is not a Dataset: {ent_uuid}")
