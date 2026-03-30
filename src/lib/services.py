@@ -263,8 +263,6 @@ def clear_entity_api_cache(entity_id: str, token: str) -> None:
     if not res.ok:
         raise HTTPException(f"Failed to clear the cache for the given entity {entity_id}")
 
-    return res.json()
-
 def reindex_entities(entity_ids: list, token: str) -> None:
     """Reindex the entities in the search-api.
 
