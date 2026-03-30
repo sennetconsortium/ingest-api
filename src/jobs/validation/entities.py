@@ -447,7 +447,7 @@ def validate_samples(headers, records, token):
                             filter={"filter_properties": ["source_type"], "is_include": True},
                             token=token,
                         )
-                        ancestor = get_entity(ancestor_id, token=token, as_dict=True)
+                        ancestor = get_entity(ancestor_id, token=token)
                         ancestors.append(ancestor)
 
                         source_types = Ontology.ops().source_types()

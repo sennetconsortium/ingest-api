@@ -29,7 +29,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 def get_ds_assaytype(ds_uuid: str):
     try:
         token = get_token()
-        entity = get_entity(ds_uuid, token, True)
+        entity = get_entity(ds_uuid, token)
         metadata = build_entity_metadata(entity)
         is_human = source_is_human(
             [ds_uuid],
@@ -80,7 +80,7 @@ def get_ds_assaytype(ds_uuid: str):
 def get_ds_rule_metadata(ds_uuid: str):
     try:
         token = get_token()
-        entity = get_entity(ds_uuid, token, True)
+        entity = get_entity(ds_uuid, token)
         if entity == {}:
             return Response(f"Entity with uuid {ds_uuid} not found", 404)
         metadata = build_entity_metadata(entity)
