@@ -44,9 +44,7 @@ def get_vitessce_config(ds_uuid: str):
             if cache and (config := cache.get(ds_uuid, groups_token, as_str=True)):
                 return Response(config, 200, mimetype="application/json")
 
-        # Get entity from search-api
-        # entity = get_entity_from_search_api(ds_uuid, groups_token, as_dict=True)
-        entity = get_entity(ds_uuid, groups_token, as_dict=True)
+        entity = get_entity(ds_uuid, groups_token)
 
         def get_assaytype(entity: dict) -> dict:
             # Get entity from entity-api
@@ -161,7 +159,7 @@ def get_has_visualization(ds_uuid: str):
                 return Response(config, 200, mimetype="application/json")
 
         try:
-            entity = get_entity(ds_uuid, groups_token, as_dict=True)
+            entity = get_entity(ds_uuid, groups_token)
         except HTTPException as hte:
             logger.error(hte, exc_info=True)
             return jsonify({"error": "A valid token is required to access entity with ID " + ds_uuid}), hte.status_code

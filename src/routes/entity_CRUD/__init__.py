@@ -27,7 +27,6 @@ from hubmap_commons import file_helper as commons_file_helper
 from hubmap_commons import string_helper
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 from rq.exceptions import NoSuchJobError
 from rq.job import JobStatus
 
@@ -55,9 +54,8 @@ from lib.services import (
     create_entity,
     entity_json_dumps,
     get_auth_header_dict,
-    get_entity_by_id,
-    obj_to_dict,
-    update_entity,
+    get_entity,
+    update_entity, clear_entity_api_cache,
 )
 from lib.slack import send_slack_notification
 
@@ -604,8 +602,8 @@ def get_file_system_relative_path():
         try:
             ent_recd = {}
             ent_recd["id"] = ds_uuid
-            dset = __get_entity(
-                ds_uuid, auth_header="Bearer " + auth_helper_instance.getProcessSecret()
+            dset = get_entity(
+                ds_uuid, auth_helper_instance.getProcessSecret()
             )
             ent_type_m = __get_dict_prop(dset, "entity_type")
             ent_recd["entity_type"] = ent_type_m
@@ -680,9 +678,10 @@ def get_file_system_relative_path():
 
 
 @entity_CRUD_blueprint.route("/entities/<entity_uuid>", methods=["GET"])
-def get_entity(entity_uuid):
+def fetch_entity(entity_uuid):
     try:
-        entity = __get_entity(entity_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+        auth_helper_instance = AuthHelper.instance()
+        entity = get_entity(entity_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
         return jsonify(entity), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
@@ -693,7 +692,8 @@ def get_entity(entity_uuid):
 
 def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
     """Get the path to the dataset files"""
-    dset = __get_entity(ds_uuid, auth_header=request.headers.get("AUTHORIZATION"))
+    auth_helper_instance = AuthHelper.instance()
+    dset = get_entity(ds_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
     ent_type = __get_dict_prop(dset, "entity_type")
     group_uuid = __get_dict_prop(dset, "group_uuid")
     if ent_type is None or ent_type.strip() == "":
@@ -716,31 +716,6 @@ def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
             f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}", 400
         )
     return ingest_helper.get_dataset_directory_absolute_path(dset, group_uuid, ds_uuid)
-
-
-def __get_entity(entity_uuid, auth_header=None):
-    if auth_header is None:
-        headers = None
-    else:
-        headers = {
-            "Authorization": auth_header,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-    get_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + entity_uuid
-    )
-
-    response = requests.get(get_url, headers=headers, verify=False)
-    if response.status_code != 200:
-        err_msg = f"Error while calling {get_url} status code:{response.status_code}  message:{response.text}"
-        logger.error(err_msg)
-        raise HTTPException(err_msg, response.status_code)
-
-    return response.json()
-
 
 def __get_dict_prop(dic, prop_name):
     if prop_name not in dic:
@@ -927,20 +902,13 @@ def update_ingest_status():
 
     try:
         auth_helper_instance = AuthHelper.instance()
+        auth_token = auth_helper_instance.getAuthorizationTokens(request.headers)
         file_upload_helper_instance = UploadFileHelper.instance()
-        entity_api = EntitySdk(
-            token=auth_helper_instance.getAuthorizationTokens(request.headers),
-            service_url=commons_file_helper.removeTrailingSlashURL(
-                current_app.config["ENTITY_WEBSERVICE_URL"]
-            ),
-        )
         dataset_helper = DatasetHelper(current_app.config)
 
         return dataset_helper.update_ingest_status_title_thumbnail(
-            current_app.config,
             request.json,
-            request.headers,
-            entity_api,
+            auth_token,
             file_upload_helper_instance,
         )
     except HTTPException as hte:
@@ -1210,15 +1178,7 @@ def publish_datastage(identifier: str, user: User):
                 )
 
             auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_instance = EntitySdk(
-                token=auth_tokens, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
-            )
-            entity = get_entity_by_id(dataset_uuid, token=auth_tokens)
-
-            if entity == {}:
-                abort_not_found(f"Entity with uuid {dataset_uuid} not found")
-
-            entity_dict = obj_to_dict(entity)
+            entity_dict = get_entity(dataset_uuid, token=auth_tokens)
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(
                 dataset_uuid
@@ -1444,7 +1404,7 @@ def publish_datastage(identifier: str, user: User):
                     )
 
             # triggers a call to entity-api/flush-cache
-            entity_instance.clear_cache(dataset_uuid)
+            clear_entity_api_cache(dataset_uuid, auth_tokens)
 
             # if all else worked set the list of ids to public that need to be public
             if len(uuids_for_public) > 0:
@@ -1456,7 +1416,7 @@ def publish_datastage(identifier: str, user: User):
                 )
                 neo_session.run(update_q, uuids=uuids_for_public)
                 for e_id in uuids_for_public:
-                    entity_instance.clear_cache(e_id)
+                    clear_entity_api_cache(e_id, auth_tokens)
 
         # Write metadata.json into directory
         ds_path = ingest_helper.dataset_directory_absolute_path(
@@ -1465,9 +1425,8 @@ def publish_datastage(identifier: str, user: User):
         if is_primary or is_component is False:
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(
-                entity,
+                entity_dict,
                 auth_tokens,
-                EntitySdk(service_url=current_app.config["ENTITY_WEBSERVICE_URL"]),
                 True,
             )
             logger.info(

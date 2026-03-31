@@ -23,7 +23,6 @@ from atlas_consortia_commons.string import equals
 from flask import Blueprint, Response, current_app, jsonify
 from hubmap_commons.exceptions import HTTPException as HuBMAPHTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from hubmap_sdk import EntitySdk
 from rq.job import Job, JobStatus, NoSuchJobError
 
 from jobs import (
@@ -44,7 +43,7 @@ from jobs.validation.metadata import validate_uploaded_metadata
 from lib.file import check_upload, get_base_path, get_csv_records, set_file_details
 from lib.ontology import Ontology
 from lib.request_validation import get_validated_job_id, get_validated_referrer
-from lib.services import entity_json_dumps, get_entity_by_id, get_token
+from lib.services import entity_json_dumps, get_entity, get_token
 
 metadata_blueprint = Blueprint("metadata", __name__)
 logger = logging.getLogger(__name__)
@@ -224,18 +223,12 @@ def get_all_data_provider_groups(token: str, user: User):
 def get_provenance_metadata(ds_uuid: str):
     try:
         token = get_token()
-        entity_instance = EntitySdk(
-            token=token, service_url=current_app.config["ENTITY_WEBSERVICE_URL"]
-        )
-        entity = get_entity_by_id(ds_uuid, token=token)
+        entity = get_entity(entity_id=ds_uuid, token=token)
 
-        if entity == {}:
-            abort_not_found(f"Entity with uuid {ds_uuid} not found")
-
-        if not equals(entity.entity_type, Ontology.ops().entities().DATASET):
+        if not equals(entity['entity_type'], Ontology.ops().entities().DATASET):
             abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset'")
 
-        metadata_json_object = entity_json_dumps(entity, token, entity_instance, False)
+        metadata_json_object = entity_json_dumps(entity, token, False)
         return jsonify(metadata_json_object), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
