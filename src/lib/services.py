@@ -179,7 +179,7 @@ def get_associated_sources_from_dataset(
         headers = {"Authorization": f"Bearer {token}"}
     res = requests.get(url, headers=headers)
     if not res.ok:
-        raise HTTPException(f"Failed to get associated source for dataset {dataset_id}")
+        raise HTTPException(f"Failed to get associated source for dataset {dataset_id}", res.status_code)
     return res.json()
 
 def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
@@ -206,7 +206,7 @@ def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
     res = requests.get(url)
 
     if not res.ok:
-        raise HTTPException(f"Failed to get associated organs for dataset {dataset_id}")
+        raise HTTPException(f"Failed to get associated organs for dataset {dataset_id}", res.status_code)
 
     return res.json()
 
@@ -235,7 +235,7 @@ def get_associated_samples_from_dataset(dataset_id) -> list[dict]:
     res = requests.get(url)
 
     if not res.ok:
-        raise HTTPException(f"Failed to get associated samples for dataset {dataset_id}")
+        raise HTTPException(f"Failed to get associated samples for dataset {dataset_id}", res.status_code)
 
     return res.json()
 
@@ -261,7 +261,7 @@ def clear_entity_api_cache(entity_id: str, token: str) -> None:
     res = requests.delete(url, headers=headers)
 
     if not res.ok:
-        raise HTTPException(f"Failed to clear the cache for the given entity {entity_id}")
+        raise HTTPException(f"Failed to clear the cache for the given entity {entity_id}", res.status_code)
 
 def reindex_entities(entity_ids: list, token: str) -> None:
     """Reindex the entities in the search-api.
@@ -281,15 +281,17 @@ def reindex_entities(entity_ids: list, token: str) -> None:
     search_api_url = ensure_trailing_slash_url(current_app.config["SEARCH_WEBSERVICE_URL"])
     headers = get_auth_header_dict(token) if token is not None else None
     errors = {}
+    status_code = 500
     for entity_id in entity_ids:
         url = f"{search_api_url}reindex/{entity_id}"
         res = requests.put(url, headers=headers)
         if not res.ok:
+            status_code = res.status_code
             errors[entity_id] = str(res.json())
 
     if len(errors) > 0:
         msg = "; ".join([f"{k}: {v}" for k, v in errors.items()])
-        raise HTTPException(msg)
+        raise HTTPException(msg, status_code)
 
 
 def update_entity(

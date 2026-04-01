@@ -1426,7 +1426,7 @@ def publish_datastage(identifier: str, user: User):
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(
                 entity_dict,
-                auth_tokens,
+                None,
                 True,
             )
             logger.info(
