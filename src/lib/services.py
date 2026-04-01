@@ -182,7 +182,7 @@ def get_associated_sources_from_dataset(
         raise HTTPException(f"Failed to get associated source for dataset {dataset_id}", res.status_code)
     return res.json()
 
-def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
+def get_associated_organs_from_dataset(dataset_id, token: str = None) -> list[dict]:
     """Get the associated organs from entity-api for the given dataset uuid.
 
     Parameters
@@ -203,7 +203,10 @@ def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
 
     entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{entity_api_url}datasets/{dataset_id}/organs"
-    res = requests.get(url)
+    headers = {}
+    if token is not None:
+        headers = {"Authorization": f"Bearer {token}"}
+    res = requests.get(url, headers=headers)
 
     if not res.ok:
         raise HTTPException(f"Failed to get associated organs for dataset {dataset_id}", res.status_code)
@@ -212,7 +215,7 @@ def get_associated_organs_from_dataset(dataset_id) -> list[dict]:
 
 
 
-def get_associated_samples_from_dataset(dataset_id) -> list[dict]:
+def get_associated_samples_from_dataset(dataset_id, token: str = None) -> list[dict]:
     """Get the associated samples from entity-api for the given dataset uuid.
 
     Parameters
@@ -232,7 +235,10 @@ def get_associated_samples_from_dataset(dataset_id) -> list[dict]:
     """
     entity_api_url = ensure_trailing_slash_url(current_app.config["ENTITY_WEBSERVICE_URL"])
     url = f"{entity_api_url}datasets/{dataset_id}/samples"
-    res = requests.get(url)
+    headers = {}
+    if token is not None:
+        headers = {"Authorization": f"Bearer {token}"}
+    res = requests.get(url, headers=headers)
 
     if not res.ok:
         raise HTTPException(f"Failed to get associated samples for dataset {dataset_id}", res.status_code)
@@ -631,9 +637,8 @@ def entity_json_dumps(entity: dict, token: str, to_file: Optional[False]):
     Here we create an expanded version of the entity associated with the dataset_uuid and return it as a json string.
     """
     dataset_uuid = entity["uuid"]
-    entity = obj_to_dict(entity)
-    entity["organs"] = obj_to_dict(get_associated_organs_from_dataset(dataset_uuid))
-    entity["samples"] = obj_to_dict(get_associated_samples_from_dataset(dataset_uuid))
+    entity["organs"] = get_associated_organs_from_dataset(dataset_uuid, token=token)
+    entity["samples"] = get_associated_samples_from_dataset(dataset_uuid,  token=token)
     entity["sources"] = get_associated_sources_from_dataset(dataset_uuid, token=token)
 
     # Return as a string to be fed into a file
