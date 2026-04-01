@@ -225,8 +225,10 @@ def get_provenance_metadata(ds_uuid: str):
         token = get_token()
         entity = get_entity(entity_id=ds_uuid, token=token)
 
-        if not equals(entity['entity_type'], Ontology.ops().entities().DATASET):
-            abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset'")
+        e = Ontology.ops().entities()
+        allowed_entity_types = [e.DATASET, e.PUBLICATION]
+        if entity['entity_type'] not in allowed_entity_types:
+            abort_bad_req(f"Entity with UUID: {ds_uuid} is not of type 'Dataset' or 'Publication'")
 
         metadata_json_object = entity_json_dumps(entity, token, False)
         return jsonify(metadata_json_object), 200
