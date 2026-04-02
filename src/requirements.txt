@@ -29,3 +29,5 @@ psutil>=7.0.0,<7.1
 
 # For vitessce config generation
 portal-visualization[full]==0.5.0
+
+pandas~=2.3.1
