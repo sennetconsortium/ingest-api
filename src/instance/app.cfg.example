@@ -61,15 +61,22 @@ GLOBUS_APP_BASE_URL = 'https://app.globus.org'
 # Directory where file uploads will be placed temporarily
 # until they are committed
 # Remember to set the proper file system user and group permission
-FILE_UPLOAD_TEMP_DIR = '/codcc-dev-test/data-dev/bulk-uploads-temp'
+FILE_UPLOAD_TEMP_DIR = '/codcc-dev/data/bulk-uploads-temp'
 
 # Directory where file uploads are permanantly stored ()
 # Remember to set the proper file system user and group permission
-FILE_UPLOAD_DIR = '/codcc-dev-test/data-dev/bulk-uploads'
+FILE_UPLOAD_DIR = '/codcc-dev/data/bulk-uploads'
+
+# Directory where backups of metadata.tsv files will be kept when they
+# are stripped of any lab ids at publication time
+METADATA_TSV_BACKUP_DIR = '/codcc-dev/data/metadata-tsv-backups'
+
+# Pointer to GitHub raw url for the HuBMAP provenance schema yaml file
+SCHEMA_YAML_URL = 'https://raw.githubusercontent.com/sennetconsortium/entity-api/refs/heads/main/src/schema/provenance_schema.yaml'
 
 # File system settings (committed settings below are for DEV)
-GLOBUS_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
-SENNET_WEBSERVICE_FILEPATH = '/codcc-dev-test/data-dev/assets'
+GLOBUS_ENDPOINT_FILEPATH = '/codcc-dev/data/protected'
+SENNET_WEBSERVICE_FILEPATH = '/codcc-dev/data/assets'
 WORKFLOW_SCRATCH = '/codcc/scratch'
 
 ACCESS_LEVEL_PROTECTED = 'protected'
@@ -82,9 +89,9 @@ GLOBUS_CONSORTIUM_ENDPOINT_UUID = ''
 GLOBUS_PROTECTED_ENDPOINT_UUID = ''
 
 # Absolute file paths of the Globus endpoints (shown are for DEV, change for TEST/STAGE/PROD deployment)
-GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/public'
-GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/consortium'
-GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev-test/data-dev/protected'
+GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/codcc-dev/data/public'
+GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/codcc-dev/data/consortium'
+GLOBUS_PROTECTED_ENDPOINT_FILEPATH = '/codcc-dev/data/protected'
 
 RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH = '/'
 RELATIVE_GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH = '/'

@@ -1,11 +1,15 @@
 import ast
+import datetime
+import glob
 import json
 import logging
 import os
+import shutil
 import time
 from threading import Thread
 from uuid import uuid4
 
+import pandas
 import requests
 from atlas_consortia_commons.decorator import (
     User,
@@ -49,6 +53,7 @@ from lib.file_upload_helper import UploadFileHelper
 from lib.ingest_file_helper import IngestFileHelper
 from lib.neo4j_helper import Neo4jHelper
 from lib.ontology import Ontology
+from lib.prov_schema_helper import ProvenanceSchemaHelper
 from lib.request_validation import get_validated_uuids
 from lib.services import (
     create_entity,
@@ -1156,6 +1161,15 @@ def publish_datastage(identifier: str, user: User):
             dataset_contacts = rval[0]["contacts"]
             dataset_contributors = rval[0]["contributors"]
             dataset_metadata_dict = None
+
+            ingest_helper = IngestFileHelper(current_app.config)
+            prov_schema_helper = ProvenanceSchemaHelper(current_app.config)
+            if not 'METADATA_TSV_BACKUP_DIR' in current_app.config:
+                logger.exception("ERROR: METADATA_TSV_BACKUP_DIR property not found in configuration file")
+                tsv_backup_dir = None
+            else:
+                tsv_backup_dir = current_app.config['METADATA_TSV_BACKUP_DIR']
+
             if is_primary:
                 dataset_metadata = rval[0].get("metadata")
                 if dataset_metadata is not None:
@@ -1163,6 +1177,31 @@ def publish_datastage(identifier: str, user: User):
                         dataset_metadata
                     )
                 logger.info(f"publish_datastage; metadata: {dataset_metadata_dict}")
+
+                #if this is not a component dataset (this will have been done for the multi-assay primary of the component)
+                #find any *metadata.tsv files in this dataset and check to make sure they are writable
+                dset_directory_to_check = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
+                #make sure directory exists and is writable
+                if not os.path.isdir(dset_directory_to_check) or not os.access(dset_directory_to_check, os.W_OK):
+                    return jsonify({"error":f"ERROR: Dataset directory {dset_directory_to_check} is not writable or doesn't exist"}), 500
+
+                tsv_files = glob.glob(os.path.join(dset_directory_to_check,"*metadata.tsv"))
+                for tsv_file in tsv_files:
+                    if not os.access(tsv_file, os.W_OK):
+                        return jsonify({"error": f"ERROR: metadata.tsv file {tsv_file} is not writable"}), 500
+
+                #if we need to strip tsv files make sure the directory where we will put backups exists and is writable
+                if len(tsv_files) > 0:
+                    if tsv_backup_dir is None:
+                        return jsonify({"error": "tsv backup directory is not set in configuration"}), 500
+                    if not os.path.isdir(tsv_backup_dir):
+                        return jsonify({"error": f"ERROR: backup directory {tsv_backup_dir} is not a directory or does not exist"}), 500
+                    if not os.access(tsv_backup_dir, os.W_OK):
+                        return jsonify({"error": f"ERROR: backup directory {tsv_backup_dir} is not writable"}), 500
+
+                #grab the columns that will be blanked from the tsvs now.  In case there is an issue, we'll fail
+                #now before publishing the dataset
+                tsv_columns_to_blank = prov_schema_helper.get_metadata_properties_to_exclude()
 
             if not get_entity_type_instanceof(
                 dataset_entitytype,
@@ -1201,7 +1240,6 @@ def publish_datastage(identifier: str, user: User):
                         f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"
                     )
 
-            ingest_helper = IngestFileHelper(current_app.config)
             is_component = entity_dict.get("creation_action") == "Multi-Assay Split"
 
             data_access_level = dataset_data_access_level
@@ -1418,11 +1456,31 @@ def publish_datastage(identifier: str, user: User):
                 for e_id in uuids_for_public:
                     clear_entity_api_cache(e_id, auth_tokens)
 
-        # Write metadata.json into directory
+        # Write metadata.json into directory and modify any *metadata.tsv files to blank out protected fields
         ds_path = ingest_helper.dataset_directory_absolute_path(
             dataset_data_access_level, dataset_group_uuid, dataset_uuid, True
         )
         if is_primary or is_component is False:
+            #find all the files that match *metadata.tsv under the dataset's directory
+            #strip the columns that can hold lab identifiers of any data
+            tsv_files = glob.glob(os.path.join(ds_path,"*metadata.tsv"))
+            for tsv_file in tsv_files:
+                tsv_data = pandas.read_csv(tsv_file, sep='\t')
+                columns = tsv_data.columns.tolist()
+                changes = False
+                for col_name in tsv_columns_to_blank:
+                    if col_name in columns:
+                        changes = True
+                        tsv_data[col_name] = None
+                if changes:
+                    meta_filename = os.path.basename(os.path.normpath(tsv_file))
+                    dtnow = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
+                    backup_filename = f"({dataset_uuid}.{dtnow}) {meta_filename}"
+                    backup_file_path = os.path.join(tsv_backup_dir,backup_filename)
+                    shutil.copy(tsv_file, f"{backup_file_path}")
+                    tsv_data.to_csv(tsv_file, sep='\t', index=False)
+
+            # Create metadata.json file
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(
                 entity_dict,
