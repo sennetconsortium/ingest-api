@@ -71,7 +71,7 @@ FILE_UPLOAD_DIR = '/codcc-dev/data/bulk-uploads'
 # are stripped of any lab ids at publication time
 METADATA_TSV_BACKUP_DIR = '/codcc-dev/data/metadata-tsv-backups'
 
-# Pointer to GitHub raw url for the HuBMAP provenance schema yaml file
+# Pointer to GitHub raw url for the SenNet provenance schema yaml file
 SCHEMA_YAML_URL = 'https://raw.githubusercontent.com/sennetconsortium/entity-api/refs/heads/main/src/schema/provenance_schema.yaml'
 
 # File system settings (committed settings below are for DEV)
