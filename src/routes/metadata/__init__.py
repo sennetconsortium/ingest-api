@@ -223,7 +223,7 @@ def get_all_data_provider_groups(token: str, user: User):
 def get_provenance_metadata(ds_uuid: str):
     try:
         token = get_token()
-        entity = get_entity(entity_id=ds_uuid, token=token)
+        entity = get_entity(entity_id=ds_uuid, token=None)
 
         e = Ontology.ops().entities()
         allowed_entity_types = [e.DATASET, "Publication"]
