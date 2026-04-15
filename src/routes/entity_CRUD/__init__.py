@@ -1483,7 +1483,7 @@ def publish_datastage(identifier: str, user: User):
             # Create metadata.json file
             md_file = os.path.join(ds_path, "metadata.json")
             json_object = entity_json_dumps(
-                entity_dict,
+                get_entity(entity_id=dataset_uuid),
                 None,
                 True,
             )
