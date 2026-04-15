@@ -69,7 +69,7 @@ def privs_has_senotype_write():
         has_senotype_write = True
 
     headers: dict = {"Content-Type": "application/json"}
-    return make_response(jsonify({"has-senotype-write": has_senotype_write}), 200, headers)
+    return make_response(jsonify({"has_senotype_write": has_senotype_write}), 200, headers)
 
 
 
