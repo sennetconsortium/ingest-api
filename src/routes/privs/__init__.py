@@ -1,7 +1,7 @@
 import logging
 from typing import List
 
-from flask import Blueprint, Response, jsonify, make_response, request
+from flask import Blueprint, Response, jsonify, make_response, request, current_app
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
 
@@ -55,6 +55,24 @@ def privs_get_user_write_groups():
 
     headers: dict = {"Content-Type": "application/json"}
     return make_response(jsonify({"user_write_groups": user_write_groups}), 200, headers)
+
+
+@privs_blueprint.route("/privs/has-senotype-write")
+def privs_has_senotype_write():
+    groups_token: str = get_groups_token()
+    auth_helper_instance: AuthHelper = AuthHelper.instance()
+    has_senotype_write = False
+
+    user_info = auth_helper_instance.getUserInfo(groups_token, getGroups=True)
+    if isinstance(user_info, Response):
+        return user_info
+
+    if current_app.config["SENOTYPE_GROUP_UUID"] in user_info['hmgroupids']:
+        has_senotype_write = True
+
+    headers: dict = {"Content-Type": "application/json"}
+    return make_response(jsonify({"has_senotype_write": has_senotype_write}), 200, headers)
+
 
 
 @privs_blueprint.route("/privs/has-data-admin")
