@@ -55,21 +55,21 @@ def privs_get_user_write_groups():
     return make_response(jsonify({"user_write_groups": user_write_groups}), 200, headers)
 
 
-@privs_blueprint.route("/privs/has-senotype-write")
-def privs_has_senotype_write():
+@privs_blueprint.route("/privs/has-senotype-edit")
+def privs_has_senotype_edit():
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
-    has_senotype_write = False
+    has_senotype_edit = False
 
     user_info = auth_helper_instance.getUserInfo(groups_token, getGroups=True)
     if isinstance(user_info, Response):
         return user_info
 
     if current_app.config["SENOTYPE_GROUP_UUID"] in user_info['hmgroupids']:
-        has_senotype_write = True
+        has_senotype_edit = True
 
     headers: dict = {"Content-Type": "application/json"}
-    return make_response(jsonify({"has_senotype_write": has_senotype_write}), 200, headers)
+    return make_response(jsonify({"has_senotype_edit": has_senotype_edit}), 200, headers)
 
 
 
