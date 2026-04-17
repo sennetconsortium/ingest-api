@@ -46,7 +46,7 @@ def data_ingest_login():
 @auth_blueprint.route("/senotype-library-login")
 def senotype_library_login():
     return _login(
-        redirect_uri=current_app.config["senotype_library_URI"],
+        redirect_uri=current_app.config["SENOTYPE_LIBRARY_URI"],
         key="senotype_library_tokens",
         redirect_failure_uri="/senotype-library-logout",
     )
