@@ -4,7 +4,6 @@ from typing import List
 from flask import Blueprint, Response, jsonify, make_response, request, current_app
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
-from rdflib import void
 
 privs_blueprint = Blueprint("privs", __name__)
 logger = logging.getLogger(__name__)
