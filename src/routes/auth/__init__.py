@@ -43,12 +43,12 @@ def data_ingest_login():
         redirect_failure_uri="/data-ingest-board-logout",
     )
 
-@auth_blueprint.route("/senotype-search-login")
-def senotype_search_login():
+@auth_blueprint.route("/senotype-library-login")
+def senotype_library_login():
     return _login(
-        redirect_uri=current_app.config["SENOTYPE_SEARCH_URI"],
-        key="senotype_search_tokens",
-        redirect_failure_uri="/senotype-serach-logout",
+        redirect_uri=current_app.config["SENOTYPE_LIBRARY_URI"],
+        key="senotype_library_tokens",
+        redirect_failure_uri="/senotype-library-logout",
     )
 
 @auth_blueprint.route("/logout")
@@ -63,14 +63,14 @@ def logout():
 def data_ingest_logout():
     return _logout(
         redirect_uri=current_app.config["DATA_INGEST_BOARD_APP_URI"],
-        app_name=current_app.config["SENOTYPE_SEARCH_NAME"],
-        key="senotype_search_tokens",
+        app_name=current_app.config["SENOTYPE_LIBRARY_NAME"],
+        key="senotype_library_tokens",
     )
 
-@auth_blueprint.route("/senotype-search-logout")
-def senotype_search_logout():
+@auth_blueprint.route("/senotype-library-logout")
+def senotype_library_logout():
     return _logout(
-        redirect_uri=current_app.config["SENOTYPE_SEARCH_URI"],
+        redirect_uri=current_app.config["SENOTYPE_LIBRARY_URI"],
         app_name=current_app.config["DATA_INGEST_BOARD_NAME"],
         key="ingest_board_tokens",
     )

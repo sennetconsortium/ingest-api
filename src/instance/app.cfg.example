@@ -35,8 +35,11 @@ GLOBUS_CLIENT_APP_URI = 'https://data.dev.sennetconsortium.org/'
 DATA_INGEST_BOARD_APP_URI = 'http://localhost:3001/'
 DATA_INGEST_BOARD_NAME = ‘Data Ingest Board - DEV’
 
-SENOTYPE_SEARCH_URI = 'http://localhost:3002/'
-SENOTYPE_SEARCH_NAME = 'SenNet Senotype Search - DEV'
+SENOTYPE_LIBRARY_URI = 'https://senlib.dev.sennetconsortium.org/'
+SENOTYPE_LIBRARY_NAME = 'SenNet Senotype Library - DEV'
+SENOTYPE_EDIT_UUID = 'c43c14da-0b51-11f1-a6c4-0e71192eda6f'
+SENOTYPE_CURATE_UUID = '4eb709f6-4b05-11f1-80bc-0ef5dcc031c5'
+SENOTYPE_PUBLISH_UUID = '601e0514-4b05-11f1-acb9-0ef5dcc031c5'
 
 #Sets the domain for the cookie set upon login to the portal. Use `localhost` for local development
 COOKIE_DOMAIN = '.sennetconsortium.org'
