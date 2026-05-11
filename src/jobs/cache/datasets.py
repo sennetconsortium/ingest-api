@@ -377,6 +377,7 @@ def update_datasets_datastatus(schedule_next_job=True):
     except Exception as e:
         logger.error(f"Failed to update datasets datastatus: {e}", exc_info=True)
         raise e
+
     finally:
         if schedule_next_job:
             # Schedule the next cache job
