@@ -101,9 +101,9 @@ def create_dataset(suppress_reindex: bool):
         )
         dataset_request["group_uuid"] = requested_group_uuid
         post_url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + f"entities/{entity_type}"
-            + f"{'?reindex=False' if suppress_reindex else ''}"
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + f"entities/{entity_type}"
+                + f"{'?reindex=False' if suppress_reindex else ''}"
         )
         response = requests.post(
             post_url,
@@ -224,9 +224,9 @@ def multiple_components(suppress_reindex: bool):
         requested_group_uuid = auth_helper.get_write_group_uuid(token, requested_group_uuid)
         component_request["group_uuid"] = requested_group_uuid
         post_url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "datasets/components"
-            + f"{'?reindex=False' if suppress_reindex else ''}"
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "datasets/components"
+                + f"{'?reindex=False' if suppress_reindex else ''}"
         )
         response = requests.post(
             post_url,
@@ -344,9 +344,9 @@ def bulk_update_datasets_uploads(entities: list, token: str, user: User):
 @require_json(param="uuids")
 def submit_uploads_from_bulk(uuids: list, token: str, user: User):
     if (
-        len(uuids) == 0
-        or not all(isinstance(uuid, str) for uuid in uuids)
-        or len(set(uuids)) != len(uuids)
+            len(uuids) == 0
+            or not all(isinstance(uuid, str) for uuid in uuids)
+            or len(set(uuids)) != len(uuids)
     ):
         abort_bad_req("A list of unique upload uuids is required")
 
@@ -408,9 +408,9 @@ def submit_datasets_from_bulk(uuids: list, token: str, user: User, suppress_rein
         abort_bad_req("Invalid process for dataset submission")
 
     if (
-        len(uuids) == 0
-        or not all(isinstance(uuid, str) for uuid in uuids)
-        or len(set(uuids)) != len(uuids)
+            len(uuids) == 0
+            or not all(isinstance(uuid, str) for uuid in uuids)
+            or len(set(uuids)) != len(uuids)
     ):
         abort_bad_req("A list of unique dataset uuids is required")
 
@@ -627,7 +627,7 @@ def get_file_system_relative_path():
                     group_uuid=group_uuid, upload_uuid=dset["uuid"]
                 )
             elif get_entity_type_instanceof(
-                ent_type, "Dataset", auth_header="Bearer " + auth_helper_instance.getProcessSecret()
+                    ent_type, "Dataset", auth_header="Bearer " + auth_helper_instance.getProcessSecret()
             ):
                 is_phi = __get_dict_prop(dset, "contains_human_genetic_sequences")
                 if group_uuid is None:
@@ -651,7 +651,7 @@ def get_file_system_relative_path():
                 error_id = {
                     "id": ds_uuid,
                     "message": f"Unhandled entity type, must be Upload, Publication or Dataset, "
-                    f"found {ent_type_m}",
+                               f"found {ent_type_m}",
                     "status_code": 400,
                 }
                 error_id_list.append(error_id)
@@ -709,7 +709,7 @@ def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
         )
     is_phi = __get_dict_prop(dset, "contains_human_genetic_sequences")
     if ent_type is None or not (
-        ent_type.lower().strip() == "dataset" or ent_type.lower().strip() == "publication"
+            ent_type.lower().strip() == "dataset" or ent_type.lower().strip() == "publication"
     ):
         raise ResponseException(
             f"Entity with uuid:{ds_uuid} is not a Dataset, Publication or Upload", 400
@@ -721,6 +721,7 @@ def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
             f"Contains_human_genetic_sequences is not set on dataset {ds_uuid}", 400
         )
     return ingest_helper.get_dataset_directory_absolute_path(dset, group_uuid, ds_uuid)
+
 
 def __get_dict_prop(dic, prop_name):
     if prop_name not in dic:
@@ -748,9 +749,9 @@ def submit_dataset(uuid):
         dataset_helper = DatasetHelper(current_app.config)
 
         entity_api_url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "entities/"
-            + uuid
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "entities/"
+                + uuid
         )
 
         if isinstance(auth_tokens, Response):
@@ -791,8 +792,8 @@ def submit_dataset(uuid):
 
         # TODO: Temp fix till we can get this in the "Validation Pipeline"... add the validation code here... If it returns any errors fail out of this. Return 412 Precondition Failed with the errors in the description.
         pipeline_url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["INGEST_PIPELINE_URL"])
-            + "request_ingest"
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["INGEST_PIPELINE_URL"])
+                + "request_ingest"
         )
     except Exception as e:
         logger.error(e, exc_info=True)
@@ -872,10 +873,10 @@ def submit_dataset(uuid):
                 response = change_status_and_call_entity_api(status="Processing")
             else:
                 error_message = (
-                    "Failed call to AirFlow HTTP Response: "
-                    + str(r.status_code)
-                    + " msg: "
-                    + str(r.text)
+                        "Failed call to AirFlow HTTP Response: "
+                        + str(r.status_code)
+                        + " msg: "
+                        + str(r.text)
                 )
                 logger.error(error_message)
                 response = change_status_and_call_entity_api(error_message)
@@ -1015,7 +1016,7 @@ def publish_datastage(identifier: str, user: User):
         if "hmgroupids" not in user_info:
             abort_forbidden("User has no valid group information to authorize publication.")
         if not auth_helper.has_data_admin_privs(
-            auth_helper.getUserTokenFromRequest(request, getGroups=True)
+                auth_helper.getUserTokenFromRequest(request, getGroups=True)
         ):
             abort_forbidden("User must be a member of the SenNet Data Admin group to publish data.")
 
@@ -1023,16 +1024,22 @@ def publish_datastage(identifier: str, user: User):
             abort_bad_req("identifier parameter is required to publish a dataset")
 
         url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["UUID_WEBSERVICE_URL"])
-            + "uuid/"
-            + identifier
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["UUID_WEBSERVICE_URL"])
+                + "uuid/"
+                + identifier
         )
         r = requests.get(url, headers={"Authorization": request.headers["AUTHORIZATION"]})
         if r.ok is False:
             abort_not_found("Cannot find specimen with identifier: " + identifier)
 
         dataset_uuid = json.loads(r.text)["hm_uuid"]
+
+        auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
+        entity_dict = get_entity(dataset_uuid, token=auth_tokens)
+
         is_primary = dataset_helper.dataset_is_primary(dataset_uuid)
+        is_component = entity_dict.get("creation_action") == "Multi-Assay Split"
+
         suspend_indexing_and_acls = string_helper.isYes(
             request.args.get("suspend-indexing-and-acls")
         )
@@ -1097,14 +1104,14 @@ def publish_datastage(identifier: str, user: User):
                             if metadata_dict.get("living_donor_data") is None:
                                 organ_donor = False
                             if (organ_donor and living_donor) or (
-                                not organ_donor and not living_donor
+                                    not organ_donor and not living_donor
                             ):
                                 return (
                                     jsonify(
                                         {
                                             "error": "source.metadata.organ_donor_data or "
-                                            "source.metadata.living_donor_data required. "
-                                            "Both cannot be None. Both cannot be present. Only one."
+                                                     "source.metadata.living_donor_data required. "
+                                                     "Both cannot be None. Both cannot be present. Only one."
                                         }
                                     ),
                                     400,
@@ -1124,19 +1131,19 @@ def publish_datastage(identifier: str, user: User):
             # Organs not supported by the CCF-RUI Tool are:
             # Adipose, Blood, Bone Marrow, Breast, Bone, Muscle, and Other
             if (
-                current_app.config["CHECK_RUI_ON_PUBLISH"]
-                and source_type in ["Human", "Human Organoid"]
-                and organ
-                not in [
-                    "UBERON:0001013",
-                    "UBERON:0000178",
-                    "UBERON:0002371",
-                    "UBERON:0001474",
-                    "UBERON:0005090",
-                    "UBERON:0010000",
-                ]
-                and rui_exempt is False
-                and has_rui_location is False
+                    current_app.config["CHECK_RUI_ON_PUBLISH"]
+                    and source_type in ["Human", "Human Organoid"]
+                    and organ
+                    not in [
+                "UBERON:0001013",
+                "UBERON:0000178",
+                "UBERON:0002371",
+                "UBERON:0001474",
+                "UBERON:0005090",
+                "UBERON:0010000",
+            ]
+                    and rui_exempt is False
+                    and has_rui_location is False
             ):
                 # organ is rui supported, has no exemption, and has no rui location
                 abort_bad_req(
@@ -1150,7 +1157,7 @@ def publish_datastage(identifier: str, user: User):
                 "e.data_access_level as data_access_level, e.group_uuid as group_uuid, "
                 "e.contacts as contacts, e.contributors as contributors, e.status_history as status_history"
             )
-            if is_primary:
+            if is_primary or is_component:
                 q += ", e.metadata as metadata"
 
             rval = neo_session.run(q, uuid=dataset_uuid).data()
@@ -1170,54 +1177,60 @@ def publish_datastage(identifier: str, user: User):
             else:
                 tsv_backup_dir = current_app.config['METADATA_TSV_BACKUP_DIR']
 
-            if is_primary:
+            # Check to make sure that primary and component datasets have metadata set.
+            if is_primary or is_component:
                 dataset_metadata = rval[0].get("metadata")
-                if dataset_metadata is not None:
-                    dataset_metadata_dict: dict = string_helper.convert_str_literal(
-                        dataset_metadata
-                    )
+                if dataset_metadata is None:
+                    abort_bad_req(f"{dataset_uuid}: no metadata found for dataset, will not Publish")
+
+                dataset_metadata_dict: dict = string_helper.convert_str_literal(
+                    dataset_metadata
+                )
                 logger.info(f"publish_datastage; metadata: {dataset_metadata_dict}")
 
-                #if this is not a component dataset (this will have been done for the multi-assay primary of the component)
-                #find any *metadata.tsv files in this dataset and check to make sure they are writable
-                dset_directory_to_check = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level, dataset_group_uuid, dataset_uuid, False)
-                #make sure directory exists and is writable
-                if not os.path.isdir(dset_directory_to_check) or not os.access(dset_directory_to_check, os.W_OK):
-                    return jsonify({"error":f"ERROR: Dataset directory {dset_directory_to_check} is not writable or doesn't exist"}), 500
 
-                tsv_files = glob.glob(os.path.join(dset_directory_to_check,"*metadata.tsv"))
+            if is_primary:
+                # if this is not a component dataset (this will have been done for the multi-assay primary of the component)
+                # find any *metadata.tsv files in this dataset and check to make sure they are writable
+                dset_directory_to_check = ingest_helper.dataset_directory_absolute_path(dataset_data_access_level,
+                                                                                        dataset_group_uuid,
+                                                                                        dataset_uuid, False)
+                # make sure directory exists and is writable
+                if not os.path.isdir(dset_directory_to_check) or not os.access(dset_directory_to_check, os.W_OK):
+                    return jsonify({
+                                       "error": f"ERROR: Dataset directory {dset_directory_to_check} is not writable or doesn't exist"}), 500
+
+                tsv_files = glob.glob(os.path.join(dset_directory_to_check, "*metadata.tsv"))
                 for tsv_file in tsv_files:
                     if not os.access(tsv_file, os.W_OK):
                         return jsonify({"error": f"ERROR: metadata.tsv file {tsv_file} is not writable"}), 500
 
-                #if we need to strip tsv files make sure the directory where we will put backups exists and is writable
+                # if we need to strip tsv files make sure the directory where we will put backups exists and is writable
                 if len(tsv_files) > 0:
                     if tsv_backup_dir is None:
                         return jsonify({"error": "tsv backup directory is not set in configuration"}), 500
                     if not os.path.isdir(tsv_backup_dir):
-                        return jsonify({"error": f"ERROR: backup directory {tsv_backup_dir} is not a directory or does not exist"}), 500
+                        return jsonify({
+                                           "error": f"ERROR: backup directory {tsv_backup_dir} is not a directory or does not exist"}), 500
                     if not os.access(tsv_backup_dir, os.W_OK):
                         return jsonify({"error": f"ERROR: backup directory {tsv_backup_dir} is not writable"}), 500
 
-                #grab the columns that will be blanked from the tsvs now.  In case there is an issue, we'll fail
-                #now before publishing the dataset
+                # grab the columns that will be blanked from the tsvs now.  In case there is an issue, we'll fail
+                # now before publishing the dataset
                 tsv_columns_to_blank = prov_schema_helper.get_metadata_properties_to_exclude()
 
             if not get_entity_type_instanceof(
-                dataset_entitytype,
-                "Dataset",
-                auth_header="Bearer " + auth_helper.getProcessSecret(),
+                    dataset_entitytype,
+                    "Dataset",
+                    auth_header="Bearer " + auth_helper.getProcessSecret(),
             ):
                 abort_bad_req(
                     f"{dataset_uuid} is not a dataset will not Publish, entity type is {dataset_entitytype}"
                 )
-            if not dataset_status == "QA":
+            if dataset_status not in ["QA", 'Approval']:
                 abort_bad_req(
-                    f"{dataset_uuid} is not in QA state will not Publish, status is {dataset_status}"
+                    f"{dataset_uuid} is not in QA or Approval state will not publish, status is {dataset_status}"
                 )
-
-            auth_tokens = auth_helper.getAuthorizationTokens(request.headers)
-            entity_dict = get_entity(dataset_uuid, token=auth_tokens)
 
             has_entity_lab_processed_dataset_type = dataset_has_entity_lab_processed_data_type(
                 dataset_uuid
@@ -1233,14 +1246,12 @@ def publish_datastage(identifier: str, user: User):
                         f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"
                     )
                 if (
-                    len(ast.literal_eval(dataset_contacts)) < 1
-                    or len(ast.literal_eval(dataset_contributors)) < 1
+                        len(ast.literal_eval(dataset_contacts)) < 1
+                        or len(ast.literal_eval(dataset_contributors)) < 1
                 ):
                     abort_bad_req(
                         f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"
                     )
-
-            is_component = entity_dict.get("creation_action") == "Multi-Assay Split"
 
             data_access_level = dataset_data_access_level
             # if consortium access level convert to public dataset, if protected access leave it protected
@@ -1330,13 +1341,13 @@ def publish_datastage(identifier: str, user: User):
             # set dataset status to published and set the last modified user info and user who published
             # also reset ingest_task and assigned_to_group_name
             update_q = (
-                "MATCH (e:Entity {uuid: $uuid}) SET e.status = 'Published', "
-                "e.last_modified_user_sub = $last_modified_user_sub, e.last_modified_user_email = $last_modified_user_email, "
-                "e.last_modified_user_displayname = $last_modified_user_displayname, e.last_modified_timestamp = TIMESTAMP(), "
-                "e.published_user_sub = $published_user_sub, e.published_user_email = $published_user_email, "
-                "e.published_user_displayname = $published_user_displayname, e.published_timestamp = TIMESTAMP(), "
-                "e.ingest_task = $ingest_task, e.assigned_to_group_name = $assigned_to_group_name, "
-                "e.status_history = $status_history" + doi_update_clause
+                    "MATCH (e:Entity {uuid: $uuid}) SET e.status = 'Published', "
+                    "e.last_modified_user_sub = $last_modified_user_sub, e.last_modified_user_email = $last_modified_user_email, "
+                    "e.last_modified_user_displayname = $last_modified_user_displayname, e.last_modified_timestamp = TIMESTAMP(), "
+                    "e.published_user_sub = $published_user_sub, e.published_user_email = $published_user_email, "
+                    "e.published_user_displayname = $published_user_displayname, e.published_timestamp = TIMESTAMP(), "
+                    "e.ingest_task = $ingest_task, e.assigned_to_group_name = $assigned_to_group_name, "
+                    "e.status_history = $status_history" + doi_update_clause
             )
 
             logger.info(
@@ -1461,9 +1472,9 @@ def publish_datastage(identifier: str, user: User):
             dataset_data_access_level, dataset_group_uuid, dataset_uuid, True
         )
         if is_primary or is_component is False:
-            #find all the files that match *metadata.tsv under the dataset's directory
-            #strip the columns that can hold lab identifiers of any data
-            tsv_files = glob.glob(os.path.join(ds_path,"*metadata.tsv"))
+            # find all the files that match *metadata.tsv under the dataset's directory
+            # strip the columns that can hold lab identifiers of any data
+            tsv_files = glob.glob(os.path.join(ds_path, "*metadata.tsv"))
             for tsv_file in tsv_files:
                 tsv_data = pandas.read_csv(tsv_file, sep='\t')
                 columns = tsv_data.columns.tolist()
@@ -1476,7 +1487,7 @@ def publish_datastage(identifier: str, user: User):
                     meta_filename = os.path.basename(os.path.normpath(tsv_file))
                     dtnow = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
                     backup_filename = f"({dataset_uuid}.{dtnow}) {meta_filename}"
-                    backup_file_path = os.path.join(tsv_backup_dir,backup_filename)
+                    backup_file_path = os.path.join(tsv_backup_dir, backup_filename)
                     shutil.copy(tsv_file, f"{backup_file_path}")
                     tsv_data.to_csv(tsv_file, sep='\t', index=False)
 
@@ -1652,8 +1663,8 @@ def create_uploadstage():
         requested_group_uuid = auth_helper.get_write_group_uuid(token, requested_group_uuid)
         upload_request["group_uuid"] = requested_group_uuid
         post_url = (
-            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "entities/upload"
+                commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "entities/upload"
         )
         response = requests.post(
             post_url, json=upload_request, headers=get_auth_header_dict(token), verify=False
@@ -1691,10 +1702,10 @@ def submit_upload(upload_uuid):
     }
 
     update_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + upload_uuid
-        + "?return_dict=true"
+            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+            + "entities/"
+            + upload_uuid
+            + "?return_dict=true"
     )
 
     # Disable ssl certificate verification
@@ -1730,10 +1741,10 @@ def reorganize_upload(upload_uuid):
     upload_changes = {}
     upload_changes["status"] = "Processing"
     update_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-        + "entities/"
-        + upload_uuid
-        + "?return_dict=true"
+            commons_file_helper.ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+            + "entities/"
+            + upload_uuid
+            + "?return_dict=true"
     )
     # Disable ssl certificate verification
     resp = requests.put(update_url, headers=http_headers, json=upload_changes, verify=False)
@@ -1743,10 +1754,10 @@ def reorganize_upload(upload_uuid):
     # disable validations stuff for now...
     # call the AirFlow validation workflow
     validate_url = (
-        commons_file_helper.ensureTrailingSlashURL(current_app.config["INGEST_PIPELINE_URL"])
-        + "uploads/"
-        + upload_uuid
-        + "/reorganize"
+            commons_file_helper.ensureTrailingSlashURL(current_app.config["INGEST_PIPELINE_URL"])
+            + "uploads/"
+            + upload_uuid
+            + "/reorganize"
     )
     # Disable ssl certificate verification
     resp2 = requests.put(validate_url, headers=http_headers, json=upload_changes, verify=False)
