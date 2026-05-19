@@ -1,5 +1,6 @@
 import json
 
+from flask import request
 from hubmap_commons.string_helper import convert_str_literal
 
 
@@ -44,3 +45,10 @@ def obj_trim(obj, key):
         obj[key] = obj[key].strip()
 
     return obj.get(key)
+
+def get_groups_token() -> str:
+    return (
+        request.headers.get("authorization")[7:]
+        if request.headers.get("authorization") is not None
+        else ""
+    )

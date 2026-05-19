@@ -2,6 +2,8 @@ import base64
 import json
 import logging
 
+from atlas_consortia_commons.rest import abort_internal_err, abort_unauthorized
+from atlas_consortia_commons.string import equals
 from flask import (
     Blueprint,
     Response,
@@ -9,7 +11,7 @@ from flask import (
     make_response,
     redirect,
     request,
-    session,
+    session, jsonify,
 )
 from globus_sdk import (
     AccessTokenAuthorizer,
@@ -19,10 +21,12 @@ from globus_sdk import (
 )
 from hubmap_commons.hm_auth import AuthHelper
 
+from lib.commons import get_groups_token
 from lib.services import get_auth_header_dict
 
 auth_blueprint = Blueprint("auth", __name__)
 logger = logging.getLogger(__name__)
+
 
 # Endpoints for UI Login and Logout
 
@@ -43,6 +47,7 @@ def data_ingest_login():
         redirect_failure_uri="/data-ingest-board-logout",
     )
 
+
 @auth_blueprint.route("/senotype-library-login")
 def senotype_library_login():
     return _login(
@@ -50,6 +55,7 @@ def senotype_library_login():
         key="senotype_library_tokens",
         redirect_failure_uri="/senotype-library-logout",
     )
+
 
 @auth_blueprint.route("/logout")
 def logout():
@@ -67,6 +73,7 @@ def data_ingest_logout():
         key="senotype_library_tokens",
     )
 
+
 @auth_blueprint.route("/senotype-library-logout")
 def senotype_library_logout():
     return _logout(
@@ -74,6 +81,33 @@ def senotype_library_logout():
         app_name=current_app.config["DATA_INGEST_BOARD_NAME"],
         key="ingest_board_tokens",
     )
+
+
+@auth_blueprint.route("/token-introspect")
+def token_introspect():
+    groups_token: str = get_groups_token()
+    if equals(groups_token, ""):
+        abort_unauthorized("User must present a valid Globus Transfer token")
+
+    confidential_app_auth_client = ConfidentialAppAuthClient(
+        current_app.config["APP_CLIENT_ID"],
+        current_app.config["APP_CLIENT_SECRET"],
+    )
+
+    info = {}
+    try:
+        info = confidential_app_auth_client.oauth2_token_introspect(groups_token)
+    except Exception as e:
+        logger.debug("Token introspect failed: %s", e)
+        abort_internal_err(e)
+
+    if not hasattr(info, 'data'):
+        abort_internal_err("No data found in introspect response.")
+    data = info.data
+    if not data["active"]:
+        abort_unauthorized("Token is either expired or invalid.")
+    headers: dict = {"Content-Type": "application/json"}
+    return make_response(jsonify(data), 200, headers)
 
 
 def get_user_info(token):
@@ -198,10 +232,10 @@ def _logout(redirect_uri, app_name, key="tokens"):
     # build the logout URI with query params
     # there is no tool to help build this (yet!)
     globus_logout_url = (
-        "https://auth.globus.org/v2/web/logout"
-        + "?client={}".format(current_app.config["APP_CLIENT_ID"])
-        + "&redirect_uri={}".format(redirect_uri)
-        + "&redirect_name={}".format(app_name)
+            "https://auth.globus.org/v2/web/logout"
+            + "?client={}".format(current_app.config["APP_CLIENT_ID"])
+            + "&redirect_uri={}".format(redirect_uri)
+            + "&redirect_name={}".format(app_name)
     )
 
     # Redirect the user to the Globus Auth logout page
