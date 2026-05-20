@@ -57,21 +57,6 @@ def privs_get_user_write_groups():
     return make_response(jsonify({"user_write_groups": user_write_groups}), 200, headers)
 
 
-@privs_blueprint.route("/privs/has-senotype-edit")
-def privs_has_senotype_edit():
-    return check_groups_access('has_senotype_edit', current_app.config["SENOTYPE_EDIT_UUID"])
-
-
-@privs_blueprint.route("/privs/has-senotype-curate")
-def privs_has_senotype_curate():
-    return check_groups_access('has_senotype_curate', current_app.config["SENOTYPE_CURATE_UUID"])
-
-
-@privs_blueprint.route("/privs/has-senotype-publish")
-def privs_has_senotype_publish():
-    return check_groups_access('has_senotype_publish', current_app.config["SENOTYPE_PUBLISH_UUID"])
-
-
 @privs_blueprint.route("/privs/has-data-admin")
 def privs_has_data_admin_privs():
     groups_token: str = get_groups_token()
@@ -89,8 +74,8 @@ def privs_has_data_admin_privs():
 def privs_senotype():
     return_dict = {}
     privs_dict = {"has_senotype_publish": current_app.config["SENOTYPE_PUBLISH_UUID"],
-     "has_senotype_curate": current_app.config["SENOTYPE_CURATE_UUID"],
-     "has_senotype_edit": current_app.config["SENOTYPE_EDIT_UUID"]}
+                  "has_senotype_curate": current_app.config["SENOTYPE_CURATE_UUID"],
+                  "has_senotype_edit": current_app.config["SENOTYPE_EDIT_UUID"]}
 
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
@@ -106,19 +91,3 @@ def privs_senotype():
 
     headers: dict = {"Content-Type": "application/json"}
     return make_response(jsonify(return_dict), 200, headers)
-
-
-def check_groups_access(group_name: str, group_uuid: str):
-    groups_token: str = get_groups_token()
-    auth_helper_instance: AuthHelper = AuthHelper.instance()
-    has_group_access = False
-
-    user_info = auth_helper_instance.getUserInfo(groups_token, getGroups=True)
-    if isinstance(user_info, Response):
-        return user_info
-
-    if group_uuid in user_info['hmgroupids']:
-        has_group_access = True
-
-    headers: dict = {"Content-Type": "application/json"}
-    return make_response(jsonify({group_name: has_group_access}), 200, headers)
