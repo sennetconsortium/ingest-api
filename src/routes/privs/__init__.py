@@ -5,6 +5,8 @@ from flask import Blueprint, Response, jsonify, make_response, request, current_
 from hubmap_commons.exceptions import HTTPException
 from hubmap_commons.hm_auth import AuthHelper
 
+from lib.commons import get_groups_token
+
 privs_blueprint = Blueprint("privs", __name__)
 logger = logging.getLogger(__name__)
 
@@ -55,18 +57,6 @@ def privs_get_user_write_groups():
     return make_response(jsonify({"user_write_groups": user_write_groups}), 200, headers)
 
 
-@privs_blueprint.route("/privs/has-senotype-edit")
-def privs_has_senotype_edit():
-    return check_groups_access('has_senotype_edit', current_app.config["SENOTYPE_EDIT_UUID"])
-
-@privs_blueprint.route("/privs/has-senotype-curate")
-def privs_has_senotype_curate():
-    return check_groups_access('has_senotype_curate', current_app.config["SENOTYPE_CURATE_UUID"])
-
-@privs_blueprint.route("/privs/has-senotype-publish")
-def privs_has_senotype_publish():
-    return check_groups_access('has_senotype_publish', current_app.config["SENOTYPE_PUBLISH_UUID"])
-
 @privs_blueprint.route("/privs/has-data-admin")
 def privs_has_data_admin_privs():
     groups_token: str = get_groups_token()
@@ -80,14 +70,13 @@ def privs_has_data_admin_privs():
     return make_response(jsonify({"has_data_admin_privs": data_admin_privs}), 200, headers)
 
 
-def get_groups_token() -> str:
-    return (
-        request.headers.get("authorization")[7:]
-        if request.headers.get("authorization") is not None
-        else ""
-    )
+@privs_blueprint.route("/privs/senotype")
+def privs_senotype():
+    return_dict = {}
+    privs_dict = {"has_senotype_publish": current_app.config["SENOTYPE_PUBLISH_UUID"],
+                  "has_senotype_curate": current_app.config["SENOTYPE_CURATE_UUID"],
+                  "has_senotype_edit": current_app.config["SENOTYPE_EDIT_UUID"]}
 
-def check_groups_access(group_name: str, group_uuid: str):
     groups_token: str = get_groups_token()
     auth_helper_instance: AuthHelper = AuthHelper.instance()
     has_group_access = False
@@ -96,8 +85,9 @@ def check_groups_access(group_name: str, group_uuid: str):
     if isinstance(user_info, Response):
         return user_info
 
-    if group_uuid in user_info['hmgroupids']:
-        has_group_access = True
+    for key, uuid in privs_dict.items():
+        if uuid in user_info['hmgroupids']:
+            return_dict[key] = True
 
     headers: dict = {"Content-Type": "application/json"}
-    return make_response(jsonify({group_name: has_group_access}), 200, headers)
+    return make_response(jsonify(return_dict), 200, headers)
