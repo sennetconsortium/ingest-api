@@ -58,12 +58,12 @@ class IngestFileHelper:
 
     def dataset_directory_absolute_path(self, access_level, group_uuid, dataset_uuid, published):
         grp_name = AuthHelper.getGroupDisplayName(group_uuid)
-        if access_level == "protected":
-            base_dir = self.appconfig["GLOBUS_PROTECTED_ENDPOINT_FILEPATH"]
-            abs_path = str(os.path.join(base_dir, grp_name, dataset_uuid))
-        elif published:
+        if published:
             base_dir = self.appconfig["GLOBUS_PUBLIC_ENDPOINT_FILEPATH"]
             abs_path = str(os.path.join(base_dir, dataset_uuid))
+        elif access_level == "protected":
+            base_dir = self.appconfig["GLOBUS_PROTECTED_ENDPOINT_FILEPATH"]
+            abs_path = str(os.path.join(base_dir, grp_name, dataset_uuid))
         else:
             base_dir = self.appconfig["GLOBUS_CONSORTIUM_ENDPOINT_FILEPATH"]
             abs_path = str(os.path.join(base_dir, grp_name, dataset_uuid))
