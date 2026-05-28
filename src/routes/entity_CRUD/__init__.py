@@ -1580,7 +1580,7 @@ def dataset_has_entity_lab_processed_data_type(dataset_uuid):
         return True
 
 
-def get_primary_ancestor_globus_path(entity_dict):
+def get_primary_ancestor_globus_path(entity_dict, public_path=False):
     ancestor = None
     origin_path = None
     if "direct_ancestors" in entity_dict:
@@ -1591,7 +1591,7 @@ def get_primary_ancestor_globus_path(entity_dict):
     if ancestor is not None:
         ingest_helper = IngestFileHelper(current_app.config)
         origin_path = ingest_helper.get_dataset_directory_absolute_path(
-            ancestor, ancestor["group_uuid"], ancestor["uuid"]
+            ancestor, ancestor["group_uuid"], ancestor["uuid"], public_path
         )
 
     return origin_path
