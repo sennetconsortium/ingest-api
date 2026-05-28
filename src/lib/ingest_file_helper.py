@@ -32,7 +32,7 @@ class IngestFileHelper:
             + dataset_uuid
         )
 
-    def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid):
+    def get_dataset_directory_absolute_path(self, dataset_record, group_uuid, dataset_uuid, public_path=False):
         if "contains_human_genetic_sequences" not in dataset_record:
             self.logger.info(
                 f"get_dataset_directory_absolute_path: contains_human_genetic_sequences is None {dataset_uuid}"
@@ -51,6 +51,8 @@ class IngestFileHelper:
         published = False
         if "status" in dataset_record and dataset_record["status"] == "Published":
             published = True
+            if public_path:
+                access_level = "public"
 
         return self.dataset_directory_absolute_path(
             access_level, group_uuid, dataset_uuid, published
