@@ -1258,11 +1258,12 @@ def publish_datastage(identifier: str, user: User):
             to_symlink_path = None
             ancestor_path = None
             if is_component:
+                ancestor_path = get_primary_ancestor_globus_path(entity_dict)
                 if entity_dict['data_access_level'] != 'protected':
-                    ancestor_path = get_primary_ancestor_globus_path(entity_dict)
                     to_symlink_path = ancestor_path
-                    logger.info("ancestor_path: {}".format(ancestor_path))
-                    logger.info("to_symlink_path: {}".format(to_symlink_path))
+
+            logger.info("ancestor_path: {}".format(ancestor_path))
+            logger.info("to_symlink_path: {}".format(to_symlink_path))
 
             if dataset_data_access_level == "consortium":
                 # before moving check to see if there is currently a link for the dataset in the assets directory
