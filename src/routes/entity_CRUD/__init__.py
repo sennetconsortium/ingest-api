@@ -1262,6 +1262,9 @@ def publish_datastage(identifier: str, user: User):
                 if "protected" not in ancestor_path:
                     to_symlink_path = ancestor_path
 
+            logger.info("ancestor_path: {}".format(ancestor_path))
+            logger.info("to_symlink_path: {}".format(to_symlink_path))
+
             if dataset_data_access_level == "consortium":
                 # before moving check to see if there is currently a link for the dataset in the assets directory
                 asset_dir = ingest_helper.dataset_asset_directory_absolute_path(dataset_uuid)
