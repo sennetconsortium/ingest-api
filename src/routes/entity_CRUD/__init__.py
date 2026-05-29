@@ -1257,6 +1257,8 @@ def publish_datastage(identifier: str, user: User):
             # if consortium access level convert to public dataset, if protected access leave it protected
             to_symlink_path = None
             ancestor_path = None
+            # Component datasets that are protected will have a new directory created in /public without sequence data
+            # Component datasets that are public will have a symlink created that points to the public primary directory
             if is_component:
                 ancestor_path = get_primary_ancestor_globus_path(entity_dict)
                 to_symlink_path = get_primary_ancestor_globus_path(entity_dict, True)
@@ -1275,8 +1277,8 @@ def publish_datastage(identifier: str, user: User):
                     ingest_helper.relink_to_public(dataset_uuid)
 
             doi_info = None
-            # Generating DOI's for lab processed/derived data as well as IEC/pipeline/airflow processed/derived data).
-            if is_primary or has_entity_lab_processed_dataset_type:
+            # Generating DOI's for lab processed/derived data as well as component datasets.
+            if is_primary or has_entity_lab_processed_dataset_type or is_component:
                 # DOI gets generated here
                 # Note: moved dataset title auto generation to entity-api - Zhou 9/29/2021
                 datacite_doi_helper = DataCiteDoiHelper()
