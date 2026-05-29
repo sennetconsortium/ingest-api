@@ -1039,6 +1039,7 @@ def publish_datastage(identifier: str, user: User):
 
         is_primary = dataset_helper.dataset_is_primary(dataset_uuid)
         is_component = entity_dict.get("creation_action") == "Multi-Assay Split"
+        is_publication = entity_dict.get("entity_type") == "Publication"
 
         suspend_indexing_and_acls = string_helper.isYes(
             request.args.get("suspend-indexing-and-acls")
@@ -1240,7 +1241,7 @@ def publish_datastage(identifier: str, user: User):
                 f"is_primary: {is_primary}; has_entity_lab_processed_dataset_type: {has_entity_lab_processed_dataset_type}"
             )
 
-            if is_primary or has_entity_lab_processed_dataset_type:
+            if is_primary or has_entity_lab_processed_dataset_type or is_component or is_publication:
                 if dataset_contacts is None or dataset_contributors is None:
                     abort_bad_req(
                         f"{dataset_uuid} missing contacts or contributors. Must have at least one of each"
@@ -1375,7 +1376,7 @@ def publish_datastage(identifier: str, user: User):
                 # create a Collection associated with the Publication
                 dataset_uuids = [
                     a["uuid"]
-                    for a in entity_dict.get("direct_ancestors", [])
+                    for a in entity_dict.get("immediate_ancestor", [])
                     if a["entity_type"] == "Dataset"
                 ]
                 collection = {
