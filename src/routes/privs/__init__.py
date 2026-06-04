@@ -72,7 +72,11 @@ def privs_has_data_admin_privs():
 
 @privs_blueprint.route("/privs/senotype")
 def privs_senotype():
-    return_dict = {}
+    return_dict = {
+        "has_senotype_publish": False,
+        "has_senotype_curate": False,
+        "has_senotype_edit": False
+    }
     privs_dict = {"has_senotype_publish": current_app.config["SENOTYPE_PUBLISH_UUID"],
                   "has_senotype_curate": current_app.config["SENOTYPE_CURATE_UUID"],
                   "has_senotype_edit": current_app.config["SENOTYPE_EDIT_UUID"]}
