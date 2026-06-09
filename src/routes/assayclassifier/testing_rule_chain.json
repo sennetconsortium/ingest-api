@@ -747,7 +747,7 @@
     },
     {
         "type": "match",
-        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 64 rxns; PN 1000456', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 16 rxns; PN 1000420', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA, Mouse Transcriptome Probe Kit, 64 rxns; PN 1000492', '10x Genomics; Chromium Fixed RNA Kit, Human Transcriptome 4 rxns x 1 BC; PN 1000474'] and assay_input_entity == 'single cell' and barcode_read =~~ 'Read 1' and barcode_size == 16 and barcode_offset == 0 and umi_read =~~ 'Read 1' and umi_size == 12 and umi_offset == 16",
+        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 64 rxns; PN 1000456', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA Human Transcriptome Probe Kit, 16 rxns; PN 1000420', '10X Genomics; Chromium Next GEM Single Cell Fixed RNA, Mouse Transcriptome Probe Kit, 64 rxns; PN 1000492', '10x Genomics; Chromium Fixed RNA Kit, Human Transcriptome 4 rxns x 1 BC; PN 1000474', '10x Genomics; Chromium Fixed RNA Kit, Human Transcriptome 4 rxns x 4 BC; PN 1000475'] and assay_input_entity == 'single cell' and barcode_read =~~ 'Read 1' and barcode_size == 16 and barcode_offset == 0 and umi_read =~~ 'Read 1' and umi_size == 12 and umi_offset == 16",
         "value": "{'ubkg_code': 'C202040', 'assaytype': 'scRNAseq-with-probes', 'vitessce-hints': [], 'dir-schema': 'rnaseq-with-probes-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'RNAseq (with probes)', 'description': 'RNAseq (with probes)'}",
         "rule_description": "DCWG scRNAseq-with-probes"
     },
@@ -891,7 +891,7 @@
     },
     {
         "type": "match",
-        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['NanoString Technologies; GeoMx Mouse Whole Transcriptome Atlas, 4 slides; PN GMX-RNA-NGS-MsWTA-4', '10X Genomics; GEM-X Flex Human Transcriptome Probe Kit, 16 samples; PN 1000785']",
+        "match": "is_dcwg and is_primary and dataset_type == 'RNAseq (with probes)' and oligo_probe_panel in ['NanoString Technologies; GeoMx Mouse Whole Transcriptome Atlas, 4 slides; PN GMX-RNA-NGS-MsWTA-4', '10X Genomics; GEM-X Flex Human Transcriptome Probe Kit, 16 samples; PN 1000785', '10x Genomics; Chromium Fixed RNA Kit, Human Transcriptome 16 rxns x 16 BC; PN 1000547']",
         "value": "{'ubkg_code': 'C202280', 'assaytype': '10x-flex', 'vitessce-hints': [], 'dir-schema': 'rnaseq-with-probes-v2', 'contains-pii': true, 'primary': true, 'dataset-type': 'RNAseq (with probes)', 'description': '10x Flex'}",
         "rule_description": "DCWG 10x Flex"
     },
