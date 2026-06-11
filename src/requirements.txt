@@ -19,7 +19,7 @@ hubmap-commons==2.1.24
 atlas-consortia-commons==1.1.5
 
 # For assay type rules
-rule_engine==4.1.0
+rule_engine==5.0.0
 
 # Job queue
 redis==5.0.3
