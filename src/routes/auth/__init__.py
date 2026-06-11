@@ -69,7 +69,7 @@ def logout():
 def data_ingest_logout():
     return _logout(
         redirect_uri=current_app.config["DATA_INGEST_BOARD_APP_URI"],
-        app_name=current_app.config["SENOTYPE_LIBRARY_NAME"],
+        app_name=current_app.config["DATA_INGEST_BOARD_NAME"],
         key="senotype_library_tokens",
     )
 
@@ -78,7 +78,7 @@ def data_ingest_logout():
 def senotype_library_logout():
     return _logout(
         redirect_uri=current_app.config["SENOTYPE_LIBRARY_URI"],
-        app_name=current_app.config["DATA_INGEST_BOARD_NAME"],
+        app_name=current_app.config["SENOTYPE_LIBRARY_NAME"],
         key="ingest_board_tokens",
     )
 
