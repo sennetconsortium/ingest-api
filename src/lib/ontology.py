@@ -16,6 +16,16 @@ class Ontology(UbkgSDK):
 
     @classmethod
     def dataset_type_hierarchy(cls: Ontology) -> dict:
+        def key_callback(dict):
+            return dict['name']
+        
+        def val_callback(dict):
+       
+            list_of_facets = []
+            for modality in dict:
+                list_of_facets.append(modality['name'])
+            return list_of_facets
+        
         return cls.ops(
-            as_data_dict=True, prop_callback=None, data_as_val=False, key="dataset_type", val_key="dataset_modalities"
-        ).dataset_types()
+            as_data_dict=True, key_callback=key_callback, val_callback=val_callback, data_as_val=False
+        ).dataset_types_hierarchy()
