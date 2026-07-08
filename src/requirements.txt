@@ -16,7 +16,7 @@ requests==2.33.0
 # Default is main branch specified in docker-compose.development.yml if not set
 # git+https://github.com/hubmapconsortium/commons.git@${COMMONS_BRANCH}#egg=hubmap-commons
 hubmap-commons==2.1.26
-atlas-consortia-commons==1.1.7
+atlas-consortia-commons==1.1.5
 
 # For assay type rules
 rule_engine==5.0.0
