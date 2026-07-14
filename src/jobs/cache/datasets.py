@@ -160,7 +160,7 @@ def update_datasets_datastatus(schedule_next_job=True):
             "organ_sennet_id",
             "assigned_to_group_name",
             "ingest_task",
-            "error_message"
+            "error_message",
         ]
 
         queries = [
@@ -269,15 +269,15 @@ def update_datasets_datastatus(schedule_next_job=True):
 
             has_processed_published_datasets = False
             has_processed_qa_datasets = False
-            if dataset.get('processed_datasets'):
-                for processed_ds in dataset['processed_datasets']:
-                    if processed_ds['creation_action'].lower() == 'central process':
-                        if processed_ds['status'].lower() == 'published':
+            if dataset.get("processed_datasets"):
+                for processed_ds in dataset["processed_datasets"]:
+                    if processed_ds["creation_action"].lower() == "central process":
+                        if processed_ds["status"].lower() == "published":
                             has_processed_published_datasets = True
-                        if processed_ds['status'].lower() == 'qa':
+                        if processed_ds["status"].lower() == "qa":
                             has_processed_qa_datasets = True
-            dataset['has_published_processed'] = has_processed_published_datasets
-            dataset['has_qa_processed'] = has_processed_qa_datasets
+            dataset["has_published_processed"] = has_processed_published_datasets
+            dataset["has_qa_processed"] = has_processed_qa_datasets
 
             dataset["is_primary"] = (
                 "True"
@@ -390,7 +390,6 @@ def schedule_update_dataset_sankey_data(
     job_queue: JobQueue,
     delta: timedelta = timedelta(hours=1),
     authorized=False,
-    dataset_type_hierarchy: str = None,
 ):
     job_id = uuid4()
     id_email = DATASETS_SANKEYDATA_JOB_PUBLIC_PREFIX
@@ -400,7 +399,7 @@ def schedule_update_dataset_sankey_data(
     job = job_queue.enqueue_job(
         job_id=job_id,
         job_func=update_dataset_sankey_data,
-        job_kwargs={"authorized": authorized, "dataset_type_hierarchy": dataset_type_hierarchy},
+        job_kwargs={"authorized": authorized},
         user={"id": id_email, "email": id_email},
         description="Update datasets sankey data",
         metadata={
@@ -419,9 +418,7 @@ def schedule_update_dataset_sankey_data(
         )
 
 
-def update_dataset_sankey_data(
-    authorized=False, dataset_type_hierarchy=None, schedule_next_job=True
-):
+def update_dataset_sankey_data(authorized=False, schedule_next_job=True):
     try:
         logger.info("Starting update datasets sankey data")
         start = time.perf_counter()
@@ -430,12 +427,19 @@ def update_dataset_sankey_data(
         HEADER_DATASET_GROUP_NAME = "dataset_group_name"
         HEADER_ORGAN_TYPE = "organ_type"
         HEADER_DATASET_TYPE_HIERARCHY = "dataset_type_hierarchy"
+        HEADER_DATASET_TYPE_ANALYTE_CLASS = "dataset_type_analyte_class"
         HEADER_DATASET_TYPE_DESCRIPTION = "dataset_type_description"
         HEADER_DATASET_STATUS = "dataset_status"
-        ORGAN_TYPES = Ontology.ops(
-            as_data_dict=True, data_as_val=True, val_key="organ_uberon", key_callback=None
-        ).organ_types()
         HEADER_DATASET_SOURCE_TYPE = "dataset_source_type"
+
+        ORGAN_TYPES = Ontology.ops(
+            as_data_dict=True,
+            data_as_val=True,
+            val_key="organ_uberon",
+            key_callback=None,
+        ).organ_types()
+        DATASET_TYPE_HIERARCHY = Ontology.dataset_type_hierarchy()
+        ANALYTE_CLASSES = Ontology.analyte_classes()
 
         data_access_level = "public" if authorized is False else None
 
@@ -489,7 +493,6 @@ def update_dataset_sankey_data(
             internal_dict = collections.OrderedDict()
             internal_dict[HEADER_DATASET_GROUP_NAME] = dataset[HEADER_DATASET_GROUP_NAME]
             internal_dict[HEADER_DATASET_SOURCE_TYPE] = dataset[HEADER_DATASET_SOURCE_TYPE]
-            is_human = dataset[HEADER_DATASET_SOURCE_TYPE].upper() == "HUMAN"
             internal_dict[HEADER_ORGAN_TYPE] = []
             for organ_type in ORGAN_TYPES:
                 for organ in dataset[HEADER_ORGAN_TYPE]:
@@ -498,18 +501,22 @@ def update_dataset_sankey_data(
                         break
 
             # Grab the modality from UBKG
-            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset["dataset_type"]
+            dataset_type = dataset["dataset_type"]
+            internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset_type
             internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = None
             try:
-                if dataset_type_hierarchy and dataset["dataset_type"] in dataset_type_hierarchy:
-                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = dataset_type_hierarchy[
-                        dataset["dataset_type"]
+                if dataset_type in DATASET_TYPE_HIERARCHY:
+                    internal_dict[HEADER_DATASET_TYPE_HIERARCHY] = DATASET_TYPE_HIERARCHY[
+                        dataset_type
                     ]
-                    internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset["dataset_type"]
+                    internal_dict[HEADER_DATASET_TYPE_DESCRIPTION] = dataset_type
+
+                if dataset_type in ANALYTE_CLASSES:
+                    internal_dict[HEADER_DATASET_TYPE_ANALYTE_CLASS] = ANALYTE_CLASSES[dataset_type]
 
             except Exception as e:
                 logger.error(e)
-                logger.error(dataset["dataset_type"])
+                logger.error(dataset_type)
 
             internal_dict[HEADER_DATASET_STATUS] = dataset["dataset_status"]
 
@@ -540,5 +547,4 @@ def update_dataset_sankey_data(
             schedule_update_dataset_sankey_data(
                 job_queue=job_queue,
                 authorized=authorized,
-                dataset_type_hierarchy=dataset_type_hierarchy,
             )
