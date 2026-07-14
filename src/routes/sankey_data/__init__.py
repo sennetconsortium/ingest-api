@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from atlas_consortia_commons.rest import abort_internal_err
 from flask import Blueprint, current_app, jsonify
@@ -13,7 +14,6 @@ from jobs.cache.datasets import (
     update_dataset_sankey_data,
 )
 from lib.services import get_token
-from lib.ontology import Ontology
 
 sankey_data_blueprint = Blueprint("sankey_data", __name__)
 logger = logging.getLogger(__name__)
@@ -24,21 +24,20 @@ DATASETS_SANKEY_DATA_LAST_UPDATED_KEY = "datasets_sankey_data_last_updated_key"
 
 @sankey_data_blueprint.route("/datasets/sankey_data", methods=["GET"])
 def get_ds_assaytype():
-    token: str = get_token()
+    token = get_token()
     authorized = False
     if token:
         auth_helper_instance: AuthHelper = AuthHelper.instance()
-        authorized = auth_helper_instance.has_read_privs(token)
+        privs = auth_helper_instance.has_read_privs(token)
+        if isinstance(privs, bool):
+            authorized = privs
 
     if current_app.config.get("REDIS_MODE") is False:
         try:
-            results = update_dataset_sankey_data(
-                authorized,
-                dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
-                schedule_next_job=False,
-            )
+            results = update_dataset_sankey_data(authorized, schedule_next_job=False)
             return jsonify(results.results)
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to retrieve datasets sankey data: {e}")
             abort_internal_err("Failed to retrieve datasets sankey data.")
 
     # Get jobs from rq
@@ -56,8 +55,9 @@ def get_ds_assaytype():
             return jsonify(success_jobs[0].result.results)
 
         # Get the latest finished jobs
-        newest_job = max(success_jobs, key=lambda j: j.ended_at)
+        newest_job = max(success_jobs, key=lambda j: j.ended_at or datetime.min)
         return jsonify(newest_job.result.results)
 
-    except NoSuchJobError:
+    except NoSuchJobError as e:
+        logger.info(f"No finished jobs found for sankey data: {e}")
         return jsonify({"message": "Datasets sankey data is currently being cached"}), 202

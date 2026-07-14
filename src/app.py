@@ -16,9 +16,8 @@ from hubmap_commons.hm_auth import AuthHelper
 from redis import from_url
 
 # Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from urllib3.exceptions import InsecureRequestWarning
 
-from lib.ontology import Ontology
 import submodules
 from jobs import JobQueue
 from jobs.cache.datasets import (
@@ -213,13 +212,11 @@ if app.config.get("REDIS_MODE"):
         job_queue=job_queue,
         delta=datetime.timedelta(seconds=30),
         authorized=False,
-        dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
     )
     schedule_update_dataset_sankey_data(
         job_queue=job_queue,
         delta=datetime.timedelta(seconds=30),
         authorized=True,
-        dataset_type_hierarchy=Ontology.dataset_type_hierarchy(),
     )
 
 # For local development/testing
