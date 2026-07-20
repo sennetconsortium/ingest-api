@@ -2,3 +2,4 @@
 	path = src/submodules/ingest_validation_tools
 	url = https://github.com/hubmapconsortium/ingest-validation-tools.git
 	branch = main
+	ignore = all

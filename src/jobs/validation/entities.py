@@ -225,7 +225,7 @@ def validate_samples(headers, records, token):
     Entities = Ontology.ops().entities()
 
     organ_types_codes = list(
-        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", prop_callback=None)
+        Ontology.ops(as_data_dict=True, key="organ_uberon", val_key="term", key_callback=None)
         .organ_types()
         .keys()
     )
