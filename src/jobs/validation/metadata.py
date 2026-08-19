@@ -179,6 +179,7 @@ def validate_tsv(
     """
 
     try:
+        logger.info("Getting schema version...")
         schema = iv_utils.get_schema_version(
             path=path,
             encoding="ascii",
@@ -186,6 +187,7 @@ def validate_tsv(
             ingest_url=ensureTrailingSlashURL(current_app.config["INGEST_URL"]),
             globus_token=token,
         )
+        logger.info(f"Schema version: {schema}")
 
         # Check if the schema detected in the TSV matches the Entity/Subtype the user specified
         entity_type_info = schema.entity_type_info
@@ -228,6 +230,7 @@ def validate_tsv(
             "entities_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}entities/",
             "constraints_url": f"{ensureTrailingSlashURL(current_app.config['ENTITY_WEBSERVICE_URL'])}constraints/",
         }
+        logger.info("Getting TSV errors...")
         validation_results = iv_utils.get_tsv_errors(
             path,
             schema_name=schema_name,
@@ -235,8 +238,11 @@ def validate_tsv(
             globus_token=token,
             app_context=app_context,
         )
+        logger.info(f"TSV errors: {validation_results}")
         if len(validation_results) == 0:
+            logger.info("Getting CSV records....")
             validation_results = get_csv_records(path)
+            logger.info(f"CSV records: {validation_results}")
             return rest_response(StatusCodes.OK, "TSV validation results", validation_results, True)
         else:
             final_results = []

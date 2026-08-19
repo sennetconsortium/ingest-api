@@ -36,7 +36,7 @@ def get_csv_records(path: str, records_as_arr=False, is_ordered=False):
             records.append(data_row)
             if first:
                 first = False
-
+    # TODO: Need to close file?
     return {"records": records, "headers": headers}
 
 
