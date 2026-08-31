@@ -28,6 +28,6 @@ rq==1.16.2
 psutil>=7.0.0,<7.1
 
 # For vitessce config generation
-portal-visualization[full]==0.5.11
+portal-visualization[full]==0.5.12
 
 pandas~=2.3.1
