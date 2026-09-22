@@ -205,12 +205,14 @@ class DataCiteDoiHelper:
                 )
 
             response = datacite_api.create_new_draft_doi(
-                dataset["sennet_id"],
-                dataset["uuid"],
-                self.build_doi_contributors(dataset),
-                dataset["title"],
-                publication_year,
-                self.build_doi_creators(dataset),
+                sennet_id=dataset["sennet_id"],
+                uuid=dataset["uuid"],
+                contributors=self.build_doi_contributors(dataset),
+                dataset_title=dataset["title"],
+                publication_year=publication_year,
+                creators=self.build_doi_creators(dataset),
+                description=None,
+                entity_type="Dataset",
             )
 
             if response.status_code == 201:
@@ -328,12 +330,13 @@ class DataCiteDoiHelper:
         )
         publication_year = int(datetime.now().year)
         response = datacite_api.create_new_draft_doi(
-            collection["sennet_id"],
-            collection["uuid"],
-            self.build_doi_contributors(collection),
-            collection["title"],
-            publication_year,
-            self.build_doi_creators(collection),
+            sennet_id=collection["sennet_id"],
+            uuid=collection["uuid"],
+            contributors=self.build_doi_contributors(collection),
+            dataset_title=collection["title"],
+            publication_year=publication_year,
+            creators=self.build_doi_creators(collection),
+            description=collection["description"],
             entity_type="Collection",
         )
         if response.status_code == 201:
