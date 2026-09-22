@@ -3,7 +3,8 @@ import datetime
 import logging
 import os
 
-import requests
+# Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
+import urllib3
 from atlas_consortia_commons.converter import EntityUUIDConverter
 from atlas_consortia_commons.rest import abort_err_handler, get_http_exceptions_classes
 from atlas_consortia_commons.ubkg import initialize_ubkg
@@ -14,8 +15,6 @@ from hubmap_commons import neo4j_driver
 # HuBMAP commons
 from hubmap_commons.hm_auth import AuthHelper
 from redis import from_url
-
-# Don't confuse urllib (Python native library) with urllib3 (3rd-party library, requests also uses urllib3)
 from urllib3.exceptions import InsecureRequestWarning
 
 import submodules
@@ -89,7 +88,7 @@ app.register_blueprint(sankey_data_blueprint)
 app.register_blueprint(transfers_blueprint)
 
 # Suppress InsecureRequestWarning warning when requesting status on https with ssl cert verify disabled
-requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+urllib3.disable_warnings(category=InsecureRequestWarning)
 
 ####################################################################################################
 ## UBKG Ontology and REST initialization

@@ -7,15 +7,16 @@ import time
 from datetime import datetime
 
 import requests
+import urllib3
 from flask import Flask
 from hubmap_commons.exceptions import HTTPException
-from requests.packages.urllib3.exceptions import InsecureRequestWarning
+from urllib3.exceptions import InsecureRequestWarning
 
 from api.datacite_api import DataCiteApi
 from lib.datacite_api import DataciteApiException
 from lib.services import get_entity
 
-requests.packages.urllib3.disable_warnings(category=InsecureRequestWarning)
+urllib3.disable_warnings(category=InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,6 @@ def load_flask_instance_config():
 
 
 class DataCiteDoiHelper:
-
     def __init__(self):
         config = load_flask_instance_config()
 
@@ -78,7 +78,9 @@ class DataCiteDoiHelper:
         elif "name" in dataset_contributor:
             contributor["name"] = dataset_contributor["name"]
         elif all(key in dataset_contributor for key in ["first_name", "last_name"]):
-            contributor['name'] = f"{dataset_contributor['first_name']} {dataset_contributor['last_name']} "
+            contributor["name"] = (
+                f"{dataset_contributor['first_name']} {dataset_contributor['last_name']} "
+            )
 
         if "affiliation" in dataset_contributor:
             # See: https://support.datacite.org/docs/schema-optional-properties-v43#75-affiliation
@@ -99,7 +101,7 @@ class DataCiteDoiHelper:
             contributor["nameIdentifiers"] = [
                 {
                     "nameIdentifierScheme": "ORCID",
-                    "nameIdentifier":  "https://orcid.org/" +dataset_contributor["orcid"],
+                    "nameIdentifier": "https://orcid.org/" + dataset_contributor["orcid"],
                     "schemeUri": "https://orcid.org/",
                 }
             ]
