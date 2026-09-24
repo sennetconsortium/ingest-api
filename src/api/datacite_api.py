@@ -52,6 +52,7 @@ class DataCiteApi:
         dataset_title: str,
         publication_year: int,
         creators: list,
+        description: str | None,
         entity_type="Dataset",
     ) -> object:
         publisher = "SenNet Consortium"
@@ -84,7 +85,6 @@ class DataCiteApi:
                     "types": {"resourceTypeGeneral": entity_type},
                     # The location of the landing page with more information about the resource
                     "url": f"{self.redirect_prefix}/{uuid}",
-
                     # Add licensing information
                     "rightsList": [
                         {
@@ -92,12 +92,17 @@ class DataCiteApi:
                             "rightsUri": "https://creativecommons.org/licenses/by/4.0/legalcode",
                             "schemeUri": "https://spdx.org/licenses/",
                             "rightsIdentifier": "cc-by-4.0",
-                            "rightsIdentifierScheme": "SPDX"
+                            "rightsIdentifierScheme": "SPDX",
                         }
                     ],
                 },
             }
         }
+
+        if description is not None:
+            json["data"]["attributes"]["descriptions"] = [
+                {"lang": "en-US", "description": description, "descriptionType": "Abstract"}
+            ]
 
         # <Orchid_ID, first, lastname, name, institution_affiliation> from Dataset.contributors is mapped here (see reference above)
         if contributors is not None:
