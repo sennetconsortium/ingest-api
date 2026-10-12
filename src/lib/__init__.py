@@ -15,7 +15,7 @@ def get_globus_url(data_access_level, group_name, uuid):
         access_dir = commons_file_helper.ensureTrailingSlashURL(
             current_app.config["RELATIVE_GLOBUS_PUBLIC_ENDPOINT_FILEPATH"]
         )
-        dir_path = dir_path + access_dir + "/"
+        dir_path = dir_path + access_dir
     # consortium access
     elif data_access_level == "consortium":
         globus_server_uuid = current_app.config["GLOBUS_CONSORTIUM_ENDPOINT_UUID"]
