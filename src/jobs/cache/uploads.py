@@ -88,7 +88,7 @@ def update_uploads_datastatus(schedule_next_job=True):
             percent_delta = 100 / len(results) if results else 100
             for idx, upload in enumerate(results):
 
-                has_all_published_datasets = all(
+                has_all_published_datasets = bool(upload["datasets"]) and all(
                     dataset.get("status") == "Published" for dataset in upload["datasets"]
                 )
                 upload["has_all_published_datasets"] = has_all_published_datasets
