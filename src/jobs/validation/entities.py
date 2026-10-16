@@ -455,8 +455,7 @@ def validate_samples(headers, records, token):
                         valid_organ = True
 
                         accepted_source_types = [
-                            source_types.HUMAN,
-                            source_types.HUMAN_ORGANOID,
+                            source_types.HUMAN
                         ]
                         unaccepted_organ = [
                             "UBERON:0001013",
@@ -485,7 +484,7 @@ def validate_samples(headers, records, token):
                             file_is_valid = False
                             error_msg.append(
                                 ln_err(
-                                    "entity must be associated with a human or human organoid source",
+                                    "entity must be associated with a human source",
                                     rownum,
                                     "rui_location",
                                 )
