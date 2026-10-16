@@ -355,7 +355,7 @@ def update_datasets_datastatus(schedule_next_job=True):
                 ]
             ) or (
                 dataset.get("source_type")
-                and dataset["source_type"].upper() in ["MOUSE", "MOUSE ORGANOID"]
+                and dataset["source_type"].upper() in ["MOUSE"]
             ):
                 dataset["has_rui_info"] = "not-applicable"
 

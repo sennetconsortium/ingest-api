@@ -1133,7 +1133,7 @@ def publish_datastage(identifier: str, user: User):
             # Adipose, Blood, Bone Marrow, Breast, Bone, Muscle, and Other
             if (
                     current_app.config["CHECK_RUI_ON_PUBLISH"]
-                    and source_type in ["Human", "Human Organoid"]
+                    and source_type in ["Human"]
                     and organ
                     not in [
                 "UBERON:0001013",
