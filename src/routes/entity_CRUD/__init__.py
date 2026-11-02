@@ -1092,7 +1092,9 @@ def publish_datastage(identifier: str, user: User):
                                 ),
                                 400,
                             )
-                        metadata = metadata.replace("'", '"')
+                        # Since we are already setting JSON inside of neo4j this replace line causes more issues than it
+                        # resolves (e.g. if the metadata contains single quotes)
+                        # metadata = metadata.replace("'", '"')
                         metadata_dict = json.loads(metadata)
                         if "Mouse" in source_type:
                             if not metadata_dict:
