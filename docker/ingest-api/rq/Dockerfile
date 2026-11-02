@@ -1,4 +1,4 @@
-FROM sennet/api-base-image:1.4.0
+FROM sennet/api-base-image:1.4.4
 
 LABEL description="SenNet Ingest API RQ Service"
 
