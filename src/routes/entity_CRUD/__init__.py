@@ -686,7 +686,10 @@ def get_file_system_relative_path():
 def fetch_entity(entity_uuid):
     try:
         auth_helper_instance = AuthHelper.instance()
-        entity = get_entity(entity_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
+        token = auth_helper_instance.getAuthorizationTokens(request.headers)
+        if isinstance(token, Response):
+            return token
+        entity = get_entity(entity_uuid, token)
         return jsonify(entity), 200
     except HTTPException as hte:
         return Response(hte.get_description(), hte.get_status_code())
@@ -698,7 +701,11 @@ def fetch_entity(entity_uuid):
 def get_ds_path(ds_uuid: str, ingest_helper: IngestFileHelper) -> str:
     """Get the path to the dataset files"""
     auth_helper_instance = AuthHelper.instance()
-    dset = get_entity(ds_uuid, auth_helper_instance.getAuthorizationTokens(request.headers))
+    token = auth_helper_instance.getAuthorizationTokens(request.headers)
+    if isinstance(token, Response):
+        return ""
+
+    dset = get_entity(ds_uuid, token)
     ent_type = __get_dict_prop(dset, "entity_type")
     group_uuid = __get_dict_prop(dset, "group_uuid")
     if ent_type is None or ent_type.strip() == "":
