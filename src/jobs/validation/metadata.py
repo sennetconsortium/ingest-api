@@ -144,12 +144,12 @@ def get_metadata(path: str) -> list:
 
 
 def validate_tsv(
-    token: str,
-    entity_type: str,
-    sub_type: str,
-    attribute: Optional[str] = "",
-    latest_schema_name: Optional[str] = "isLatestVersion",
-    path: Optional[str] = None,
+        token: str,
+        entity_type: str,
+        sub_type: str,
+        attribute: Optional[str] = "",
+        latest_schema_name: Optional[str] = "isLatestVersion",
+        path: Optional[str] = None,
 ) -> dict:
     """Calls methods of the Ingest Validation Tools submodule.
 
@@ -198,7 +198,7 @@ def validate_tsv(
             if equals(entity_type_info.entity_type.value, entity_type.lower()):
                 # Source (mouse) has no entity_type_info.entity_sub_type
                 if not equals(entity_type_info.entity_sub_type, "") and not equals(
-                    entity_type_info.entity_sub_type, sub_type.lower()
+                        entity_type_info.entity_sub_type, sub_type.lower()
                 ):
                     return rest_bad_req(
                         f'Mismatch of "{entity_type} {sub_type}" and "metadata_schema_id". '
@@ -216,9 +216,9 @@ def validate_tsv(
             schema_name = schema.schema_name
             schema_version = schema.version
             if schema.is_cedar is False or not iv_utils.is_schema_latest_version(
-                schema_version=schema_version,
-                cedar_api_key=current_app.config["CEDAR_API_KEY"],
-                latest_version_name=latest_schema_name,
+                    schema_version=schema_version,
+                    cedar_api_key=current_app.config["CEDAR_API_KEY"],
+                    latest_version_name=latest_schema_name,
             ):
                 return rest_bad_req(
                     f"Outdated Cedar Metadata Schema ID detected: {schema_version}", True
@@ -280,9 +280,11 @@ def validate_tsv(
 
     except schema_loader.PreflightError as e:
         validation_results = rest_server_err({"Preflight": str(e)}, True)
-    except Exception as e:
-        validation_results = rest_server_err(e, True)
-
+    # except Exception as e:
+    #     validation_results = rest_server_err(e, True)
+    except Exception:
+        logger.exception("validate_tsv failed")
+        raise
     return validation_results
 
 
@@ -402,9 +404,9 @@ def fetch_entity(token, entity_id, id_col, idx, errors):
 
     try:
         url = (
-            ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
-            + "entities/"
-            + entity_id
+                ensureTrailingSlashURL(current_app.config["ENTITY_WEBSERVICE_URL"])
+                + "entities/"
+                + entity_id
         )
         resp = requests.get(url, headers=get_auth_header_dict(token))
     except requests.exceptions.RequestException as e:
@@ -420,7 +422,7 @@ def fetch_entity(token, entity_id, id_col, idx, errors):
 
 
 def validate_records_uuids(
-    records: list, entity_type: str, sub_type: str, pathname: str, token: str
+        records: list, entity_type: str, sub_type: str, pathname: str, token: str
 ) -> dict:
     """Validates the uuids / SenNet ids of given records.
 
