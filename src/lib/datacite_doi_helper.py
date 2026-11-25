@@ -405,7 +405,7 @@ if __name__ == "__main__":
             f"Begin {count}: ========================={dataset_uuid}========================="
         )
         try:
-            dataset = get_entity(dataset_uuid)
+            dataset = get_entity(dataset_uuid, user_token)
 
             data_cite_doi_helper = DataCiteDoiHelper()
 

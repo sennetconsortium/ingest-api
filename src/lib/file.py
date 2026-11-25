@@ -4,7 +4,12 @@ import logging
 import os
 from collections import OrderedDict
 
-from atlas_consortia_commons.rest import *
+from atlas_consortia_commons.rest import (
+    StatusCodes,
+    abort_bad_req,
+    abort_internal_err,
+    rest_response,
+)
 from flask import current_app, request
 from hubmap_commons import file_helper as commons_file_helper
 from werkzeug import utils
@@ -60,12 +65,12 @@ def check_upload(key: str = "file"):
             abort_bad_req("No file part")
 
         file = request.files[key]
-        if file.filename == "":
+        if not file.filename:
             abort_bad_req("No selected file")
+            return
 
-        file.filename = file.filename.replace(" ", "_")
-        temp_id = file_upload_helper_instance.save_temp_file(file)
         file.filename = utils.secure_filename(file.filename)
+        temp_id = file_upload_helper_instance.save_temp_file(file)
 
         return rest_response(StatusCodes.OK, "OK", {"id": temp_id, "file": file}, True)
 
